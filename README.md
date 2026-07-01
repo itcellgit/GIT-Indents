@@ -1,10 +1,10 @@
 # Git Maintenance System
 
-A full-stack MERN application for managing maintenance requests, faculty indents, and college IT infrastructure.
+A full-stack PERN application for managing maintenance requests, faculty indents, and college IT infrastructure.
 
 ## Project Structure
 
-- `backend/`: Node.js/Express server with Mongoose schemas.
+- `backend/`: Node.js/Express server with PostgreSql.
 - `frontend/`: React/Vite application with responsive design.
 
 ## Setup Instructions

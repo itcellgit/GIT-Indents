@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String         @id @default(uuid())
+  name                 String
+  email                String         @unique
+  password             String
+  department           String?
+  role                 String         @default("Faculty")
+  isActive             Boolean        @default(true)
+  resetPasswordOTP     String?
+  resetPasswordExpires DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  
+  // Relations
+  categoriesIncharge   Category[]     @relation("CategoryIncharge")
+  indentsRaised        Indent[]       @relation("IndentRequester")
+  notificationsReceived Notification[] @relation("NotificationRecipient")
+  notificationsSent    Notification[] @relation("NotificationSender")
+  indentsAssigned      Indent[]       @relation("IndentMaintainer")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  inchargeId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  incharge    User?    @relation("CategoryIncharge", fields: [inchargeId], references: [id], onDelete: SetNull)
+  indents     Indent[] @relation("IndentCategory")
+}
+
+model Indent {
+  id                      String   @id @default(uuid())
+  indentNumber            String?  @unique
+  requesterId             String
+  categoryId              String
+  natureOfWork            String
+  location                String
+  description             String
+  imagePath               String?
+  status                  String   @default("Indent Created")
+  assignedWorkerNames     String[]
+  durationRequiredHours   Float?
+  reasonForIncompleteWork String?
+  reasonForDelayedWork    String?
+  rejectionReason         String?
+  rejectedBy              String?
+  remarksByIncharge       String?
+  remarksByCoordinator    String?
+  remarksByHOD            String?
+  maintainerId            String?
+  isMaintainerCompleted   Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  // Relations
+  requester               User             @relation("IndentRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  category                Category         @relation("IndentCategory", fields: [categoryId], references: [id], onDelete: Cascade)
+  maintainer              User?            @relation("IndentMaintainer", fields: [maintainerId], references: [id], onDelete: SetNull)
+  materialsUsed           MaterialUsed[]   @relation("IndentMaterials")
+  statusHistory           StatusHistory[]  @relation("IndentStatusHistory")
+  notifications           Notification[]   @relation("NotificationIndent")
+}
+
+model MaterialUsed {
+  id       String @id @default(uuid())
+  indentId String
+  itemName String
+  quantity Float
+  unit     String?
+  
+  indent   Indent @relation("IndentMaterials", fields: [indentId], references: [id], onDelete: Cascade)
+}
+
+model StatusHistory {
+  id        String   @id @default(uuid())
+  indentId  String
+  status    String
+  timestamp DateTime @default(now())
+  
+  indent    Indent   @relation("IndentStatusHistory", fields: [indentId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String
+  senderId    String?
+  indentId    String?
+  message     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  recipient   User     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender      User?    @relation("NotificationSender", fields: [senderId], references: [id], onDelete: SetNull)
+  indent      Indent?  @relation("NotificationIndent", fields: [indentId], references: [id], onDelete: Cascade)
+}

@@ -11,7 +11,8 @@ const {
   getSystemStats,
   getAllUsers,
   createUser,
-  getAllComplaints
+  getAllComplaints,
+  bulkCreateUsers
 } = require('../controllers/adminController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -21,6 +22,7 @@ const { protect } = require('../middleware/authMiddleware');
 router.get('/stats', protect, getSystemStats);
 router.get('/users', protect, getAllUsers);
 router.post('/users', protect, createUser);
+router.post('/users/bulk', protect, bulkCreateUsers);
 router.put('/users/:id/status', protect, toggleUserStatus);
 router.get('/complaints', protect, getAllComplaints);
 router.get('/users/search', protect, searchUsers);

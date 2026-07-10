@@ -1,4 +1,4 @@
-// backend/seedPrincipal.js
+// backend/seedAdmin.js
 const dotenv = require('dotenv');
 dotenv.config();
 

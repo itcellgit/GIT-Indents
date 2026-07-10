@@ -116,6 +116,52 @@ const createUser = async (req, res) => {
   }
 };
 
+// @desc    Bulk create users (by Admin)
+// @route   POST /api/admin/users/bulk
+// @access  Private/Admin
+const bulkCreateUsers = async (req, res) => {
+  try {
+    const { users } = req.body;
+
+    if (!users || !Array.isArray(users) || users.length === 0) {
+      return res.status(400).json({ message: 'Valid users array is required' });
+    }
+
+    const defaultPassword = 'password@123';
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(defaultPassword, salt);
+
+    const formattedUsers = users.map(user => ({
+      name: user.Name || user.name,
+      email: user.Email || user.email,
+      department: user.Department || user.department || '',
+      role: user.Role || user.role || 'Faculty',
+      password: hashedPassword,
+      isActive: true
+    }));
+
+    // Filter out invalid users
+    const validUsers = formattedUsers.filter(u => u.name && u.email);
+
+    if (validUsers.length === 0) {
+      return res.status(400).json({ message: 'No valid user data found in the upload' });
+    }
+
+    const result = await prisma.user.createMany({
+      data: validUsers,
+      skipDuplicates: true, // Will skip users if email already exists
+    });
+
+    res.status(201).json({ 
+      success: true, 
+      message: `Successfully added ${result.count} users. Any existing emails were skipped.`
+    });
+  } catch (err) {
+    console.error("Error in bulkCreateUsers:", err);
+    res.status(500).json({ message: 'Server Error during bulk upload' });
+  }
+};
+
 // @desc    Get all complaints/indents (for Admin Monitoring)
 // @route   GET /api/admin/complaints
 // @access  Private/Admin
@@ -411,5 +457,6 @@ module.exports = {
   searchUsers,
   getDepartmentsAdmin,
   getMonthlyReport,
-  toggleUserStatus
+  toggleUserStatus,
+  bulkCreateUsers
 };

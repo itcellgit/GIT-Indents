@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, CheckSquare, Square } from 'lucide-react';
+import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet } from 'lucide-react';
 import api from '../../api/axios';
+import * as XLSX from 'xlsx';
 
 const ROLE_HIERARCHY = {
   'Admin': 1,
@@ -24,6 +25,13 @@ export default function UserManager({ users, onUserUpdate }) {
   
   const [addUserError, setAddUserError] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+
+  // State for Bulk Upload
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [bulkError, setBulkError] = useState('');
+  const [bulkSuccess, setBulkSuccess] = useState('');
   
   const [selectedDepartments, setSelectedDepartments] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -101,6 +109,58 @@ export default function UserManager({ users, onUserUpdate }) {
     }
   };
 
+  const handleBulkUploadSubmit = async () => {
+    if (!bulkFile) {
+      setBulkError('Please select a file to upload');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setBulkError('');
+      setBulkSuccess('');
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet);
+
+          if (json.length === 0) {
+            setBulkError('The file appears to be empty or improperly formatted.');
+            setIsUploading(false);
+            return;
+          }
+
+          const res = await api.post('/admin/users/bulk', { users: json });
+          setBulkSuccess(res.data.message || 'Users uploaded successfully');
+          setBulkFile(null);
+          if (onUserUpdate) onUserUpdate();
+          setTimeout(() => setIsBulkUploadOpen(false), 2500);
+        } catch (err) {
+          console.error("Bulk process error:", err);
+          setBulkError(err.response?.data?.message || 'Error processing the file. Please check the format.');
+        } finally {
+          setIsUploading(false);
+        }
+      };
+      reader.readAsArrayBuffer(bulkFile);
+    } catch (err) {
+      setIsUploading(false);
+      setBulkError('Error reading the file');
+    }
+  };
+
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([{ Name: 'John Doe', Email: 'john@git.edu', Department: 'Computer Science', Role: 'Faculty' }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Users");
+    XLSX.writeFile(wb, "bulk_user_template.xlsx");
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
@@ -174,6 +234,13 @@ export default function UserManager({ users, onUserUpdate }) {
               className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
             />
           </div>
+          <button 
+            onClick={() => {setIsBulkUploadOpen(true); setBulkSuccess(''); setBulkError(''); setBulkFile(null);}}
+            className="bg-white text-indigo-700 hover:bg-indigo-50 px-4 py-2 rounded-lg font-medium text-sm flex items-center transition-colors border border-indigo-200 justify-center"
+          >
+            <UploadCloud className="w-4 h-4 mr-1.5" />
+            Bulk Upload
+          </button>
           <button 
             onClick={() => setIsAddUserOpen(true)}
             className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2 rounded-lg font-medium text-sm flex items-center transition-colors border border-indigo-200 justify-center"
@@ -309,6 +376,91 @@ export default function UserManager({ users, onUserUpdate }) {
               <button onClick={() => setIsAddUserOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Close</button>
               <button disabled={isAdding} onClick={handleAddUserSubmit} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                 {isAdding ? 'Adding...' : 'Add User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isBulkUploadOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                <UploadCloud className="w-5 h-5 mr-2 text-indigo-600" />
+                Bulk Upload Users
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 text-sm text-indigo-800">
+                <p className="mb-2 font-medium">Instructions:</p>
+                <ul className="list-disc pl-5 space-y-1 opacity-90">
+                  <li>Upload a valid <strong>Excel (.xlsx, .xls)</strong> or <strong>CSV</strong> file.</li>
+                  <li>Required headers: <strong>Name, Department, Email, Role</strong>.</li>
+                  <li>Default password will be set to <code className="bg-white px-1 py-0.5 rounded text-indigo-900">password@123</code>.</li>
+                  <li>Users with emails already in the system will be skipped.</li>
+                </ul>
+              </div>
+
+              <div className="flex justify-center">
+                <button 
+                  onClick={downloadTemplate}
+                  className="flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download Sample Template
+                </button>
+              </div>
+
+              {bulkError && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{bulkError}</p>}
+              {bulkSuccess && <p className="text-sm text-emerald-600 bg-emerald-50 p-2 rounded">{bulkSuccess}</p>}
+              
+              <div className="mt-4">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <FileSpreadsheet className="w-8 h-8 mb-3 text-slate-400" />
+                    <p className="mb-2 text-sm text-slate-500">
+                      <span className="font-semibold">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-xs text-slate-400">CSV or Excel (MAX. 5MB)</p>
+                  </div>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setBulkFile(e.target.files[0]);
+                        setBulkError('');
+                        setBulkSuccess('');
+                      }
+                    }}
+                  />
+                </label>
+                {bulkFile && (
+                  <p className="mt-2 text-sm text-slate-600 font-medium truncate text-center">
+                    Selected: {bulkFile.name}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3">
+              <button 
+                onClick={() => setIsBulkUploadOpen(false)} 
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+              >
+                Close
+              </button>
+              <button 
+                disabled={isUploading || !bulkFile} 
+                onClick={handleBulkUploadSubmit} 
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading...
+                  </>
+                ) : 'Upload Users'}
               </button>
             </div>
           </div>

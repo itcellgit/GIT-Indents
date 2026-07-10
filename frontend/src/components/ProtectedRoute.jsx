@@ -23,7 +23,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       'Principal': '/principal-dashboard',
       'HOD': '/hod-dashboard',
       'Maintainer': '/maintainer-dashboard',
-      'Faculty': '/dashboard'
+      'Faculty': '/dashboard',
+      'Non-Teaching': '/non-teaching-dashboard'
     };
     
     const targetDashboard = roleRoutes[user.role] || '/login';

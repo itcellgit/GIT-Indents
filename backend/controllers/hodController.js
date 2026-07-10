@@ -1,6 +1,7 @@
 // backend/controllers/hodController.js
 const prisma = require('../prismaClient');
 const generateIndentNumber = require('../utils/generateIndentNumber');
+const { sendNotification } = require('../utils/notificationService');
 
 // @desc    Get dashboard indents for HOD
 // @route   GET /api/hod/complaints
@@ -200,40 +201,37 @@ const updateComplaintStatus = async (req, res) => {
     if ((status === 'Approved by Dept HOD' || status === 'Approved by Principal') && !isMaintenanceIncharge) {
       const categoryInfo = await prisma.category.findUnique({ where: { id: indent.categoryId } });
       if (categoryInfo && categoryInfo.inchargeId) {
-        await prisma.notification.create({
-          data: {
-            recipientId: categoryInfo.inchargeId,
-            senderId: req.user.id,
-            indentId: indent.id,
-            message: `Indent ${indent.indentNumber} was approved by ${isPrincipal ? 'Principal' : 'Department HOD'} and requires maintenance assessment.`
-          }
-        });
+        await sendNotification(
+          categoryInfo.inchargeId,
+          `Indent ${indent.indentNumber} was approved by ${isPrincipal ? 'Principal' : 'Department HOD'} and requires maintenance assessment.`,
+          req.user.id,
+          indent.id,
+          indent.indentNumber
+        );
       }
     }
     // 2. Maintenance HOD -> Principal (Rejection)
     if (status === 'Rejected by Maintenance HOD' && isMaintenanceIncharge) {
       const principal = await prisma.user.findFirst({ where: { role: 'Principal' } });
       if (principal) {
-        await prisma.notification.create({
-          data: {
-            recipientId: principal.id,
-            senderId: req.user.id,
-            indentId: indent.id,
-            message: `Indent ${indent.indentNumber} was rejected by Maintenance HOD. Review required.`
-          }
-        });
+        await sendNotification(
+          principal.id,
+          `Indent ${indent.indentNumber} was rejected by Maintenance HOD. Review required.`,
+          req.user.id,
+          indent.id,
+          indent.indentNumber
+        );
       }
     }
     // 3. Resolved -> Faculty
     if (status === 'Completed') {
-      await prisma.notification.create({
-        data: {
-          recipientId: indent.requesterId,
-          senderId: req.user.id,
-          indentId: indent.id,
-          message: `Your indent ${indent.indentNumber} has been marked as Completed.`
-        }
-      });
+      await sendNotification(
+        indent.requesterId,
+        `Your indent ${indent.indentNumber} has been marked as Completed.`,
+        req.user.id,
+        indent.id,
+        indent.indentNumber
+      );
     }
 
     res.status(200).json({
@@ -392,18 +390,41 @@ const assignMaintainer = async (req, res) => {
     });
 
     // Notify Maintainer
-    await prisma.notification.create({
-      data: {
-        recipientId: maintainerId,
-        senderId: req.user.id,
-        indentId: indent.id,
-        message: `You have been assigned to Indent ${indent.indentNumber} by your HOD.`
-      }
-    });
+    await sendNotification(
+      maintainerId,
+      `You have been assigned to Indent ${indent.indentNumber} by your HOD.`,
+      req.user.id,
+      indent.id,
+      indent.indentNumber
+    );
 
     res.status(200).json({ success: true, complaint: updatedIndent });
   } catch (err) {
     console.error('Error assigning maintainer:', err.message);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Remove a maintainer
+// @route   DELETE /api/hod/maintainers/:id
+// @access  Private (HOD view)
+const removeMaintainer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user || user.role !== 'Maintainer' || user.department !== req.user.department) {
+      return res.status(404).json({ message: 'Maintainer not found or unauthorized' });
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: { role: 'Faculty' }
+    });
+
+    res.status(200).json({ success: true, message: 'Maintainer removed successfully' });
+  } catch (err) {
+    console.error('Error removing maintainer:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -414,5 +435,6 @@ module.exports = {
   createHODIndent,
   getMaintainers,
   addMaintainer,
-  assignMaintainer
+  assignMaintainer,
+  removeMaintainer
 };

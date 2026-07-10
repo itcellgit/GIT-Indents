@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Users, Search } from 'lucide-react';
+import { UserPlus, Users, Search, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 
 const ManageMaintainers = () => {
@@ -43,6 +43,22 @@ const ManageMaintainers = () => {
       setError(err.response?.data?.message || 'Failed to add maintainer');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRemove = async (id) => {
+    if (!window.confirm('Are you sure you want to remove this maintainer? They will be downgraded to Faculty role.')) return;
+    
+    setError('');
+    setSuccess('');
+    
+    try {
+      await api.delete(`/hod/maintainers/${id}`);
+      setMaintainers(maintainers.filter(m => m.id !== id));
+      setSuccess('Maintainer removed successfully');
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Failed to remove maintainer');
     }
   };
 
@@ -123,23 +139,33 @@ const ManageMaintainers = () => {
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
                   <th className="px-6 py-4 font-medium">Name</th>
                   <th className="px-6 py-4 font-medium">Email</th>
+                  <th className="px-6 py-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={2} className="px-6 py-8 text-center text-slate-500">Loading...</td>
+                    <td colSpan={3} className="px-6 py-8 text-center text-slate-500">Loading...</td>
                   </tr>
                 ) : maintainers.length > 0 ? (
                   maintainers.map((m) => (
                     <tr key={m.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-medium text-slate-800">{m.name}</td>
                       <td className="px-6 py-4 text-slate-600">{m.email}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => handleRemove(m.id)}
+                          className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors"
+                          title="Remove Maintainer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={2} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
                       No maintainers added yet.
                     </td>
                   </tr>

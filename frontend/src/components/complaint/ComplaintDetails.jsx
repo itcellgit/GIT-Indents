@@ -284,7 +284,6 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   <div className="flex-1">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5">Raised By</p>
                     <p className="text-base font-bold text-gray-900 leading-tight truncate">{complaint.requester?.name || complaint.raisedBy}</p>
-                    <p className="text-sm font-medium text-gray-500 truncate">{complaint.requester?.department || complaint.department}</p>
                   </div>
                 </div>
 
@@ -451,7 +450,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Estimated Duration</p>
-                <p className="text-gray-800">{duration ? `${duration} Hours` : 'Not specified'}</p>
+                <p className="text-gray-800">{duration ? `${duration} Days` : 'Not specified'}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Action Taken / Remarks by Incharge</p>
@@ -530,12 +529,12 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                 </div>
 
                 <div className="w-full"> 
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Duration (Hours)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Duration (Days)</label>
                   <input
                     type="number"
                     value={duration}
                     onChange={(e) => setDuration(e.target.value)}
-                    placeholder="e.g. 4"
+                    placeholder="e.g. 2"
                     className="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 border outline-none bg-white font-medium"
                   />
                 </div>
@@ -573,7 +572,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                 >
                   {(isIncharge && complaint.status === 'Approved by Maintenance HOD') ? 'Finalize Assignment & Save' : 'Save All Progress'}
                 </button>
-                {isMaintainer && complaint.status === 'In Progress' && !complaint.isMaintainerCompleted && (
+                {isMaintainer && (complaint.status === 'In Progress' || complaint.status === 'Approved by Maintenance HOD') && !complaint.isMaintainerCompleted && (
                   <button
                     onClick={() => {
                       if (materials.length > 0 && materials.some(m => (m.itemName || m.quantity) && (!m.itemName || !m.quantity))) {
@@ -619,7 +618,22 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
                 <div>
                   <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Estimated Duration</span>
-                  <p className="text-sm font-semibold text-slate-800 mt-1">{duration ? `${duration} Hours` : "Not Specified"}</p>
+                  <p className="text-sm font-semibold text-slate-800 mt-1">{duration ? `${duration} Days` : "Not Specified"}</p>
+                  
+                  {complaint.status === 'Completed' && (
+                    <div className="mt-3">
+                      <span className="block text-xs font-bold text-green-500 uppercase tracking-widest mb-1">Actual Completion Time</span>
+                      <p className="text-sm font-semibold text-slate-800 mt-1">
+                        {(() => {
+                          const start = new Date(complaint.createdAt);
+                          const end = complaint.resolvedDetails?.resolvedAt ? new Date(complaint.resolvedDetails.resolvedAt) : new Date(complaint.updatedAt);
+                          const diffTime = Math.abs(end - start);
+                          const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                          return `${diffDays} Day${diffDays !== 1 ? 's' : ''}`;
+                        })()}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -633,47 +647,57 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
           )}
 
           {/* Remarks Section */}
-          <div className="border-t border-gray-100 pt-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">Reason for Delayed Work (if any)</label>
-                <textarea
-                  rows={1}
-                  readOnly={!(isIncharge || isMaintainer) || complaint.status === 'Completed'}
-                  value={delayReason}
-                  onChange={(e) => setDelayReason(e.target.value)}
-                  placeholder={(isIncharge || isMaintainer) ? "Explain reasons for any delays..." : "No delay reason provided."}
-                  className={`w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border outline-none bg-white font-medium ${(!(isIncharge || isMaintainer) || complaint.status === 'Completed') && 'bg-gray-50 text-gray-500'}`}
-                />
+          {((isIncharge || isMaintainer || (delayReason && delayReason.trim() !== '')) || 
+            (isIncharge || isMaintainer || (coordinatorRemarks && coordinatorRemarks.trim() !== '')) || 
+            (isIncharge || isPrincipal || (remarks && remarks.trim() !== ''))) && (
+            <div className="border-t border-gray-100 pt-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {((isIncharge || isMaintainer) && complaint.status !== 'Completed' || (delayReason && delayReason.trim() !== '')) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">Reason for Delayed Work (if any)</label>
+                    <textarea
+                      rows={1}
+                      readOnly={!(isIncharge || isMaintainer) || complaint.status === 'Completed'}
+                      value={delayReason}
+                      onChange={(e) => setDelayReason(e.target.value)}
+                      placeholder={(isIncharge || isMaintainer) ? "Explain reasons for any delays..." : "No delay reason provided."}
+                      className={`w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border outline-none bg-white font-medium ${(!(isIncharge || isMaintainer) || complaint.status === 'Completed') && 'bg-gray-50 text-gray-500'}`}
+                    />
+                  </div>
+                )}
+                {((isIncharge || isMaintainer) && complaint.status !== 'Completed' || (coordinatorRemarks && coordinatorRemarks.trim() !== '')) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">Remark from Technical Coordinator</label>
+                    <textarea
+                      rows={1}
+                      readOnly={!(isIncharge || isMaintainer) || complaint.status === 'Completed'}
+                      value={coordinatorRemarks}
+                      onChange={(e) => setCoordinatorRemarks(e.target.value)}
+                      placeholder={(isIncharge || isMaintainer) ? "Notes from the coordinator..." : "No coordinator remarks."}
+                      className={`w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border outline-none bg-white font-medium ${(!(isIncharge || isMaintainer) || complaint.status === 'Completed') && 'bg-gray-50 text-gray-500'}`}
+                    />
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">Remark from Technical Coordinator</label>
-                <textarea
-                  rows={1}
-                  readOnly={!(isIncharge || isMaintainer) || complaint.status === 'Completed'}
-                  value={coordinatorRemarks}
-                  onChange={(e) => setCoordinatorRemarks(e.target.value)}
-                  placeholder={(isIncharge || isMaintainer) ? "Notes from the coordinator..." : "No coordinator remarks."}
-                  className={`w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border outline-none bg-white font-medium ${(!(isIncharge || isMaintainer) || complaint.status === 'Completed') && 'bg-gray-50 text-gray-500'}`}
-                />
-              </div>
-            </div>
 
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-indigo-800 mb-1 font-bold flex items-center gap-2">
-                <AlignLeft className="w-4 h-4" />
-                Official Remark from {isPrincipal ? 'Principal' : 'HOD'}
-              </label>
-              <textarea
-                rows={1}
-                readOnly={!(isIncharge || isPrincipal)}
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                placeholder={(isIncharge || isPrincipal) ? "Final remarks for resolution..." : `No ${isPrincipal ? 'Principal' : 'HOD'} remarks.`}
-                className={`w-full border-indigo-200 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-4 border outline-none bg-indigo-50/20 font-bold italic text-indigo-900 ${!(isIncharge || isPrincipal) && 'bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200'}`}
-              />
+              {((isIncharge || isPrincipal) && complaint.status !== 'Completed' || (remarks && remarks.trim() !== '')) && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-indigo-800 mb-1 font-bold flex items-center gap-2">
+                    <AlignLeft className="w-4 h-4" />
+                    Official Remark from {isPrincipal ? 'Principal' : 'HOD'}
+                  </label>
+                  <textarea
+                    rows={1}
+                    readOnly={!(isIncharge || isPrincipal)}
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    placeholder={(isIncharge || isPrincipal) ? "Final remarks for resolution..." : `No ${isPrincipal ? 'Principal' : 'HOD'} remarks.`}
+                    className={`w-full border-indigo-200 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-4 border outline-none bg-indigo-50/20 font-bold italic text-indigo-900 ${!(isIncharge || isPrincipal) && 'bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200'}`}
+                  />
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer Actions */}
@@ -700,25 +724,27 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                         Edit Indent
                       </button>
                     )}
-                    {!showRejectionInput ? (
-                      <button
-                        onClick={() => setShowRejectionInput(true)}
-                        className="px-5 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors shadow-sm"
-                      >
-                        Reject Indent
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                         <input 
-                           type="text" 
-                           placeholder="Reason (Optional)" 
-                           className="text-sm border rounded px-3 py-2 w-48"
-                           value={rejectionReason}
-                           onChange={(e) => setRejectionReason(e.target.value)}
-                         />
-                         <button onClick={handleReject} className="px-3 py-2 bg-red-600 text-white rounded text-sm font-bold">Confirm Reject</button>
-                         <button onClick={() => setShowRejectionInput(false)} className="px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm">Cancel</button>
-                      </div>
+                    {!complaint.status.includes('Rejected') && (
+                      !showRejectionInput ? (
+                        <button
+                          onClick={() => setShowRejectionInput(true)}
+                          className="px-5 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+                        >
+                          Reject Indent
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                           <input 
+                             type="text" 
+                             placeholder="Reason (Optional)" 
+                             className="text-sm border rounded px-3 py-2 w-48"
+                             value={rejectionReason}
+                             onChange={(e) => setRejectionReason(e.target.value)}
+                           />
+                           <button onClick={handleReject} className="px-3 py-2 bg-red-600 text-white rounded text-sm font-bold">Confirm Reject</button>
+                           <button onClick={() => setShowRejectionInput(false)} className="px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm">Cancel</button>
+                        </div>
+                      )
                     )}
                     <button
                       onClick={handleApprove}

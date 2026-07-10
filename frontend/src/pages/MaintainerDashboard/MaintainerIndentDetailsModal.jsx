@@ -129,13 +129,13 @@ const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint,
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Duration Required (Hours)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Duration Required (Days)</label>
                   <input
                     type="number"
                     value={duration}
                     onChange={(e) => setDuration(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="e.g. 2.5"
+                    placeholder="e.g. 2"
                   />
                 </div>
 

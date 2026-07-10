@@ -5,9 +5,9 @@ const { getDashboardData, createComplaint } = require('../controllers/facultyCon
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 // Dashboard route is protected and ONLY accessible to 'Faculty' and 'Admin' roles
-router.get('/dashboard', protect, authorize('Faculty', 'Admin', 'HOD'), getDashboardData);
+router.get('/dashboard', protect, authorize('Faculty', 'Admin', 'HOD', 'Non-Teaching'), getDashboardData);
 
 // Raise new indent (with image upload)
-router.post('/complaints', protect, authorize('Faculty', 'Admin', 'HOD'), upload.single('image'), createComplaint);
+router.post('/complaints', protect, authorize('Faculty', 'Admin', 'HOD', 'Non-Teaching'), upload.single('image'), createComplaint);
 
 module.exports = router;

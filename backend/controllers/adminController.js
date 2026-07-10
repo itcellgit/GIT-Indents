@@ -1,5 +1,6 @@
 // backend/controllers/adminController.js
 const prisma = require('../prismaClient');
+const bcrypt = require('bcryptjs');
 
 // @desc    Get system-wide statistics for the admin dashboard
 // @route   GET /api/admin/stats
@@ -69,6 +70,52 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+// @desc    Create user (by Admin)
+// @route   POST /api/admin/users
+// @access  Private/Admin
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password, department, role } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email and password are required' });
+    }
+
+    const userExists = await prisma.user.findUnique({ where: { email } });
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        department: department || '',
+        role: role || 'Faculty',
+        isActive: true
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        department: true,
+        isActive: true,
+        createdAt: true
+      }
+    });
+
+    res.status(201).json({ success: true, user });
+  } catch (err) {
+    console.error("Error in createUser:", err);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 // @desc    Get all complaints/indents (for Admin Monitoring)
 // @route   GET /api/admin/complaints
 // @access  Private/Admin
@@ -113,12 +160,12 @@ const createDepartment = async (req, res) => {
       if (!user) {
         return res.status(404).json({ message: 'User with this email not found' });
       }
-      if (user.role !== 'Faculty' && user.role !== 'HOD') {
-        return res.status(400).json({ message: 'Assigned incharge must be Faculty or HOD' });
+      if (user.role !== 'Faculty' && user.role !== 'HOD' && user.role !== 'Non-Teaching') {
+        return res.status(400).json({ message: 'Assigned incharge must be Faculty, Non-Teaching, or HOD' });
       }
 
-      // Upgrade Faculty to HOD role if they are made an incharge
-      if (user.role === 'Faculty') {
+      // Upgrade Faculty/Non-Teaching to HOD role if they are made an incharge
+      if (user.role === 'Faculty' || user.role === 'Non-Teaching') {
         await prisma.user.update({
           where: { id: user.id },
           data: { role: 'HOD' }
@@ -181,12 +228,12 @@ const updateDepartment = async (req, res) => {
         if (!user) {
           return res.status(404).json({ message: 'User with this email not found' });
         }
-        if (user.role !== 'Faculty' && user.role !== 'HOD') {
-          return res.status(400).json({ message: 'Assigned incharge must be Faculty or HOD' });
+        if (user.role !== 'Faculty' && user.role !== 'HOD' && user.role !== 'Non-Teaching') {
+          return res.status(400).json({ message: 'Assigned incharge must be Faculty, Non-Teaching, or HOD' });
         }
 
-        // Upgrade Faculty to HOD role if they are made an incharge
-        if (user.role === 'Faculty') {
+        // Upgrade Faculty/Non-Teaching to HOD role if they are made an incharge
+        if (user.role === 'Faculty' || user.role === 'Non-Teaching') {
           await prisma.user.update({
             where: { id: user.id },
             data: { role: 'HOD' }
@@ -229,7 +276,7 @@ const searchUsers = async (req, res) => {
     const users = await prisma.user.findMany({ 
       where: {
         email: { contains: email, mode: 'insensitive' },
-        role: { in: ['Faculty', 'HOD'] }
+        role: { in: ['Faculty', 'HOD', 'Non-Teaching'] }
       },
       select: { id: true, name: true, email: true, role: true }
     });
@@ -357,6 +404,7 @@ const toggleUserStatus = async (req, res) => {
 module.exports = {
   getSystemStats,
   getAllUsers,
+  createUser,
   getAllComplaints,
   createDepartment,
   updateDepartment,

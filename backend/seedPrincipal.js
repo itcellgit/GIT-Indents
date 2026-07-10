@@ -16,7 +16,7 @@ async function main() {
     console.log(`Checking if user ${email} already exists...`);
     const existingUser = await prisma.user.findUnique({
       where: { email },
-    });
+    }); 
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(plainPassword, salt);

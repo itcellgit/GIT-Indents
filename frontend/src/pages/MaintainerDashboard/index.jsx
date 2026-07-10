@@ -114,7 +114,7 @@ export default function MaintainerDashboard() {
           
           {/* E-Tendering Link button */}
           <a 
-            href="#" 
+            href="https://officerp.git.edu" 
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"

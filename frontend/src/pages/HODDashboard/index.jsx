@@ -268,20 +268,6 @@ const HODDashboard = () => {
         
         {/* Statistics and Action Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-bold text-gray-800">System Dashboard</h2>
-            <p className="text-sm text-gray-500">Overview of all active operations and indents.</p>
-          </div>
-          <button 
-            onClick={() => setIsRaiseModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md active:scale-95"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Raise New Indent</span>
-          </button>
-        </div>
-
-        {/* Tab Switcher (Sticky) */}
         <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl mb-8 w-full sm:w-fit sticky top-20 z-30">
           <button
             onClick={() => setActiveTab('approvals')}
@@ -336,6 +322,17 @@ const HODDashboard = () => {
             Manage Maintainers
           </button>
         </div>
+          <button 
+            onClick={() => setIsRaiseModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md active:scale-95"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Raise New Indent</span>
+          </button>
+        </div>
+
+        {/* Tab Switcher (Sticky) */}
+        
 
         {/* Dynamic Content Area */}
         <div className="pb-32">

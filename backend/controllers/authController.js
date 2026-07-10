@@ -33,7 +33,9 @@ const sendTokenResponse = (user, statusCode, res, effectiveRole = null) => {
   });
 };
 
-// @desc    Register a new user
+const pendingRegistrations = new Map(); // Store registration details and OTP temporarily
+
+// @desc    Register a new user (sends OTP)
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = async (req, res) => {
@@ -50,27 +52,90 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' }); // Generic message
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
     let finalRole = role || 'Faculty';
-    const isHodEmail = email.toLowerCase().startsWith('hod');
 
-    if (isHodEmail) {
-      finalRole = 'HOD';
-    } else if (role === 'HOD') {
-      return res.status(400).json({ message: "HOD role requires email starting with 'hod'" });
+    // Generate a 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store in pendingRegistrations
+    pendingRegistrations.set(email, {
+      name,
+      email,
+      password,
+      department: department || '',
+      role: finalRole,
+      otp,
+      expiresAt: Date.now() + 15 * 60 * 1000 // 15 mins
+    });
+
+    const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+    // If smtpUser is not set, log it to console to allow testing without credentials
+    if (!smtpUser) {
+      console.log('No SMTP_USER configured. Generated OTP is:', otp);
+      return res.status(200).json({ message: 'OTP generated (Check server console, email not configured)' });
     }
+
+    // Send email using nodemailer
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      }
+    });
+
+    const mailOptions = {
+      from: smtpUser,
+      to: email,
+      subject: 'Registration Verification OTP',
+      text: `Your OTP for registration verification is: ${otp}. It is valid for 15 minutes.`
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'OTP sent to email' });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Server Error during registration' });
+  }
+};
+
+// @desc    Verify Registration OTP and Create User
+// @route   POST /api/auth/verify-registration
+// @access  Public
+const verifyRegistration = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    
+    if (!email || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required' });
+    }
+
+    const pendingUser = pendingRegistrations.get(email);
+    
+    if (!pendingUser) {
+      return res.status(400).json({ message: 'Registration session expired or not found' });
+    }
+    
+    if (pendingUser.otp !== otp || pendingUser.expiresAt < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(pendingUser.password, salt);
 
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
+        name: pendingUser.name,
+        email: pendingUser.email,
         password: hashedPassword,
-        department: department || '', // Default to empty string if not provided
-        role: finalRole,
+        department: pendingUser.department,
+        role: pendingUser.role,
       }
     });
+
+    pendingRegistrations.delete(email);
 
     if (user) {
       sendTokenResponse(user, 201, res);
@@ -78,7 +143,65 @@ const registerUser = async (req, res) => {
       res.status(400).json({ message: 'Invalid user data received' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Server Error during registration' });
+    console.error('Registration verification error:', error);
+    res.status(500).json({ message: 'Server Error during registration verification' });
+  }
+};
+
+// @desc    Resend Registration OTP
+// @route   POST /api/auth/resend-registration-otp
+// @access  Public
+const resendRegistrationOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const pendingUser = pendingRegistrations.get(email);
+    if (!pendingUser) {
+      return res.status(400).json({ message: 'No pending registration found for this email. Please register again.' });
+    }
+
+    // Generate a new 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Update in pendingRegistrations
+    pendingRegistrations.set(email, {
+      ...pendingUser,
+      otp,
+      expiresAt: Date.now() + 15 * 60 * 1000 // Reset to 15 mins
+    });
+
+    const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+    if (!smtpUser) {
+      console.log('No SMTP_USER configured. Generated OTP is:', otp);
+      return res.status(200).json({ message: 'New OTP generated (Check server console, email not configured)' });
+    }
+
+    // Send email using nodemailer
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      }
+    });
+
+    const mailOptions = {
+      from: smtpUser,
+      to: email,
+      subject: 'Registration Verification OTP (Resend)',
+      text: `Your new OTP for registration verification is: ${otp}. It is valid for 15 minutes.`
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'New OTP sent to email' });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({ message: 'Server Error during OTP resend' });
   }
 };
 
@@ -100,8 +223,8 @@ const loginUser = async (req, res) => {
     if (user && (await bcrypt.compare(password, user.password))) {
       let effectiveRole = user.role;
       
-      // Check if Faculty is an incharge of any department
-      if (user.role === 'Faculty') {
+      // Check if Faculty or Non-Teaching is an incharge of any department
+      if (user.role === 'Faculty' || user.role === 'Non-Teaching') {
         const category = await prisma.category.findFirst({ where: { inchargeId: user.id } });
         if (category) {
           effectiveRole = 'HOD';
@@ -168,9 +291,12 @@ const forgotPassword = async (req, res) => {
       }
     });
 
-    // If EMAIL_USER is not set, log it to console to allow testing without credentials
-    if (!process.env.EMAIL_USER) {
-      console.log('No EMAIL_USER configured. Generated OTP is:', otp);
+    const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+    // If smtpUser is not set, log it to console to allow testing without credentials
+    if (!smtpUser) {
+      console.log('No SMTP_USER configured. Generated OTP is:', otp);
       return res.status(200).json({ message: 'OTP generated (Check server console, email not configured)' });
     }
 
@@ -178,13 +304,13 @@ const forgotPassword = async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: 'gmail', // You can change this or configure it via env
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        user: smtpUser,
+        pass: smtpPass
       }
     });
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: smtpUser,
       to: user.email,
       subject: 'Password Reset OTP',
       text: `Your OTP for password reset is: ${otp}. It is valid for 15 minutes.`
@@ -286,6 +412,8 @@ const updateProfile = async (req, res) => {
 
 module.exports = {
   registerUser,
+  verifyRegistration,
+  resendRegistrationOtp,
   loginUser,
   logoutUser,
   getLogin,

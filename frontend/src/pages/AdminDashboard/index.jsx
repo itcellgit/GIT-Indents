@@ -97,8 +97,9 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
       {/* 1. Header Section */}
-      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-20 shadow-sm no-print">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-20 shadow-sm no-print flex flex-col">
+        {/* Top Tier: Branding & Profile */}
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 w-full border-b border-slate-800/60">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <div className="bg-indigo-500 p-2 rounded-lg">
@@ -130,6 +131,55 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Bottom Tier: Navigation Tabs & Actions */}
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="flex justify-between items-center h-14">
+            {/* Tabs */}
+            <div className="flex space-x-8 overflow-x-auto no-scrollbar h-full w-full">
+              <button 
+                onClick={() => setActiveTab('departments')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'departments' 
+                    ? 'border-indigo-400 text-indigo-300' 
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                }`}
+              >
+                Departments
+              </button>
+              <button 
+                onClick={() => setActiveTab('complaints')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'complaints' 
+                    ? 'border-indigo-400 text-indigo-300' 
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                }`}
+              >
+                Indents
+              </button>
+              <button 
+                onClick={() => setActiveTab('reports')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'reports' 
+                    ? 'border-indigo-400 text-indigo-300' 
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                }`}
+              >
+                Reports
+              </button>
+              <button 
+                onClick={() => setActiveTab('users')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'users' 
+                    ? 'border-indigo-400 text-indigo-300' 
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                }`}
+              >
+                Users
+              </button>
+            </div>
+          </div>
+        </div>
       </header>
 
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 no-print">
@@ -144,37 +194,6 @@ export default function AdminDashboard() {
           />
         </div>
 
-        {/* Tab Navigation (Sticky) */}
-        <div className="border-b border-slate-200 mb-8 flex space-x-8 sticky top-16 bg-slate-50 z-10 pt-4">
-          <button 
-            onClick={() => setActiveTab('departments')}
-            className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'departments' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            Manage Maintenance Departments
-            {activeTab === 'departments' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-md"></div>}
-          </button>
-          <button 
-            onClick={() => setActiveTab('complaints')}
-            className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'complaints' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            Monitor Indents
-            {activeTab === 'complaints' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-md"></div>}
-          </button>
-          <button 
-            onClick={() => setActiveTab('reports')}
-            className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'reports' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            Generate Report
-            {activeTab === 'reports' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-md"></div>}
-          </button>
-          <button 
-            onClick={() => setActiveTab('users')}
-            className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === 'users' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            User Management
-            {activeTab === 'users' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-md"></div>}
-          </button>
-        </div>
 
         {/* Dynamic Content Area */}
         <div className="pb-32">

@@ -6,6 +6,7 @@ import ComplaintTable from '../HODDashboard/ComplaintTable';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
 import ReportManager from '../AdminDashboard/ReportManager';
+import UserManager from '../AdminDashboard/UserManager';
 import Analytics from '../../components/Analytics';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -16,6 +17,7 @@ const PrincipalDashboard = () => {
   const [departmentIndents, setDepartmentIndents] = useState([]);
   const [approvalRequests, setApprovalRequests] = useState([]);
   const [myRaisedIndents, setMyRaisedIndents] = useState([]);
+  const [usersList, setUsersList] = useState([]);
   
   const [activeTab, setActiveTab] = useState('approvals');
   
@@ -34,6 +36,15 @@ const PrincipalDashboard = () => {
     image: null
   });
 
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get('/admin/users');
+      setUsersList(res.data.users || []);
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    }
+  };
+
   useEffect(() => {
     const fetchComplaints = async () => {
       try {
@@ -50,6 +61,7 @@ const PrincipalDashboard = () => {
       }
     };
     fetchComplaints();
+    fetchUsers();
   }, []);
 
   const filteredDepartmentIndents = useMemo(() => {
@@ -176,8 +188,9 @@ const PrincipalDashboard = () => {
     <div className="min-h-screen bg-slate-50 font-sans">
       
       {/* Header Section */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm no-print flex flex-col">
+        {/* Top Tier: Branding & Profile */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full border-b border-gray-100">
           <div className="flex justify-between items-center h-16">
             <div className="flex flex-col justify-center">
               <h1 className="text-xl font-bold text-gray-900 leading-tight">Principal Dashboard</h1>
@@ -205,69 +218,79 @@ const PrincipalDashboard = () => {
             </div>
           </div>
         </div>
+        
+        {/* Bottom Tier: Navigation Tabs & Actions */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="flex justify-between items-center h-14">
+            {/* Tabs */}
+            <div className="flex space-x-8 overflow-x-auto no-scrollbar h-full w-full sm:w-auto">
+             
+              <button
+                onClick={() => setActiveTab('department')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'department' 
+                    ? 'border-indigo-600 text-indigo-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Global Queue
+              </button>
+              <button
+                onClick={() => setActiveTab('approvals')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'approvals' 
+                    ? 'border-indigo-600 text-indigo-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Review Queue ({approvalRequests.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('myRaised')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'myRaised' 
+                    ? 'border-indigo-600 text-indigo-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                My Raised Indents
+              </button>
+              <button
+                onClick={() => setActiveTab('reports')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'reports' 
+                    ? 'border-indigo-600 text-indigo-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                System Reports
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'users' 
+                    ? 'border-indigo-600 text-indigo-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                User Management
+              </button>
+            </div>
+
+            {/* Action */}
+            <button 
+              onClick={() => setIsRaiseModalOpen(true)}
+              className="hidden sm:flex flex-shrink-0 items-center gap-2 px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-sm text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Raise Indent</span>
+            </button>
+          </div>
+        </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 no-print">
-        
-        {/* Statistics and Action Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-bold text-gray-800">System Dashboard</h2>
-            <p className="text-sm text-gray-500">Overview of all active operations and indents.</p>
-          </div>
-          <button 
-            onClick={() => setIsRaiseModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md active:scale-95"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Raise New Indent</span>
-          </button>
-        </div>
-
-        {/* Tab Switcher (Sticky) */}
-        <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl mb-8 w-full sm:w-fit sticky top-20 z-30">
-          <button
-            onClick={() => setActiveTab('approvals')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'approvals' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-            }`}
-          >
-            Review Queue ({approvalRequests.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('department')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'department' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-            }`}
-          >
-            Global Queue
-          </button>
-          <button
-            onClick={() => setActiveTab('myRaised')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'myRaised' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-            }`}
-          >
-            My Raised Indents
-          </button>
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'reports' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-            }`}
-          >
-            System Reports
-          </button>
-        </div>
 
         {/* Dynamic Content Area */}
         <div className="pb-32">
@@ -321,6 +344,13 @@ const PrincipalDashboard = () => {
             <div id="reports" className="scroll-mt-32">
               <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">System Reports</h2>
               <ReportManager />
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div id="users" className="scroll-mt-32">
+              <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">User Management</h2>
+              <UserManager users={usersList} onUserUpdate={fetchUsers} />
             </div>
           )}
 

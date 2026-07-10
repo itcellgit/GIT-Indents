@@ -8,4 +8,44 @@ const api = axios.create({
   },
 });
 
+let activeRequests = 0;
+
+const showLoader = () => {
+  if (activeRequests === 0) {
+    window.dispatchEvent(new Event('api-request-start'));
+  }
+  activeRequests++;
+};
+
+const hideLoader = () => {
+  activeRequests--;
+  if (activeRequests <= 0) {
+    activeRequests = 0;
+    window.dispatchEvent(new Event('api-request-end'));
+  }
+};
+
+api.interceptors.request.use(config => {
+  // Show loader for non-GET requests (e.g., POST, PUT, DELETE) where emails might be sent
+  if (config.method !== 'get') {
+    showLoader();
+    config.metadata = { useLoader: true };
+  }
+  return config;
+}, error => {
+  return Promise.reject(error);
+});
+
+api.interceptors.response.use(response => {
+  if (response.config.metadata?.useLoader) {
+    hideLoader();
+  }
+  return response;
+}, error => {
+  if (error.config?.metadata?.useLoader) {
+    hideLoader();
+  }
+  return Promise.reject(error);
+});
+
 export default api;

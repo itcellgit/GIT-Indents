@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
-const { registerUser, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, updateProfile } = require('../controllers/authController');
+const { registerUser, verifyRegistration, resendRegistrationOtp, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, updateProfile } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
 // --- GET ROUTES (For testing/info) ---
@@ -17,6 +17,17 @@ router.post('/register', [
   check('email', 'Please include a valid email').isEmail().normalizeEmail(),
   check('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
 ], registerUser);
+
+// Verify Registration OTP
+router.post('/verify-registration', [
+  check('email', 'Please include a valid email').isEmail().normalizeEmail(),
+  check('otp', 'OTP is required').exists()
+], verifyRegistration);
+
+// Resend Registration OTP
+router.post('/resend-registration-otp', [
+  check('email', 'Please include a valid email').isEmail().normalizeEmail()
+], resendRegistrationOtp);
 
 // Login payload validation
 router.post('/login', [

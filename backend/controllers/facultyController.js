@@ -1,5 +1,6 @@
 const prisma = require('../prismaClient');
 const generateIndentNumber = require('../utils/generateIndentNumber');
+const { sendNotification } = require('../utils/notificationService');
 
 // @desc    Get dashboard data for a faculty user
 // @route   GET /api/faculty/dashboard
@@ -81,14 +82,13 @@ const createComplaint = async (req, res) => {
     });
     
     if (deptHOD) {
-      await prisma.notification.create({
-        data: {
-          recipientId: deptHOD.id,
-          senderId: req.user.id,
-          indentId: newIndent.id,
-          message: `New indent ${newIndent.indentNumber} raised by ${req.user.name} requires your approval.`
-        }
-      });
+      await sendNotification(
+        deptHOD.id,
+        `New indent ${newIndent.indentNumber} raised by ${req.user.name} requires your approval.`,
+        req.user.id,
+        newIndent.id,
+        newIndent.indentNumber
+      );
     }
 
     res.status(201).json({

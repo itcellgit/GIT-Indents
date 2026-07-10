@@ -1,14 +1,13 @@
 const prisma = require('../prismaClient');
 
+const { getDepartmentShortName } = require('./departments');
+
 const generateIndentNumber = async (requesterId, categoryId) => {
   const user = await prisma.user.findUnique({ where: { id: requesterId } });
   const category = await prisma.category.findUnique({ where: { id: categoryId } });
   
-  const creatorDeptStr = user && user.department ? user.department : 'UNK';
-  const maintDeptStr = category && category.name ? category.name : 'UNK';
-  
-  const creatorDept = creatorDeptStr.substring(0, 3).toUpperCase();
-  const maintDept = maintDeptStr.substring(0, 3).toUpperCase();
+  const creatorDept = getDepartmentShortName(user?.department);
+  const maintDept = getDepartmentShortName(category?.name);
   
   const now = new Date();
   const dd = String(now.getDate()).padStart(2, '0');

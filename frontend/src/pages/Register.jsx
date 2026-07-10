@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, Building, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+
+import { departments } from '../utils/departments';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -13,6 +15,17 @@ const Register = () => {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState('form');
+  const [otp, setOtp] = useState('');
+  const [timer, setTimer] = useState(60);
+
+  useEffect(() => {
+    let interval;
+    if (step === 'otp' && timer > 0) {
+      interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step, timer]);
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
   const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
@@ -27,15 +40,18 @@ const Register = () => {
     e.preventDefault();
     const newErrors = {};
     if (!formData.name) newErrors.name = "Full Name is required";
-    if (!formData.email.endsWith('@git.edu')) newErrors.email = "Must use @git.edu domain";
+    // Temporarily disabled validations
+    // if (!formData.email.endsWith('@git.edu')) newErrors.email = "Must use @git.edu domain";
     
     // Role based validation
+    /*
     if (formData.role === 'HOD' && !formData.email.toLowerCase().startsWith('hod')) {
       newErrors.email = "HOD role requires email starting with 'hod'";
     }
     if (formData.role === 'Faculty' && formData.email.toLowerCase().startsWith('hod')) {
       newErrors.email = "Emails starting with 'hod' must register as HOD";
     }
+    */
 
     if (!formData.department) newErrors.department = "Department is required";
     if (formData.password.length < 6) newErrors.password = "Min 6 characters required";
@@ -46,9 +62,42 @@ const Register = () => {
     try {
       setLoading(true);
       await api.post('/auth/register', formData);
-      navigate('/login');
+      setStep('otp');
+      setTimer(60);
+      setServerError('');
     } catch (err) {
       setServerError(err.response?.data?.message || "Registration failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    try {
+      setLoading(true);
+      await api.post('/auth/resend-registration-otp', { email: formData.email });
+      setTimer(60);
+      setServerError('');
+    } catch (err) {
+      setServerError(err.response?.data?.message || "Failed to resend OTP.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    if (!otp) {
+      setServerError('Please enter the OTP');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await api.post('/auth/verify-registration', { email: formData.email, otp });
+      navigate('/login');
+    } catch (err) {
+      setServerError(err.response?.data?.message || "OTP verification failed.");
     } finally {
       setLoading(false);
     }
@@ -75,11 +124,18 @@ const Register = () => {
       <div className="relative z-30 w-full max-w-2xl px-6">
         <div className="bg-white p-10 md:p-12 rounded-3xl shadow-2xl border border-white/20 backdrop-blur-sm bg-opacity-[0.99]">
           <div className="mb-10 text-center md:text-left">
-            <h2 className="text-4xl font-bold text-gray-900 mb-3">Create Account</h2>
-            <p className="text-lg text-gray-500">Register to submit and track maintenance.</p>
+            <h2 className="text-4xl font-bold text-gray-900 mb-3">
+              {step === 'form' ? 'Create Account' : 'Verify Email'}
+            </h2>
+            <p className="text-lg text-gray-500">
+              {step === 'form' 
+                ? 'Register to submit and track maintenance.' 
+                : `We've sent an OTP to ${formData.email}.`}
+            </p>
           </div>
 
-          <form onSubmit={handleRegister} className="space-y-5">
+          {step === 'form' ? (
+            <form onSubmit={handleRegister} className="space-y-5">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
               <div className="relative">
@@ -109,6 +165,7 @@ const Register = () => {
                   className="pl-12 block w-full rounded-xl border border-gray-300 bg-gray-50 py-3.5 px-4 text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand appearance-none transition-all"
                 >
                   <option value="Faculty">Faculty</option>
+                  <option value="Non-Teaching">Non-Teaching</option>
                   <option value="HOD">HOD</option>
                 </select>
                 <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
@@ -121,23 +178,19 @@ const Register = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Building className="h-5 w-5 text-gray-400" /></div>
-                <select 
-                  name="department" 
-                  value={formData.department} 
-                  onChange={handleInputChange} 
-                  className="pl-12 block w-full rounded-xl border border-gray-300 bg-gray-50 py-3.5 px-4 text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand appearance-none transition-all"
-                >
-                  <option value="">Select Department</option>
-                  <option value="CSE">CSE</option>
-                  <option value="CSE(AIML)">CSE(AIML)</option>
-                  <option value="ECE">ECE</option>
-                  <option value="EEE">EEE</option>
-                  <option value="CIVIL">CIVIL</option>
-                  <option value="MECH">MECH</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                  <ChevronDown className="h-5 w-5 text-gray-400" />
-                </div>
+                <input
+                  list="departments-list"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleInputChange}
+                  placeholder="Type to search department..."
+                  className="pl-12 block w-full rounded-xl border border-gray-300 bg-gray-50 py-3.5 px-4 text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand transition-all"
+                />
+                <datalist id="departments-list">
+                  {departments.map((dept) => (
+                    <option key={dept.name} value={dept.name} />
+                  ))}
+                </datalist>
               </div>
               {errors.department && <p className="mt-1.5 text-xs text-red-500 font-medium">{errors.department}</p>}
             </div>
@@ -173,11 +226,70 @@ const Register = () => {
               {loading ? 'Creating...' : 'Create Account'}
             </button>
           </form>
+          ) : (
+            <form onSubmit={handleVerifyOTP} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">6-Digit OTP</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input 
+                    type="text" 
+                    value={otp} 
+                    onChange={(e) => {
+                      setOtp(e.target.value);
+                      if (serverError) setServerError('');
+                    }} 
+                    className="pl-12 block w-full rounded-xl border border-gray-300 bg-gray-50 py-3.5 px-4 text-base tracking-widest font-mono text-center focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand transition-all" 
+                    placeholder="------" 
+                    maxLength="6"
+                  />
+                </div>
+              </div>
 
+              {serverError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                  <p className="text-xs font-semibold text-red-700 text-center">{serverError}</p>
+                </div>
+              )}
 
-          <div className="mt-10 text-center">
-            <p className="text-base text-gray-600">Already have an account? <Link to="/login" className="font-bold text-brand hover:text-brand-dark underline underline-offset-4">Log in</Link></p>
-          </div>
+              <button type="submit" disabled={loading} className="w-full mt-4 py-4 px-6 rounded-xl shadow-lg text-lg font-bold text-white bg-brand hover:bg-brand-dark transition-all transform active:scale-[0.98]">
+                {loading ? 'Verifying...' : 'Verify & Register'}
+              </button>
+
+              <div className="flex flex-col gap-2 mt-4 text-center">
+                {timer > 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Resend OTP in <span className="font-bold text-brand">{timer}s</span>
+                  </p>
+                ) : (
+                  <button 
+                    type="button" 
+                    onClick={handleResendOTP}
+                    disabled={loading}
+                    className="text-sm font-bold text-brand hover:text-brand-dark transition-colors"
+                  >
+                    Resend OTP
+                  </button>
+                )}
+              </div>
+
+              <button 
+                type="button" 
+                onClick={() => setStep('form')}
+                className="w-full mt-2 py-3 px-6 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Back to Registration
+              </button>
+            </form>
+          )}
+
+          {step === 'form' && (
+            <div className="mt-10 text-center">
+              <p className="text-base text-gray-600">Already have an account? <Link to="/login" className="font-bold text-brand hover:text-brand-dark underline underline-offset-4">Log in</Link></p>
+            </div>
+          )}
         </div>
       </div>
     </div>

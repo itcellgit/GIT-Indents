@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { User, Mail, Briefcase, Building, Save, Edit2, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
+import { departments } from '../../utils/departments';
 
 const Profile = () => {
   const { user, login } = useAuth();
@@ -151,6 +152,7 @@ const Profile = () => {
                 <Building className="w-5 h-5 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" />
                 <input 
                   type="text" 
+                  list="profile-departments-list"
                   name="department"
                   readOnly={!isEditing || user?.role === 'Admin' || user?.role === 'Principal'}
                   value={formData.department}
@@ -162,6 +164,11 @@ const Profile = () => {
                   }`}
                   placeholder="Your Department"
                 />
+                <datalist id="profile-departments-list">
+                  {departments.map((dept) => (
+                    <option key={dept.name} value={dept.name} />
+                  ))}
+                </datalist>
               </div>
               {isEditing && (user?.role === 'Admin' || user?.role === 'Principal') && (
                 <p className="text-xs text-slate-400 mt-1 italic">Department cannot be changed for administrative roles.</p>

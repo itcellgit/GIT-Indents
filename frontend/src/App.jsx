@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import FacultyDashboard from './pages/FacultyDashboard';
+import NonTeachingDashboard from './pages/NonTeachingDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import HODDashboard from './pages/HODDashboard';
 import PrincipalDashboard from './pages/PrincipalDashboard';
@@ -10,10 +11,12 @@ import MaintainerDashboard from './pages/MaintainerDashboard';
 import Profile from './pages/Profile';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import GlobalLoader from './components/GlobalLoader';
 
 function App() {
   return (
     <AuthProvider>
+      <GlobalLoader />
       <Router>
         <div className="App min-h-screen">
         <Routes>
@@ -25,6 +28,11 @@ function App() {
           <Route path="/dashboard" element={
             <ProtectedRoute allowedRoles={['Faculty']}>
               <FacultyDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/non-teaching-dashboard" element={
+            <ProtectedRoute allowedRoles={['Non-Teaching']}>
+              <NonTeachingDashboard />
             </ProtectedRoute>
           } />
           <Route path="/admin-dashboard" element={
@@ -48,7 +56,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/profile" element={
-            <ProtectedRoute allowedRoles={['Faculty', 'HOD', 'Admin', 'Principal']}>
+            <ProtectedRoute allowedRoles={['Faculty', 'HOD', 'Admin', 'Principal', 'Non-Teaching']}>
               <Profile />
             </ProtectedRoute>
           } />

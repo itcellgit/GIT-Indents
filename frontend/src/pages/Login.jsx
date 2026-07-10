@@ -51,7 +51,8 @@ const Login = () => {
       const defaultDashboard = res.data.role === 'Admin' ? '/admin-dashboard' : 
                                res.data.role === 'HOD' ? '/hod-dashboard' : 
                                res.data.role === 'Principal' ? '/principal-dashboard' : 
-                               res.data.role === 'Maintainer' ? '/maintainer-dashboard' : '/dashboard';
+                               res.data.role === 'Maintainer' ? '/maintainer-dashboard' : 
+                               res.data.role === 'Non-Teaching' ? '/non-teaching-dashboard' : '/dashboard';
       
       let origin = location.state?.from?.pathname;
       if (!origin || origin === '/' || origin === '/login') {

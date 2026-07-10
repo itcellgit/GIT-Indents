@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getHODComplaints, updateComplaintStatus, createHODIndent, getMaintainers, addMaintainer, assignMaintainer } = require('../controllers/hodController');
+const { getHODComplaints, updateComplaintStatus, createHODIndent, getMaintainers, addMaintainer, assignMaintainer, removeMaintainer } = require('../controllers/hodController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 
@@ -12,6 +12,7 @@ router.put('/complaints/:id/status', protect, authorize('HOD', 'Admin', 'Princip
 // Maintainer Management
 router.get('/maintainers', protect, authorize('HOD'), getMaintainers);
 router.post('/maintainers', protect, authorize('HOD'), addMaintainer);
+router.delete('/maintainers/:id', protect, authorize('HOD'), removeMaintainer);
 router.put('/complaints/:id/assign', protect, authorize('HOD'), assignMaintainer);
 
 module.exports = router;

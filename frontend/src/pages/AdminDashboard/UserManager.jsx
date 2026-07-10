@@ -36,22 +36,37 @@ export default function UserManager({ users, onUserUpdate }) {
   const [selectedDepartments, setSelectedDepartments] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterRef = useRef(null);
+
+  const [selectedRoles, setSelectedRoles] = useState([]);
+  const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false);
+  const roleFilterRef = useRef(null);
   
   useEffect(() => {
     function handleClickOutside(event) {
       if (filterRef.current && !filterRef.current.contains(event.target)) {
         setIsFilterOpen(false);
       }
+      if (roleFilterRef.current && !roleFilterRef.current.contains(event.target)) {
+        setIsRoleFilterOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [filterRef]);
+  }, [filterRef, roleFilterRef]);
 
   const toggleDepartmentFilter = (deptName) => {
     setSelectedDepartments(prev => 
       prev.includes(deptName) 
         ? prev.filter(d => d !== deptName)
         : [...prev, deptName]
+    );
+  };
+
+  const toggleRoleFilter = (roleName) => {
+    setSelectedRoles(prev => 
+      prev.includes(roleName) 
+        ? prev.filter(r => r !== roleName)
+        : [...prev, roleName]
     );
   };
 
@@ -66,7 +81,8 @@ export default function UserManager({ users, onUserUpdate }) {
     const term = searchTerm.toLowerCase();
     const matchesSearch = user.name.toLowerCase().includes(term) || user.email.toLowerCase().includes(term);
     const matchesDept = selectedDepartments.length === 0 || selectedDepartments.includes(user.department);
-    return matchesSearch && matchesDept;
+    const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(user.role);
+    return matchesSearch && matchesDept && matchesRole;
   });
 
   const handleToggleStatus = async (user) => {
@@ -216,6 +232,57 @@ export default function UserManager({ users, onUserUpdate }) {
                           <Square className="w-4 h-4 text-slate-300 mr-3 shrink-0" />
                         )}
                         <span className="text-sm text-slate-600 truncate" title={dept.name}>{dept.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="relative" ref={roleFilterRef}>
+            <button 
+              onClick={() => setIsRoleFilterOpen(!isRoleFilterOpen)}
+              className="w-full sm:w-auto bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-between transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <div className="flex items-center">
+                <Users className="w-4 h-4 mr-2 text-slate-400" />
+                <span className="truncate max-w-[120px]">
+                  {selectedRoles.length === 0 ? 'All Roles' : `${selectedRoles.length} Selected`}
+                </span>
+              </div>
+              <ChevronDown className="w-4 h-4 ml-2 text-slate-400" />
+            </button>
+            
+            {isRoleFilterOpen && (
+              <div className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-64 bg-white border border-slate-200 shadow-lg rounded-xl z-10 max-h-80 overflow-y-auto custom-scrollbar">
+                <div className="p-2">
+                  <div 
+                    className="flex items-center px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer mb-1 transition-colors"
+                    onClick={() => setSelectedRoles([])}
+                  >
+                    {selectedRoles.length === 0 ? (
+                      <CheckSquare className="w-4 h-4 text-indigo-600 mr-3 shrink-0" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-300 mr-3 shrink-0" />
+                    )}
+                    <span className="text-sm font-medium text-slate-700">All Roles</span>
+                  </div>
+                  <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                  {Object.keys(ROLE_HIERARCHY).map((role) => {
+                    const isSelected = selectedRoles.includes(role);
+                    return (
+                      <div 
+                        key={role}
+                        className="flex items-center px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors"
+                        onClick={() => toggleRoleFilter(role)}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-indigo-600 mr-3 shrink-0" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-300 mr-3 shrink-0" />
+                        )}
+                        <span className="text-sm text-slate-600 truncate" title={role}>{role}</span>
                       </div>
                     );
                   })}

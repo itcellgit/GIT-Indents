@@ -5,6 +5,20 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const nodemailer = require('nodemailer');
 
+const normalizeRole = (role) => {
+  if (!role) return 'Faculty';
+  const roleMap = {
+    'admin': 'Admin',
+    'principal': 'Principal',
+    'hod': 'HOD',
+    'faculty': 'Faculty',
+    'non-teaching': 'Non-Teaching',
+    'non teaching': 'Non-Teaching',
+    'nonteaching': 'Non-Teaching'
+  };
+  return roleMap[role.toLowerCase().trim()] || 'Faculty';
+};
+
 // Helper function to generate a JWT token
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -52,7 +66,7 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' }); // Generic message
     }
 
-    let finalRole = role || 'Faculty';
+    let finalRole = normalizeRole(role);
 
     // Generate a 6-digit numeric OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();

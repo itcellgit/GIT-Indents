@@ -2,6 +2,20 @@
 const prisma = require('../prismaClient');
 const bcrypt = require('bcryptjs');
 
+const normalizeRole = (role) => {
+  if (!role) return 'Faculty';
+  const roleMap = {
+    'admin': 'Admin',
+    'principal': 'Principal',
+    'hod': 'HOD',
+    'faculty': 'Faculty',
+    'non-teaching': 'Non-Teaching',
+    'non teaching': 'Non-Teaching',
+    'nonteaching': 'Non-Teaching'
+  };
+  return roleMap[role.toLowerCase().trim()] || 'Faculty';
+};
+
 // @desc    Get system-wide statistics for the admin dashboard
 // @route   GET /api/admin/stats
 // @access  Private/Admin
@@ -95,7 +109,7 @@ const createUser = async (req, res) => {
         email,
         password: hashedPassword,
         department: department || '',
-        role: role || 'Faculty',
+        role: normalizeRole(role),
         isActive: true
       },
       select: {
@@ -135,7 +149,7 @@ const bulkCreateUsers = async (req, res) => {
       name: user.Name || user.name,
       email: user.Email || user.email,
       department: user.Department || user.department || '',
-      role: user.Role || user.role || 'Faculty',
+      role: normalizeRole(user.Role || user.role),
       password: hashedPassword,
       isActive: true
     }));

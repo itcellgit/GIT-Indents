@@ -29,7 +29,6 @@ const getDashboardData = async (req, res) => {
       complaints
     });
   } catch (err) {
-    console.error('Error fetching dashboard data:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -96,7 +95,6 @@ const createComplaint = async (req, res) => {
       complaint: newIndent
     });
   } catch (err) {
-    console.error('Error creating complaint:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };

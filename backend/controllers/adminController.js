@@ -21,7 +21,6 @@ const normalizeRole = (role) => {
 // @access  Private/Admin
 const getSystemStats = async (req, res) => {
   try {
-    console.log("Fetching system stats for admin...");
     const totalDepartments = await prisma.category.count();
     const totalUsers = await prisma.user.count();
     
@@ -39,7 +38,6 @@ const getSystemStats = async (req, res) => {
       where: { status: 'Completed' }
     });
 
-    console.log("Stats found:", { totalDepartments, totalUsers, activeComplaints, resolvedComplaints });
 
     res.json({
       success: true,
@@ -51,7 +49,6 @@ const getSystemStats = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error("Error in getSystemStats:", err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -79,7 +76,6 @@ const getAllUsers = async (req, res) => {
       users 
     });
   } catch (err) {
-    console.error("Error in getAllUsers:", err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -125,7 +121,6 @@ const createUser = async (req, res) => {
 
     res.status(201).json({ success: true, user });
   } catch (err) {
-    console.error("Error in createUser:", err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -171,7 +166,6 @@ const bulkCreateUsers = async (req, res) => {
       message: `Successfully added ${result.count} users. Any existing emails were skipped.`
     });
   } catch (err) {
-    console.error("Error in bulkCreateUsers:", err);
     res.status(500).json({ message: 'Server Error during bulk upload' });
   }
 };
@@ -196,7 +190,6 @@ const getAllComplaints = async (req, res) => {
       complaints: indents 
     });
   } catch (err) {
-    console.error("Error in getAllComplaints:", err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -257,7 +250,6 @@ const createDepartment = async (req, res) => {
       department: category
     });
   } catch (err) {
-    console.error("Error in createDepartment:", err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -317,7 +309,6 @@ const updateDepartment = async (req, res) => {
       department: updatedCategory
     });
   } catch (err) {
-    console.error("Error in updateDepartment:", err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -343,7 +334,6 @@ const searchUsers = async (req, res) => {
 
     res.json({ users });
   } catch (err) {
-    console.error("Error in searchUsers:", err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -360,7 +350,6 @@ const getDepartmentsAdmin = async (req, res) => {
     });
     res.json({ departments });
   } catch (err) {
-    console.error("Error in getDepartmentsAdmin:", err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -425,7 +414,6 @@ const getMonthlyReport = async (req, res) => {
 
     res.json({ success: true, reportData });
   } catch (err) {
-    console.error("Error in getMonthlyReport:", err);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -456,7 +444,6 @@ const toggleUserStatus = async (req, res) => {
     
     res.json({ success: true, isActive: newStatus, message: `User ${newStatus ? 'enabled' : 'disabled'} successfully` });
   } catch (err) {
-    console.error("Error in toggleUserStatus:", err);
     res.status(500).json({ message: 'Server error' });
   }
 };

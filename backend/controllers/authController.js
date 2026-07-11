@@ -110,7 +110,6 @@ const registerUser = async (req, res) => {
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: 'OTP sent to email' });
   } catch (error) {
-    console.error('Registration error:', error);
     res.status(500).json({ message: 'Server Error during registration' });
   }
 };
@@ -157,7 +156,6 @@ const verifyRegistration = async (req, res) => {
       res.status(400).json({ message: 'Invalid user data received' });
     }
   } catch (error) {
-    console.error('Registration verification error:', error);
     res.status(500).json({ message: 'Server Error during registration verification' });
   }
 };
@@ -214,7 +212,6 @@ const resendRegistrationOtp = async (req, res) => {
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: 'New OTP sent to email' });
   } catch (error) {
-    console.error('Resend OTP error:', error);
     res.status(500).json({ message: 'Server Error during OTP resend' });
   }
 };
@@ -334,7 +331,6 @@ const forgotPassword = async (req, res) => {
     res.status(200).json({ message: 'OTP sent to email' });
 
   } catch (error) {
-    console.error('Forgot password error:', error);
     res.status(500).json({ message: 'Error sending email' });
   }
 };
@@ -374,7 +370,6 @@ const resetPassword = async (req, res) => {
     res.status(200).json({ message: 'Password reset successful' });
 
   } catch (error) {
-    console.error('Reset password error:', error);
     res.status(500).json({ message: 'Server error during password reset' });
   }
 };
@@ -419,7 +414,6 @@ const updateProfile = async (req, res) => {
       user: updatedUser
     });
   } catch (error) {
-    console.error('Update profile error:', error);
     res.status(500).json({ message: 'Server error during profile update' });
   }
 };

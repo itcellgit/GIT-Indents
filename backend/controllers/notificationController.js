@@ -13,13 +13,12 @@ const getNotifications = async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    
+
     res.status(200).json({
       success: true,
       notifications
     });
   } catch (err) {
-    console.error('Error fetching notifications:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -50,7 +49,6 @@ const markAsRead = async (req, res) => {
       notification
     });
   } catch (err) {
-    console.error('Error marking notification as read:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };

@@ -104,7 +104,6 @@ const getHODComplaints = async (req, res) => {
       deptTrackIndents
     });
   } catch (err) {
-    console.error('Error fetching HOD complaints:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -239,7 +238,6 @@ const updateComplaintStatus = async (req, res) => {
       complaint: updatedIndent
     });
   } catch (err) {
-    console.error('Error updating complaint:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -293,7 +291,6 @@ const createHODIndent = async (req, res) => {
       complaint: newIndent
     });
   } catch (err) {
-    console.error('Error creating HOD indent:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -312,7 +309,6 @@ const getMaintainers = async (req, res) => {
     });
     res.status(200).json({ success: true, maintainers });
   } catch (err) {
-    console.error('Error fetching maintainers:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -354,7 +350,6 @@ const addMaintainer = async (req, res) => {
 
     res.status(201).json({ success: true, maintainer: { id: user.id, name: user.name, email: user.email } });
   } catch (err) {
-    console.error('Error adding maintainer:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -400,7 +395,6 @@ const assignMaintainer = async (req, res) => {
 
     res.status(200).json({ success: true, complaint: updatedIndent });
   } catch (err) {
-    console.error('Error assigning maintainer:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -424,7 +418,6 @@ const removeMaintainer = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Maintainer removed successfully' });
   } catch (err) {
-    console.error('Error removing maintainer:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };

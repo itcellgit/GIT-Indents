@@ -77,13 +77,11 @@ const sendNotification = async (recipientId, message, senderId = null, indentId 
           html: emailTemplate,
         });
       } else {
-        console.warn('⚠️ SMTP_USER or SMTP_PASS not set in .env. Email skipped.');
       }
     }
 
     return notification;
   } catch (error) {
-    console.error('Error sending notification/email:', error.message);
     // Don't throw the error, we don't want to crash the main request if email fails
   }
 };

@@ -22,7 +22,6 @@ const getDashboardData = async (req, res) => {
       assignedIndents
     });
   } catch (err) {
-    console.error('Error fetching maintainer dashboard:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -97,7 +96,6 @@ const updateComplaint = async (req, res) => {
       complaint: updatedIndent
     });
   } catch (err) {
-    console.error('Error updating complaint by maintainer:', err.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };

@@ -6,10 +6,10 @@ const prisma = require('./prismaClient');
 const bcrypt = require('bcryptjs');
 
 async function main() {
-  const email = 'Maintainance@git.edu';
-  const plainPassword = '123456';
-  const name = 'Maintainance Admin';
-  const department = 'Maintainance';
+  const email = 'itcell@git.edu';
+  const plainPassword = 'Password@123';
+  const name = 'Super Admin';
+  const department = 'IT Cell';
   const role = 'Admin';
 
   try {

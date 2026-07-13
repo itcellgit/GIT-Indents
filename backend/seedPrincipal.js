@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 
 async function main() {
   const email = 'principal@git.edu';
-  const plainPassword = '123456';
+  const plainPassword = 'Paassword@123';
   const name = 'Principal GIT';
   const department = 'Princiapal';
   const role = 'Principal';

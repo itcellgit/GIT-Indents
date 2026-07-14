@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
-const { registerUser, verifyRegistration, resendRegistrationOtp, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, updateProfile } = require('../controllers/authController');
+const { registerUser, verifyRegistration, resendRegistrationOtp, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, changePassword, updateProfile } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
 // --- GET ROUTES (For testing/info) ---
@@ -46,6 +46,12 @@ router.post('/reset-password', [
   check('otp', 'OTP is required').exists(),
   check('newPassword', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
 ], resetPassword);
+
+// Change password (while logged in)
+router.put('/change-password', protect, [
+  check('currentPassword', 'Current password is required').exists(),
+  check('newPassword', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
+], changePassword);
 
 // Profile page update
 router.put('/profile', protect, updateProfile);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, XCircle, Search, Filter, LogOut
+import {
+  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, XCircle, Search, Filter, LogOut, KeyRound
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +10,7 @@ import IndentTable from './IndentTable';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
 import IndentDetailsModal from './IndentDetailsModal';
 import NotificationBell from '../../components/NotificationBell';
+import ChangePasswordModal from '../../components/ChangePasswordModal';
 
 const SUMMARY_CARDS = [
   { title: "Indent Created", icon: AlertCircle, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-200" },
@@ -26,6 +27,7 @@ export default function NonTeachingDashboard() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   const statsCounts = React.useMemo(() => {
     return {
@@ -137,7 +139,10 @@ export default function NonTeachingDashboard() {
                   <User className="h-5 w-5 text-indigo-600" />
                 </div>
               </Link>
-              <button onClick={logout} className="ml-4 p-2 text-slate-400 hover:text-red-500 transition-colors" title="Logout">
+              <button onClick={() => setIsChangePasswordOpen(true)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Change Password">
+                <KeyRound className="w-5 h-5" />
+              </button>
+              <button onClick={logout} className="ml-1 p-2 text-slate-400 hover:text-red-500 transition-colors" title="Logout">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
@@ -222,10 +227,14 @@ export default function NonTeachingDashboard() {
       )}
 
       {selectedComplaint && (
-        <IndentDetailsModal 
+        <IndentDetailsModal
           selectedComplaint={selectedComplaint}
           setSelectedComplaint={setSelectedComplaint}
         />
+      )}
+
+      {isChangePasswordOpen && (
+        <ChangePasswordModal onClose={() => setIsChangePasswordOpen(false)} />
       )}
     </div>
   );

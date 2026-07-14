@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, Search, Filter, LogOut, ShoppingCart
+import {
+  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, Search, Filter, LogOut, ShoppingCart, KeyRound
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -9,6 +9,7 @@ import StatsCards from '../FacultyDashboard/StatsCards';
 import MaintainerIndentTable from './MaintainerIndentTable';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import NotificationBell from '../../components/NotificationBell';
+import ChangePasswordModal from '../../components/ChangePasswordModal';
 
 const SUMMARY_CARDS = [
   { title: "In Progress", icon: Clock, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
@@ -24,6 +25,7 @@ export default function MaintainerDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   const refreshData = async () => {
     try {
@@ -100,7 +102,10 @@ export default function MaintainerDashboard() {
                   <User className="h-5 w-5 text-indigo-600" />
                 </div>
               </Link>
-              <button onClick={logout} className="ml-4 p-2 text-slate-400 hover:text-red-500 transition-colors">
+              <button onClick={() => setIsChangePasswordOpen(true)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Change Password">
+                <KeyRound className="w-5 h-5" />
+              </button>
+              <button onClick={logout} className="ml-1 p-2 text-slate-400 hover:text-red-500 transition-colors">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
@@ -166,11 +171,15 @@ export default function MaintainerDashboard() {
       </main>
 
       {selectedComplaint && (
-        <ComplaintDetails 
-          complaint={selectedComplaint} 
-          onClose={() => setSelectedComplaint(null)} 
-          onUpdateStatus={handleUpdateStatus} 
+        <ComplaintDetails
+          complaint={selectedComplaint}
+          onClose={() => setSelectedComplaint(null)}
+          onUpdateStatus={handleUpdateStatus}
         />
+      )}
+
+      {isChangePasswordOpen && (
+        <ChangePasswordModal onClose={() => setIsChangePasswordOpen(false)} />
       )}
     </div>
   );

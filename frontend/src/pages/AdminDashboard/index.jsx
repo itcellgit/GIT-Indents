@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Shield, User, LogOut } from 'lucide-react';
+import { Shield, User, LogOut, KeyRound } from 'lucide-react';
 import StatsCards from './StatsCards';
 import DepartmentManager from './DepartmentManager';
 import UserManager from './UserManager';
@@ -11,6 +11,7 @@ import ReportManager from './ReportManager';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import api from '../../api/axios';
 import NotificationBell from '../../components/NotificationBell';
+import ChangePasswordModal from '../../components/ChangePasswordModal';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -25,6 +26,7 @@ export default function AdminDashboard() {
   const [complaints, setComplaints] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   const fetchAdminData = async () => {
     try {
@@ -121,8 +123,15 @@ export default function AdminDashboard() {
                   <User className="h-4 w-4 text-slate-300" />
                 </div>
               </Link>
-              <button 
-                onClick={logout} 
+              <button
+                onClick={() => setIsChangePasswordOpen(true)}
+                className="text-slate-400 hover:text-indigo-300 transition-colors bg-slate-800 p-2 rounded-lg"
+                title="Change Password"
+              >
+                <KeyRound className="w-4 h-4" />
+              </button>
+              <button
+                onClick={logout}
                 className="text-slate-400 hover:text-red-400 transition-colors bg-slate-800 p-2 rounded-lg"
                 title="Logout"
               >
@@ -234,13 +243,17 @@ export default function AdminDashboard() {
 
       {/* Details Modal */}
       {selectedComplaint && (
-        <ComplaintDetails 
-          complaint={selectedComplaint} 
+        <ComplaintDetails
+          complaint={selectedComplaint}
           onClose={() => setSelectedComplaint(null)}
           // Admin view is strictly read-only, so we pass empty handlers for status/resolve
-          onUpdateStatus={() => {}} 
+          onUpdateStatus={() => {}}
           onResolve={() => {}}
         />
+      )}
+
+      {isChangePasswordOpen && (
+        <ChangePasswordModal onClose={() => setIsChangePasswordOpen(false)} />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, User as UserIcon, Plus } from 'lucide-react';
+import { LogOut, User as UserIcon, Plus, KeyRound } from 'lucide-react';
 import StatsCards from '../HODDashboard/StatsCards';
 import ComplaintTable from '../HODDashboard/ComplaintTable';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
@@ -11,6 +11,7 @@ import Analytics from '../../components/Analytics';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
+import ChangePasswordModal from '../../components/ChangePasswordModal';
 
 const PrincipalDashboard = () => {
   const { user, logout } = useAuth();
@@ -24,6 +25,7 @@ const PrincipalDashboard = () => {
   const [filterStatus, setFilterStatus] = useState('All');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   
   // New Indent Modal State
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
@@ -208,7 +210,15 @@ const PrincipalDashboard = () => {
                   <p className="text-xs text-gray-500">{user?.department || 'Administration'}</p>
                 </div>
               </Link>
-              <button 
+              <button
+                onClick={() => setIsChangePasswordOpen(true)}
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors"
+                title="Change Password"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span className="hidden sm:inline">Change Password</span>
+              </button>
+              <button
                 onClick={logout}
                 className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
               >
@@ -370,12 +380,16 @@ const PrincipalDashboard = () => {
 
       {/* Raise Indent Modal */}
       {isRaiseModalOpen && (
-        <RaiseIndentModal 
+        <RaiseIndentModal
           setIsRaiseModalOpen={setIsRaiseModalOpen}
           handleRaiseSubmit={handleRaiseSubmit}
           formData={formData}
           setFormData={setFormData}
         />
+      )}
+
+      {isChangePasswordOpen && (
+        <ChangePasswordModal onClose={() => setIsChangePasswordOpen(false)} />
       )}
 
     </div>

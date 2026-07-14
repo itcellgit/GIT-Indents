@@ -10,6 +10,7 @@ import MaintainerIndentTable from './MaintainerIndentTable';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import logo from '../../assets/logo.png';
 
 const SUMMARY_CARDS = [
   { title: "In Progress", icon: Clock, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
@@ -89,6 +90,7 @@ export default function MaintainerDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain" />
               <Wrench className="w-8 h-8 text-indigo-600" />
               <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 hidden sm:block">
                 Maintainer Dashboard

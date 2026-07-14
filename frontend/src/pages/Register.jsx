@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, Building, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import logo from '../assets/logo.png';
 
 import { departments } from '../utils/departments';
 
@@ -113,8 +114,8 @@ const Register = () => {
 
       {/* Desktop Branding */}
       <div className="absolute top-10 left-10 z-20 hidden lg:flex flex-col items-start text-white">
-        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-4 shadow-2xl backdrop-blur-md bg-opacity-95">
-          <Building className="text-brand-dark w-9 h-9" />
+        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-4 shadow-2xl backdrop-blur-md bg-opacity-95 overflow-hidden">
+          <img src={logo} alt="KLS GIT Logo" className="w-11 h-11 object-contain" />
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight">GIT Maintenance Portal</h1>
         <p className="text-base text-blue-100 opacity-90">Streamlining Campus Infrastructure</p>

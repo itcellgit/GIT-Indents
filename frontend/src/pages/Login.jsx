@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, Building } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import logo from '../assets/logo.png';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -85,8 +86,8 @@ const Login = () => {
 
       {/* Branding - Slightly larger logo */}
       <div className="absolute top-10 left-10 z-20 hidden lg:flex flex-col items-start text-white">
-        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-4 shadow-2xl backdrop-blur-md bg-opacity-95">
-          <Building className="text-brand-dark w-9 h-9" />
+        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-4 shadow-2xl backdrop-blur-md bg-opacity-95 overflow-hidden">
+          <img src={logo} alt="KLS GIT Logo" className="w-11 h-11 object-contain" />
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight">GIT Indent Management  Portal</h1>
         <p className="text-base text-blue-100 opacity-90">Streamlining Campus Infrastructure</p>
@@ -97,8 +98,8 @@ const Login = () => {
         <div className="bg-white p-10 md:p-12 rounded-3xl shadow-2xl border border-white/20 backdrop-blur-sm bg-opacity-[0.99]" >
           
           <div className="lg:hidden flex items-center mb-8">
-            <div className="w-12 h-12 bg-brand-dark rounded-xl flex items-center justify-center mr-4">
-              <Building className="text-white w-7 h-7" />
+            <div className="w-12 h-12 bg-white border border-gray-200 rounded-xl flex items-center justify-center mr-4 overflow-hidden">
+              <img src={logo} alt="KLS GIT Logo" className="w-9 h-9 object-contain" />
             </div>
             <h2 className="text-3xl font-bold text-gray-900">GIT Portal</h2>
           </div>

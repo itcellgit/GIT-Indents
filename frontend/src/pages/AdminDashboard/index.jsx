@@ -12,6 +12,7 @@ import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import api from '../../api/axios';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import logo from '../../assets/logo.png';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -104,6 +105,7 @@ export default function AdminDashboard() {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 w-full border-b border-slate-800/60">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain bg-white rounded-full p-0.5" />
               <div className="bg-indigo-500 p-2 rounded-lg">
                 <Shield className="w-6 h-6 text-white" />
               </div>

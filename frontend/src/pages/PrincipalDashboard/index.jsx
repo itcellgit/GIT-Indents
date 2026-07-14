@@ -12,6 +12,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import logo from '../../assets/logo.png';
 
 const PrincipalDashboard = () => {
   const { user, logout } = useAuth();
@@ -194,9 +195,12 @@ const PrincipalDashboard = () => {
         {/* Top Tier: Branding & Profile */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full border-b border-gray-100">
           <div className="flex justify-between items-center h-16">
-            <div className="flex flex-col justify-center">
-              <h1 className="text-xl font-bold text-gray-900 leading-tight">Principal Dashboard</h1>
-              <p className="text-xs font-medium text-indigo-600">Administrative Oversight</p>
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain" />
+              <div className="flex flex-col justify-center">
+                <h1 className="text-xl font-bold text-gray-900 leading-tight">Principal Dashboard</h1>
+                <p className="text-xs font-medium text-indigo-600">Administrative Oversight</p>
+              </div>
             </div>
             
             <div className="flex items-center gap-4">

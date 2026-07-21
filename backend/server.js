@@ -41,7 +41,7 @@ app.use(cors({
 }));
 
 // 3. Parse JSON & Cookies
-app.use(express.json({ limit: '10kb' })); // Limit body size
+app.use(express.json({ limit: '10mb' })); // Limit body size
 app.use(cookieParser());
 
 // 4. Data Sanitization

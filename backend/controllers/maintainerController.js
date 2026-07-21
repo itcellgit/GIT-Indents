@@ -81,7 +81,7 @@ const updateComplaint = async (req, res) => {
     // Notify Maintenance HOD if the maintainer marked it as completed
     if (isMaintainerCompleted && !indent.isMaintainerCompleted) {
       if (indent.category && indent.category.inchargeId) {
-        await sendNotification(
+        sendNotification(
           indent.category.inchargeId,
           `Maintainer ${req.user.name} has completed work on Indent ${indent.indentNumber}. Please review and finalize.`,
           req.user.id,

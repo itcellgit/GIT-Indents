@@ -81,7 +81,8 @@ const createComplaint = async (req, res) => {
     });
     
     if (deptHOD) {
-      await sendNotification(
+      // Fire-and-forget: don't make the client wait on the SMTP round-trip
+      sendNotification(
         deptHOD.id,
         `New indent ${newIndent.indentNumber} raised by ${req.user.name} requires your approval.`,
         req.user.id,

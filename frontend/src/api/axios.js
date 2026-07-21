@@ -3,6 +3,7 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api', // Backend base URL
   withCredentials: true, // Necessary to send and receive HttpOnly cookies securely
+  timeout: 30000, // Fail loudly instead of letting a stalled request hang forever
   headers: {
     'Content-Type': 'application/json',
   },

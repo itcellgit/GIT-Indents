@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet } from 'lucide-react';
+import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet } from 'lucide-react';
 import api from '../../api/axios';
 import * as XLSX from 'xlsx';
 
@@ -40,7 +40,10 @@ export default function UserManager({ users, onUserUpdate }) {
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false);
   const roleFilterRef = useRef(null);
-  
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 10;
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (filterRef.current && !filterRef.current.contains(event.target)) {
@@ -84,6 +87,17 @@ export default function UserManager({ users, onUserUpdate }) {
     const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(user.role);
     return matchesSearch && matchesDept && matchesRole;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedDepartments, selectedRoles]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / usersPerPage));
+  const currentSafePage = Math.min(currentPage, totalPages);
+  const paginatedUsers = filteredUsers.slice(
+    (currentSafePage - 1) * usersPerPage,
+    currentSafePage * usersPerPage
+  );
 
   const handleToggleStatus = async (user) => {
     try {
@@ -330,7 +344,7 @@ export default function UserManager({ users, onUserUpdate }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredUsers.length > 0 ? filteredUsers.map((user) => (
+            {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
               <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center">
@@ -387,6 +401,60 @@ export default function UserManager({ users, onUserUpdate }) {
           </tbody>
         </table>
       </div>
+
+      {filteredUsers.length > 0 && (
+        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-slate-500">
+            Showing <span className="font-medium text-slate-700">{(currentSafePage - 1) * usersPerPage + 1}</span>
+            {' '}-{' '}
+            <span className="font-medium text-slate-700">{Math.min(currentSafePage * usersPerPage, filteredUsers.length)}</span>
+            {' '}of{' '}
+            <span className="font-medium text-slate-700">{filteredUsers.length}</span> users
+          </p>
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentSafePage === 1}
+              className="p-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(page => page === 1 || page === totalPages || Math.abs(page - currentSafePage) <= 1)
+              .reduce((acc, page, idx, arr) => {
+                if (idx > 0 && page - arr[idx - 1] > 1) acc.push('ellipsis-' + page);
+                acc.push(page);
+                return acc;
+              }, [])
+              .map(page =>
+                typeof page === 'number' ? (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`min-w-[2.25rem] h-9 px-2 rounded-lg text-sm font-medium transition-colors ${
+                      page === currentSafePage
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-50 border border-slate-300'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ) : (
+                  <span key={page} className="px-1 text-slate-400 text-sm">…</span>
+                )
+              )}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentSafePage === totalPages}
+              className="p-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
        {isAddUserOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">

@@ -1,11 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+// Safety-net: no legitimate request should ever take longer than this.
+// Guards against the loader getting stuck forever if a start/end pair
+// somehow desyncs (e.g. a request that never settles).
+const MAX_LOADING_MS = 35000;
 
 const GlobalLoader = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const timeoutRef = useRef(null);
 
   useEffect(() => {
-    const handleStart = () => setIsLoading(true);
-    const handleEnd = () => setIsLoading(false);
+    const clearSafetyTimeout = () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+
+    const handleStart = () => {
+      setIsLoading(true);
+      clearSafetyTimeout();
+      timeoutRef.current = setTimeout(() => setIsLoading(false), MAX_LOADING_MS);
+    };
+    const handleEnd = () => {
+      setIsLoading(false);
+      clearSafetyTimeout();
+    };
 
     window.addEventListener('api-request-start', handleStart);
     window.addEventListener('api-request-end', handleEnd);
@@ -13,6 +33,7 @@ const GlobalLoader = () => {
     return () => {
       window.removeEventListener('api-request-start', handleStart);
       window.removeEventListener('api-request-end', handleEnd);
+      clearSafetyTimeout();
     };
   }, []);
 

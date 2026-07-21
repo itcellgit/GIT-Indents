@@ -200,7 +200,7 @@ const updateComplaintStatus = async (req, res) => {
     if ((status === 'Approved by Dept HOD' || status === 'Approved by Principal') && !isMaintenanceIncharge) {
       const categoryInfo = await prisma.category.findUnique({ where: { id: indent.categoryId } });
       if (categoryInfo && categoryInfo.inchargeId) {
-        await sendNotification(
+        sendNotification(
           categoryInfo.inchargeId,
           `Indent ${indent.indentNumber} was approved by ${isPrincipal ? 'Principal' : 'Department HOD'} and requires maintenance assessment.`,
           req.user.id,
@@ -213,7 +213,7 @@ const updateComplaintStatus = async (req, res) => {
     if (status === 'Rejected by Maintenance HOD' && isMaintenanceIncharge) {
       const principal = await prisma.user.findFirst({ where: { role: 'Principal' } });
       if (principal) {
-        await sendNotification(
+        sendNotification(
           principal.id,
           `Indent ${indent.indentNumber} was rejected by Maintenance HOD. Review required.`,
           req.user.id,
@@ -224,7 +224,7 @@ const updateComplaintStatus = async (req, res) => {
     }
     // 3. Resolved -> Faculty
     if (status === 'Completed') {
-      await sendNotification(
+      sendNotification(
         indent.requesterId,
         `Your indent ${indent.indentNumber} has been marked as Completed.`,
         req.user.id,
@@ -385,7 +385,7 @@ const assignMaintainer = async (req, res) => {
     });
 
     // Notify Maintainer
-    await sendNotification(
+    sendNotification(
       maintainerId,
       `You have been assigned to Indent ${indent.indentNumber} by your HOD.`,
       req.user.id,

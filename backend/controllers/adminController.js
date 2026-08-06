@@ -1,19 +1,150 @@
 // backend/controllers/adminController.js
 const prisma = require('../prismaClient');
 const bcrypt = require('bcryptjs');
+const { departments: departmentList } = require('../utils/departments');
+const { ROLES, ROLE_VALUES, normalizeRole } = require('../utils/roles');
 
-const normalizeRole = (role) => {
-  if (!role) return 'Faculty';
-  const roleMap = {
-    'admin': 'Admin',
-    'principal': 'Principal',
-    'hod': 'HOD',
-    'faculty': 'Faculty',
-    'non-teaching': 'Non-Teaching',
-    'non teaching': 'Non-Teaching',
-    'nonteaching': 'Non-Teaching'
-  };
-  return roleMap[role.toLowerCase().trim()] || 'Faculty';
+const resolveDepartmentName = (value) => {
+  if (!value) return null;
+
+  const normalized = String(value).trim().toLowerCase();
+  const match = departmentList.find((department) =>
+    department.name.toLowerCase() === normalized ||
+    department.shortName.toLowerCase() === normalized
+  );
+
+  return match ? match.name : String(value).trim();
+};
+
+const resolveDepartmentValue = (value) => {
+  if (!value) return null;
+
+  const departmentName = resolveDepartmentName(value);
+  return departmentName || String(value).trim();
+};
+
+const normalizeRoleList = (roles) => {
+  const inputRoles = Array.isArray(roles) ? roles : roles ? [roles] : [];
+  const normalizedRoles = inputRoles
+    .map((role) => String(role).trim())
+    .filter((role, index, array) => role && array.indexOf(role) === index);
+
+  return normalizedRoles;
+};
+
+const getRoleRows = async () => {
+  return prisma.$queryRawUnsafe('SELECT id, role_name FROM public.roles');
+};
+
+const getRoleIdsByName = async (roleNames) => {
+  const roleRows = await getRoleRows();
+  const roleMap = new Map(roleRows.map((role) => [String(role.role_name).trim(), role.id]));
+
+  return roleNames
+    .map((roleName) => ({ roleName, roleId: roleMap.get(roleName) }))
+    .filter(({ roleId }) => roleId !== undefined && roleId !== null);
+};
+
+const getRoleNamesByIds = async (roleIds) => {
+  const inputRoleIds = Array.isArray(roleIds) ? roleIds : roleIds ? [roleIds] : [];
+  if (inputRoleIds.length === 0) {
+    return [];
+  }
+
+  const roleRows = await getRoleRows();
+  const roleMap = new Map(roleRows.map((role) => [String(role.id), String(role.role_name).trim()]));
+
+  return inputRoleIds
+    .map((roleId) => roleMap.get(String(roleId)))
+    .filter(Boolean);
+};
+
+const getPrimaryRoleFromRoleIds = async (roleIds) => {
+  const selectedRoleNames = await getRoleNamesByIds(roleIds);
+  return selectedRoleNames[0] || ROLES.FACULTY;
+};
+
+const getHodRoleId = async () => {
+  const hodRole = await prisma.$queryRawUnsafe(
+    `SELECT id FROM public.roles WHERE role_name = $1 LIMIT 1`,
+    ROLES.HOD
+  );
+
+  return hodRole[0]?.id || null;
+};
+
+const getUserRolesByUserId = async (userId) => {
+  const roleRows = await prisma.$queryRawUnsafe(
+    `SELECT ur.role_id, r.role_name
+     FROM public.user_roles ur
+     INNER JOIN public.roles r ON r.id = ur.role_id
+     WHERE ur.user_id = $1
+     ORDER BY r.id ASC`,
+    userId
+  );
+
+  return roleRows.map((role) => ({
+    roleId: role.role_id,
+    roleName: role.role_name
+  }));
+};
+
+const getUserWithPrimaryRoleByEmail = async (email) => {
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT
+       u.id,
+       u.name,
+       u.email,
+       u.department,
+       COALESCE(
+         (
+           SELECT r.role_name
+           FROM public.user_roles ur
+           INNER JOIN public.roles r ON r.id = ur.role_id
+           WHERE ur.user_id = u.id
+           ORDER BY r.id ASC
+           LIMIT 1
+         ),
+         'Faculty'
+       ) AS role
+     FROM "User" u
+     WHERE LOWER(u.email) = LOWER($1)
+     LIMIT 1`,
+    email
+  );
+
+  return rows[0] || null;
+};
+
+const getUsersByEmailAndRoles = async (email) => {
+  return prisma.$queryRawUnsafe(
+    `SELECT
+       u.id,
+       u.name,
+       u.email,
+       COALESCE(
+         (
+           SELECT r.role_name
+           FROM public.user_roles ur
+           INNER JOIN public.roles r ON r.id = ur.role_id
+           WHERE ur.user_id = u.id
+           ORDER BY r.id ASC
+           LIMIT 1
+         ),
+         'Faculty'
+       ) AS role
+     FROM "User" u
+     WHERE LOWER(u.email) LIKE LOWER($1)
+       AND EXISTS (
+         SELECT 1
+         FROM public.user_roles ur
+         INNER JOIN public.roles r ON r.id = ur.role_id
+         WHERE ur.user_id = u.id
+           AND r.role_name IN ('Faculty', 'HOD', 'Non-Teaching')
+       )
+     ORDER BY u.name ASC`,
+    `%${email}%`
+  );
 };
 
 // @desc    Get system-wide statistics for the admin dashboard
@@ -58,22 +189,76 @@ const getSystemStats = async (req, res) => {
 // @access  Private/Admin
 const getAllUsers = async (req, res) => {
   try {
-    const users = await prisma.user.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        department: true,
-        isActive: true,
-        createdAt: true
-      }
-    });
+    const users = await prisma.$queryRawUnsafe(`
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.department,
+        u."isActive" AS "isActive",
+        u."createdAt" AS "createdAt",
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'roleId', ur.role_id,
+              'roleName', r.role_name
+            ) ORDER BY r.id
+          ) FILTER (WHERE r.role_name IS NOT NULL),
+          '[]'::json
+        ) AS roles
+      FROM "User" u
+      LEFT JOIN public.user_roles ur ON ur.user_id = u.id
+      LEFT JOIN public.roles r ON r.id = ur.role_id
+      GROUP BY u.id, u.name, u.email, u.department, u."isActive", u."createdAt"
+      ORDER BY u."createdAt" DESC
+    `);
+
+    const normalizedUsers = users.map((user) => ({
+      ...user,
+      roles: Array.isArray(user.roles) ? user.roles : []
+    }));
     
     res.json({ 
       success: true,
-      users 
+      users: normalizedUsers 
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+const syncUserRoles = async (tx, userId, roleNames) => {
+  await tx.$executeRawUnsafe('DELETE FROM public.user_roles WHERE user_id = $1', userId);
+
+  const selectedRoleRows = await getRoleIdsByName(roleNames);
+  if (selectedRoleRows.length === 0) {
+    return;
+  }
+
+  const valuesClause = selectedRoleRows.map((_, index) => `($${index * 2 + 1}, $${index * 2 + 2})`).join(', ');
+  const queryParams = selectedRoleRows.flatMap(({ roleId }) => [userId, roleId]);
+
+  await tx.$executeRawUnsafe(
+    `INSERT INTO public.user_roles (user_id, role_id) VALUES ${valuesClause}`,
+    ...queryParams
+  );
+};
+
+// @desc    Get all roles from roles table
+// @route   GET /api/admin/roles
+// @access  Private/Admin
+const getAllRoles = async (req, res) => {
+  try {
+    const roles = await prisma.$queryRawUnsafe(
+      'SELECT id, role_name FROM public.roles ORDER BY id ASC'
+    );
+
+    res.json({
+      success: true,
+      roles: roles.map((role) => ({
+        id: role.id,
+        name: role.role_name
+      }))
     });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
@@ -85,41 +270,137 @@ const getAllUsers = async (req, res) => {
 // @access  Private/Admin
 const createUser = async (req, res) => {
   try {
-    const { name, email, password, department, role } = req.body;
+    const { name, email, password, department, role, roles } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
     }
 
-    const userExists = await prisma.user.findUnique({ where: { email } });
+    const userExists = await getUserWithPrimaryRoleByEmail(email);
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
+    const selectedRoles = normalizeRoleList(roles || role);
+    if (selectedRoles.length === 0) {
+      return res.status(400).json({ message: 'At least one role is required' });
+    }
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        department: department || '',
-        role: normalizeRole(role),
-        isActive: true
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        department: true,
-        isActive: true,
-        createdAt: true
-      }
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          department: department || '',
+          isActive: true
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          department: true,
+          isActive: true,
+          createdAt: true
+        }
+      });
+
+      await syncUserRoles(tx, createdUser.id, selectedRoles);
+
+      return createdUser;
     });
 
-    res.status(201).json({ success: true, user });
+    res.status(201).json({ success: true, user, roles: normalizeRoleList(roles || role) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Update user (by Admin)
+// @route   PUT /api/admin/users/:id
+// @access  Private/Admin
+const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, department, roles, roleIds, role, password } = req.body;
+
+    const existingUserRows = await prisma.$queryRawUnsafe(
+      `SELECT
+         u.id,
+         u.name,
+         u.email,
+         u.department,
+         u."isActive" AS "isActive",
+         u."createdAt" AS "createdAt",
+         COALESCE(
+           (
+             SELECT r.role_name
+             FROM public.user_roles ur
+             INNER JOIN public.roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id
+             ORDER BY r.id ASC
+             LIMIT 1
+           ),
+           'Faculty'
+         ) AS role
+       FROM "User" u
+       WHERE u.id = $1
+       LIMIT 1`,
+      id
+    );
+    const existingUser = existingUserRows[0] || null;
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const existingRoles = await getUserRolesByUserId(id);
+    const existingRoleNames = existingRoles.map((role) => role.roleName);
+    const roleNamesFromIds = await getRoleNamesByIds(roleIds);
+    const selectedRoles = normalizeRoleList(roleNamesFromIds.length > 0 ? roleNamesFromIds : roles || role || existingRoleNames);
+    if (selectedRoles.length === 0) {
+      return res.status(400).json({ message: 'At least one role is required' });
+    }
+
+    const duplicateEmailUser = email
+      ? await prisma.user.findFirst({ where: { email, NOT: { id } } })
+      : null;
+    if (duplicateEmailUser) {
+      return res.status(400).json({ message: 'Email already exists' });
+    }
+
+    const updateData = {
+      name: name !== undefined ? name : existingUser.name,
+      email: email !== undefined ? email : existingUser.email,
+      department: department !== undefined ? department : existingUser.department || ''
+    };
+
+    if (password && String(password).trim()) {
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(password, salt);
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const userRecord = await tx.user.update({
+        where: { id },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          department: true,
+          isActive: true,
+          createdAt: true
+        }
+      });
+
+      await syncUserRoles(tx, id, selectedRoles);
+
+      return userRecord;
+    });
+
+    res.json({ success: true, user: updatedUser, roles: selectedRoles });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
   }
@@ -156,14 +437,29 @@ const bulkCreateUsers = async (req, res) => {
       return res.status(400).json({ message: 'No valid user data found in the upload' });
     }
 
-    const result = await prisma.user.createMany({
-      data: validUsers,
-      skipDuplicates: true, // Will skip users if email already exists
-    });
+    let createdCount = 0;
+    for (const validUser of validUsers) {
+      const { role, ...userData } = validUser;
 
-    res.status(201).json({ 
-      success: true, 
-      message: `Successfully added ${result.count} users. Any existing emails were skipped.`
+      await prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.createMany({
+          data: [userData],
+          skipDuplicates: true // Will skip if email already exists
+        });
+
+        if (createdUser.count === 0) {
+          return;
+        }
+
+        createdCount += 1;
+        const newUser = await tx.user.findUnique({ where: { email: userData.email } });
+        await syncUserRoles(tx, newUser.id, [role]);
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully added ${createdCount} users. Any existing emails were skipped.`
     });
   } catch (err) {
     res.status(500).json({ message: 'Server Error during bulk upload' });
@@ -209,20 +505,29 @@ const createDepartment = async (req, res) => {
     
     // If an incharge email is provided, verify they exist and are Faculty/HOD
     if (inchargeEmail) {
-      const user = await prisma.user.findUnique({ where: { email: inchargeEmail } });
+      const user = await getUserWithPrimaryRoleByEmail(inchargeEmail);
       if (!user) {
         return res.status(404).json({ message: 'User with this email not found' });
       }
-      if (user.role !== 'Faculty' && user.role !== 'HOD' && user.role !== 'Non-Teaching') {
+      if (user.role !== ROLES.FACULTY && user.role !== ROLES.HOD && user.role !== ROLES.NON_TEACHING) {
         return res.status(400).json({ message: 'Assigned incharge must be Faculty, Non-Teaching, or HOD' });
       }
 
       // Upgrade Faculty/Non-Teaching to HOD role if they are made an incharge
-      if (user.role === 'Faculty' || user.role === 'Non-Teaching') {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { role: 'HOD' }
-        });
+      if (user.role === ROLES.FACULTY || user.role === ROLES.NON_TEACHING) {
+        const hodRoleId = await getHodRoleId();
+
+        if (hodRoleId) {
+          await prisma.$executeRawUnsafe(
+            `DELETE FROM public.user_roles WHERE user_id = $1`,
+            user.id
+          );
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO public.user_roles (user_id, role_id) VALUES ($1, $2)`,
+            user.id,
+            hodRoleId
+          );
+        }
       }
 
       inchargeId = user.id;
@@ -241,7 +546,7 @@ const createDepartment = async (req, res) => {
         inchargeId
       },
       include: {
-        incharge: { select: { name: true, email: true, role: true } }
+        incharge: { select: { name: true, email: true } }
       }
     });
 
@@ -276,20 +581,21 @@ const updateDepartment = async (req, res) => {
       if (!inchargeEmail) {
         updateData.inchargeId = null;
       } else {
-        const user = await prisma.user.findUnique({ where: { email: inchargeEmail } });
+        const user = await getUserWithPrimaryRoleByEmail(inchargeEmail);
         if (!user) {
           return res.status(404).json({ message: 'User with this email not found' });
         }
-        if (user.role !== 'Faculty' && user.role !== 'HOD' && user.role !== 'Non-Teaching') {
+        if (user.role !== ROLES.FACULTY && user.role !== ROLES.HOD && user.role !== ROLES.NON_TEACHING) {
           return res.status(400).json({ message: 'Assigned incharge must be Faculty, Non-Teaching, or HOD' });
         }
 
         // Upgrade Faculty/Non-Teaching to HOD role if they are made an incharge
-        if (user.role === 'Faculty' || user.role === 'Non-Teaching') {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { role: 'HOD' }
-          });
+        if (user.role === ROLES.FACULTY || user.role === ROLES.NON_TEACHING) {
+          const hodRoleId = await getHodRoleId();
+          if (hodRoleId) {
+            await prisma.$executeRawUnsafe(`DELETE FROM public.user_roles WHERE user_id = $1`, user.id);
+            await prisma.$executeRawUnsafe(`INSERT INTO public.user_roles (user_id, role_id) VALUES ($1, $2)`, user.id, hodRoleId);
+          }
         }
 
         updateData.inchargeId = user.id;
@@ -300,7 +606,7 @@ const updateDepartment = async (req, res) => {
       where: { id },
       data: updateData,
       include: {
-        incharge: { select: { name: true, email: true, role: true } }
+        incharge: { select: { name: true, email: true } }
       }
     });
     
@@ -324,13 +630,7 @@ const searchUsers = async (req, res) => {
       return res.status(400).json({ message: 'Email query parameter is required' });
     }
 
-    const users = await prisma.user.findMany({ 
-      where: {
-        email: { contains: email, mode: 'insensitive' },
-        role: { in: ['Faculty', 'HOD', 'Non-Teaching'] }
-      },
-      select: { id: true, name: true, email: true, role: true }
-    });
+    const users = await getUsersByEmailAndRoles(email);
 
     res.json({ users });
   } catch (err) {
@@ -343,12 +643,148 @@ const searchUsers = async (req, res) => {
 // @access  Private/Admin
 const getDepartmentsAdmin = async (req, res) => {
   try {
-    const departments = await prisma.category.findMany({
-      include: {
-        incharge: { select: { name: true, email: true, role: true } }
-      }
-    });
+    const departments = await prisma.$queryRawUnsafe(
+      `SELECT
+         c.id,
+         c.name,
+         c.description,
+         c."inchargeId",
+         c."createdAt",
+         c."updatedAt",
+         CASE
+           WHEN u.id IS NULL THEN NULL
+           ELSE json_build_object(
+             'name', u.name,
+             'email', u.email,
+             'role', COALESCE(
+               (
+                 SELECT r.role_name
+                 FROM public.user_roles ur
+                 INNER JOIN public.roles r ON r.id = ur.role_id
+                 WHERE ur.user_id = u.id
+                 ORDER BY r.id ASC
+                 LIMIT 1
+               ),
+               'Faculty'
+             )
+           )
+         END AS incharge
+       FROM "Category" c
+       LEFT JOIN "User" u ON u.id = c."inchargeId"
+       ORDER BY c."createdAt" DESC`
+    );
     res.json({ departments });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+const mapStationaryRow = (row) => ({
+  id: Number(row.id),
+  name: row.name,
+  specification: row.specification,
+  created_at: row.created_at,
+  updated_at: row.updated_at
+});
+
+// @desc    Get all stationery items
+// @route   GET /api/admin/stationaries
+// @access  Private/Admin
+const getAllStationaries = async (req, res) => {
+  try {
+    const stationaries = await prisma.$queryRawUnsafe(
+      `SELECT id, name, specification, created_at, updated_at
+       FROM public.stationaries
+       ORDER BY created_at DESC NULLS LAST, id DESC`
+    );
+
+    res.json({ success: true, stationaries: stationaries.map(mapStationaryRow) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Create stationery item
+// @route   POST /api/admin/stationaries
+// @access  Private/Admin
+const createStationary = async (req, res) => {
+  try {
+    const { name, specification } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ message: 'Item name is required' });
+    }
+
+    if (!specification || !String(specification).trim()) {
+      return res.status(400).json({ message: 'Specification is required' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO public.stationaries (name, specification, created_at, updated_at)
+       VALUES ($1, $2, NOW(), NOW())
+       RETURNING id, name, specification, created_at, updated_at`,
+      String(name).trim(),
+      String(specification).trim()
+    );
+
+    res.status(201).json({ success: true, stationary: mapStationaryRow(rows[0]) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Update stationery item
+// @route   PUT /api/admin/stationaries/:id
+// @access  Private/Admin
+const updateStationary = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, specification } = req.body;
+
+    const existing = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.stationaries WHERE id = $1 LIMIT 1`,
+      Number(id)
+    );
+
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ message: 'Stationary item not found' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `UPDATE public.stationaries
+       SET name = COALESCE($2, name),
+           specification = COALESCE($3, specification),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, name, specification, created_at, updated_at`,
+      Number(id),
+      name !== undefined ? String(name).trim() : null,
+      specification !== undefined ? String(specification).trim() : null
+    );
+
+    res.json({ success: true, stationary: mapStationaryRow(rows[0]) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Delete stationery item
+// @route   DELETE /api/admin/stationaries/:id
+// @access  Private/Admin
+const deleteStationary = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deleted = await prisma.$executeRawUnsafe(
+      `DELETE FROM public.stationaries WHERE id = $1`,
+      Number(id)
+    );
+
+    if (!deleted) {
+      return res.status(404).json({ message: 'Stationary item not found' });
+    }
+
+    res.json({ success: true, message: 'Stationary item deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
   }
@@ -418,29 +854,400 @@ const getMonthlyReport = async (req, res) => {
   }
 };
 
+const mapCoordinatorRow = (row) => ({
+  id: Number(row.id),
+  name: row.name,
+  employee_type: row.employee_type,
+  created_at: row.created_at,
+  updated_at: row.updated_at
+});
+
+const mapCoordinatorStaffRow = (row) => ({
+  id: Number(row.id),
+  coordinator_id: Number(row.coordinator_id),
+  staff_id: row.staff_id,
+  department_id: row.department_id,
+  start_date: row.start_date,
+  end_date: row.end_date,
+  level: row.level,
+  status: row.status,
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+  staff_name: row.staff_name,
+  staff_email: row.staff_email,
+  department_name: row.department_name,
+  coordinator_name: row.coordinator_name
+});
+
+// @desc    Get assignments for a coordinator
+// @route   GET /api/admin/coordinators/:id/assignments
+// @access  Private/Admin
+const getCoordinatorAssignments = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT cs.id,
+              cs.coordinator_id,
+              cs.staff_id,
+              cs.department_id,
+              cs.start_date,
+              cs.end_date,
+              cs.level,
+              cs.status,
+              cs.created_at,
+              cs.updated_at,
+              c.name AS coordinator_name,
+              u.name AS staff_name,
+              u.email AS staff_email,
+              d.name AS department_name
+       FROM public.coordinator_staffs cs
+       LEFT JOIN public.coordinators c ON c.id = cs.coordinator_id
+      LEFT JOIN public."User" u ON u.id = cs.staff_id::text
+      LEFT JOIN public."Category" d ON d.id = cs.department_id::text
+       WHERE cs.coordinator_id = $1
+       ORDER BY cs.created_at DESC NULLS LAST, cs.id DESC`,
+      Number(id)
+    );
+
+    res.json({
+      success: true,
+      assignments: rows.map((row) => ({
+        ...mapCoordinatorStaffRow(row),
+        department_name: resolveDepartmentName(row.department_name) || resolveDepartmentName(row.department_id)
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Assign staff to coordinator
+// @route   POST /api/admin/coordinators/:id/assignments
+// @access  Private/Admin
+const createCoordinatorAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { staff_id, department_id, start_date, end_date, level, status } = req.body;
+
+    if (!staff_id || !start_date) {
+      return res.status(400).json({ message: 'Staff and start date are required' });
+    }
+
+    let resolvedDepartmentId = resolveDepartmentValue(department_id);
+
+    if (!resolvedDepartmentId) {
+      const staffRows = await prisma.$queryRawUnsafe(
+        `SELECT id, department
+         FROM public."User"
+         WHERE id = $1
+         LIMIT 1`,
+        String(staff_id)
+      );
+
+      const staffUser = staffRows && staffRows[0];
+      resolvedDepartmentId = resolveDepartmentValue(staffUser?.department);
+
+      if (!resolvedDepartmentId) {
+        return res.status(400).json({
+          message: 'Unable to resolve a valid department for this staff member'
+        });
+      }
+    }
+
+    const coordinator = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.coordinators WHERE id = $1 LIMIT 1`,
+      Number(id)
+    );
+    if (!coordinator || coordinator.length === 0) {
+      return res.status(404).json({ message: 'Coordinator not found' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO public.coordinator_staffs
+         (coordinator_id, staff_id, department_id, start_date, end_date, level, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+       RETURNING id, coordinator_id, staff_id, department_id, start_date, end_date, level, status, created_at, updated_at`,
+      Number(id),
+      String(staff_id),
+      String(resolvedDepartmentId),
+      start_date,
+      end_date || null,
+      level || null,
+      status || 'Active'
+    );
+
+    const assignmentRows = await prisma.$queryRawUnsafe(
+      `SELECT cs.id,
+              cs.coordinator_id,
+              cs.staff_id,
+              cs.department_id,
+              cs.start_date,
+              cs.end_date,
+              cs.level,
+              cs.status,
+              cs.created_at,
+              cs.updated_at,
+              c.name AS coordinator_name,
+              u.name AS staff_name,
+              u.email AS staff_email,
+              d.name AS department_name
+       FROM public.coordinator_staffs cs
+       LEFT JOIN public.coordinators c ON c.id = cs.coordinator_id
+      LEFT JOIN public."User" u ON u.id = cs.staff_id::text
+      LEFT JOIN public."Category" d ON d.id = cs.department_id::text
+       WHERE cs.id = $1
+       LIMIT 1`,
+      Number(rows[0].id)
+    );
+
+    const assignment = assignmentRows[0] ? {
+      ...mapCoordinatorStaffRow(assignmentRows[0]),
+      department_name: resolveDepartmentName(assignmentRows[0].department_name) || resolveDepartmentName(assignmentRows[0].department_id)
+    } : null;
+
+    res.status(201).json({ success: true, assignment });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Update coordinator assignment
+// @route   PUT /api/admin/coordinators/assignments/:assignmentId
+// @access  Private/Admin
+const updateCoordinatorAssignment = async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { staff_id, department_id, start_date, end_date, level, status } = req.body;
+
+    const existing = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.coordinator_staffs WHERE id = $1 LIMIT 1`,
+      Number(assignmentId)
+    );
+
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ message: 'Assignment not found' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `UPDATE public.coordinator_staffs
+       SET staff_id = COALESCE($2, staff_id),
+           department_id = COALESCE($3, department_id),
+           start_date = COALESCE($4, start_date),
+           end_date = COALESCE($5, end_date),
+           level = COALESCE($6, level),
+           status = COALESCE($7, status),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, coordinator_id, staff_id, department_id, start_date, end_date, level, status, created_at, updated_at`,
+      Number(assignmentId),
+      staff_id ? Number(staff_id) : null,
+      department_id ? String(department_id) : null,
+      start_date || null,
+      end_date || null,
+      level || null,
+      status || null
+    );
+
+    const assignmentRows = await prisma.$queryRawUnsafe(
+      `SELECT cs.id,
+              cs.coordinator_id,
+              cs.staff_id,
+              cs.department_id,
+              cs.start_date,
+              cs.end_date,
+              cs.level,
+              cs.status,
+              cs.created_at,
+              cs.updated_at,
+              c.name AS coordinator_name,
+              u.name AS staff_name,
+              u.email AS staff_email,
+              d.name AS department_name
+       FROM public.coordinator_staffs cs
+       LEFT JOIN public.coordinators c ON c.id = cs.coordinator_id
+      LEFT JOIN public."User" u ON u.id = cs.staff_id::text
+      LEFT JOIN public."Category" d ON d.id = cs.department_id::text
+       WHERE cs.id = $1
+       LIMIT 1`,
+      Number(rows[0].id)
+    );
+
+    const assignment = assignmentRows[0] ? {
+      ...mapCoordinatorStaffRow(assignmentRows[0]),
+      department_name: resolveDepartmentName(assignmentRows[0].department_name) || resolveDepartmentName(assignmentRows[0].department_id)
+    } : null;
+
+    res.json({ success: true, assignment });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Get all coordinators
+// @route   GET /api/admin/coordinators
+// @access  Private/Admin
+const getAllCoordinators = async (req, res) => {
+  try {
+    const coordinators = await prisma.$queryRawUnsafe(`
+      SELECT id, name, employee_type, created_at, updated_at
+      FROM public.coordinators
+      ORDER BY created_at DESC NULLS LAST, id DESC
+    `);
+
+    res.json({ success: true, coordinators: coordinators.map(mapCoordinatorRow) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Create coordinator
+// @route   POST /api/admin/coordinators
+// @access  Private/Admin
+const createCoordinator = async (req, res) => {
+  try {
+    const { name, employee_type } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ message: 'Coordinator name is required' });
+    }
+
+    const allowedTypes = ['Teaching', 'Non-Teaching', 'Both', ''];
+    const safeEmployeeType = employee_type !== undefined ? String(employee_type) : 'Teaching';
+    if (!allowedTypes.includes(safeEmployeeType)) {
+      return res.status(400).json({ message: 'Invalid employee type' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO public.coordinators (name, employee_type, created_at, updated_at)
+       VALUES ($1, $2, NOW(), NOW())
+       RETURNING id, name, employee_type, created_at, updated_at`,
+      String(name).trim(),
+      safeEmployeeType
+    );
+
+    res.status(201).json({ success: true, coordinator: mapCoordinatorRow(rows[0]) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Update coordinator
+// @route   PUT /api/admin/coordinators/:id
+// @access  Private/Admin
+const updateCoordinator = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, employee_type } = req.body;
+
+    const allowedTypes = ['Teaching', 'Non-Teaching', 'Both', ''];
+    const safeEmployeeType = employee_type !== undefined ? String(employee_type) : undefined;
+    if (safeEmployeeType !== undefined && !allowedTypes.includes(safeEmployeeType)) {
+      return res.status(400).json({ message: 'Invalid employee type' });
+    }
+
+    const existing = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.coordinators WHERE id = $1`,
+      Number(id)
+    );
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ message: 'Coordinator not found' });
+    }
+
+    const updateName = name !== undefined ? String(name).trim() : null;
+    const updateType = safeEmployeeType !== undefined ? safeEmployeeType : null;
+
+    const rows = await prisma.$queryRawUnsafe(
+      `UPDATE public.coordinators
+       SET name = COALESCE($2, name),
+           employee_type = COALESCE($3, employee_type),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, name, employee_type, created_at, updated_at`,
+      Number(id),
+      updateName,
+      updateType
+    );
+
+    res.json({ success: true, coordinator: mapCoordinatorRow(rows[0]) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Delete coordinator
+// @route   DELETE /api/admin/coordinators/:id
+// @access  Private/Admin
+const deleteCoordinator = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await prisma.$executeRawUnsafe(
+      `DELETE FROM public.coordinators WHERE id = $1`,
+      Number(id)
+    );
+
+    if (!result) {
+      return res.status(404).json({ message: 'Coordinator not found' });
+    }
+
+    res.json({ success: true, message: 'Coordinator deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Get coordinator by id
+// @route   GET /api/admin/coordinators/:id
+// @access  Private/Admin
+const getCoordinatorById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const coordinators = await prisma.$queryRawUnsafe(
+      `SELECT id, name, employee_type, created_at, updated_at
+       FROM public.coordinators
+       WHERE id = $1
+       LIMIT 1`,
+      Number(id)
+    );
+
+    if (!coordinators || coordinators.length === 0) {
+      return res.status(404).json({ message: 'Coordinator not found' });
+    }
+
+    res.json({ success: true, coordinator: mapCoordinatorRow(coordinators[0]) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 // @desc    Toggle user active status
 // @route   PUT /api/admin/users/:id/status
 // @access  Private/Admin
 const toggleUserStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await prisma.user.findUnique({ where: { id } });
+    const userRows = await prisma.$queryRawUnsafe(
+      `SELECT id, name, email, "isActive" FROM "User" WHERE id = $1 LIMIT 1`,
+      id
+    );
+    const user = userRows[0] || null;
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
     // Prevent admin from disabling themselves
-    if (user.role === 'Admin' && req.user && req.user.id === id) {
+    if (req.user && req.user.id === id && user && user.email === req.user.email) {
       return res.status(400).json({ message: 'Cannot disable your own admin account' });
     }
     
     const newStatus = !user.isActive;
     
-    await prisma.user.update({
-      where: { id },
-      data: { isActive: newStatus }
-    });
+    await prisma.$executeRawUnsafe(
+      `UPDATE "User" SET "isActive" = $2 WHERE id = $1`,
+      id,
+      newStatus
+    );
     
     res.json({ success: true, isActive: newStatus, message: `User ${newStatus ? 'enabled' : 'disabled'} successfully` });
   } catch (err) {
@@ -451,13 +1258,27 @@ const toggleUserStatus = async (req, res) => {
 module.exports = {
   getSystemStats,
   getAllUsers,
+  getAllRoles,
   createUser,
+  updateUser,
   getAllComplaints,
   createDepartment,
   updateDepartment,
   searchUsers,
   getDepartmentsAdmin,
+  getAllStationaries,
+  createStationary,
+  updateStationary,
+  deleteStationary,
   getMonthlyReport,
   toggleUserStatus,
-  bulkCreateUsers
+  bulkCreateUsers,
+  getAllCoordinators,
+  getCoordinatorById,
+  getCoordinatorAssignments,
+  createCoordinatorAssignment,
+  updateCoordinatorAssignment,
+  createCoordinator,
+  updateCoordinator,
+  deleteCoordinator
 };

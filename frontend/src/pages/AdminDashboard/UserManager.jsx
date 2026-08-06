@@ -1,30 +1,61 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet } from 'lucide-react';
+import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet, PencilLine } from 'lucide-react';
 import api from '../../api/axios';
 import * as XLSX from 'xlsx';
 
-const ROLE_HIERARCHY = {
-  'Admin': 1,
-  'Principal': 2,
-  'HOD': 3,
-  'Faculty': 4,
-  'Non-Teaching': 5
+import { departments } from '../../utils/departments';
+
+const getRoleSortOrder = (role) => {
+  return role?.sortOrder ?? role?.id ?? Number.MAX_SAFE_INTEGER;
 };
 
-import { departments } from '../../utils/departments';
+const getUserRoles = (user) => {
+  if (Array.isArray(user.roles)) {
+    return user.roles
+      .map((role) => (typeof role === 'string' ? role : role?.roleName))
+      .filter(Boolean);
+  }
+
+  if (Array.isArray(user.userRoles)) {
+    return user.userRoles
+      .map((role) => (typeof role === 'string' ? role : role?.roleName))
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const getUserRoleIds = (user) => {
+  if (Array.isArray(user.roles)) {
+    return user.roles
+      .map((role) => (typeof role === 'object' && role !== null ? role.roleId : null))
+      .filter((roleId) => roleId !== null && roleId !== undefined);
+  }
+
+  return [];
+};
+
+const getPrimaryRole = (user) => getUserRoles(user)[0] || '';
 
 export default function UserManager({ users, onUserUpdate }) {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [loadingActionId, setLoadingActionId] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // State for Add User form
   const [addUserData, setAddUserData] = useState({
-    name: '', email: '', role: 'Faculty', department: '', password: ''
+    name: '', email: '', roles: [], department: '', password: ''
   });
   
   const [addUserError, setAddUserError] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [editUserData, setEditUserData] = useState({
+    name: '', email: '', roles: [], roleIds: [], department: '', password: ''
+  });
+  const [editUserError, setEditUserError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // State for Bulk Upload
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
@@ -41,8 +72,31 @@ export default function UserManager({ users, onUserUpdate }) {
   const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false);
   const roleFilterRef = useRef(null);
 
+  const [dbRoles, setDbRoles] = useState([]);
+
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 10;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRoles = async () => {
+      try {
+        const response = await api.get('/admin/roles');
+        if (!isMounted) return;
+        setDbRoles(Array.isArray(response.data.roles) ? response.data.roles : []);
+      } catch (error) {
+        if (!isMounted) return;
+        setDbRoles([]);
+      }
+    };
+
+    loadRoles();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -73,18 +127,22 @@ export default function UserManager({ users, onUserUpdate }) {
     );
   };
 
-  // Sort users by role hierarchy
+  const availableRoles = [...dbRoles]
+    .filter((role) => role.name)
+    .sort((a, b) => getRoleSortOrder(a) - getRoleSortOrder(b));
+
   const sortedUsers = [...users].sort((a, b) => {
-    const roleA = ROLE_HIERARCHY[a.role] || 99;
-    const roleB = ROLE_HIERARCHY[b.role] || 99;
-    return roleA - roleB;
+    const roleA = availableRoles.find((role) => role.name === getPrimaryRole(a));
+    const roleB = availableRoles.find((role) => role.name === getPrimaryRole(b));
+    return getRoleSortOrder(roleA) - getRoleSortOrder(roleB);
   });
 
   const filteredUsers = sortedUsers.filter(user => {
     const term = searchTerm.toLowerCase();
     const matchesSearch = user.name.toLowerCase().includes(term) || user.email.toLowerCase().includes(term);
     const matchesDept = selectedDepartments.length === 0 || selectedDepartments.includes(user.department);
-    const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(user.role);
+    const userRoles = getUserRoles(user);
+    const matchesRole = selectedRoles.length === 0 || userRoles.some((role) => selectedRoles.includes(role));
     return matchesSearch && matchesDept && matchesRole;
   });
 
@@ -114,10 +172,65 @@ export default function UserManager({ users, onUserUpdate }) {
     }
   };
 
+  const openEditModal = (user) => {
+    setEditingUser(user);
+    setEditUserData({ 
+      name: user.name || '',
+      email: user.email || '',
+      roles: getUserRoles(user),
+      roleIds: getUserRoleIds(user),
+      department: user.department || '',
+      password: ''
+    });
+    setEditUserError('');
+    setIsEditUserOpen(true);
+  };
+
   const handleAddUserChange = (e) => {
     const { name, value } = e.target;
     setAddUserData(prev => ({ ...prev, [name]: value }));
     if (addUserError) setAddUserError('');
+  };
+
+  const handleEditUserChange = (e) => {
+    const { name, value } = e.target;
+    setEditUserData(prev => ({ ...prev, [name]: value }));
+    if (editUserError) setEditUserError('');
+  };
+
+  const toggleAddUserRole = (role) => {
+    setAddUserData(prev => {
+      const nextRoles = prev.roles.includes(role)
+        ? prev.roles.filter((item) => item !== role)
+        : [...prev.roles, role];
+
+      return {
+        ...prev,
+        roles: nextRoles
+      };
+    });
+
+    if (addUserError) setAddUserError('');
+  };
+
+  const toggleEditUserRole = (role) => {
+    setEditUserData(prev => {
+      const nextRoles = prev.roles.includes(role)
+        ? prev.roles.filter((item) => item !== role)
+        : [...prev.roles, role];
+
+      const nextRoleIds = dbRoles
+        .filter((dbRole) => nextRoles.includes(dbRole.name))
+        .map((dbRole) => dbRole.id);
+
+      return {
+        ...prev,
+        roles: nextRoles,
+        roleIds: nextRoleIds
+      };
+    });
+
+    if (editUserError) setEditUserError('');
   };
 
   const handleAddUserSubmit = async () => {
@@ -125,17 +238,48 @@ export default function UserManager({ users, onUserUpdate }) {
       setAddUserError('Name, email and password are required');
       return;
     }
+
+    if (addUserData.roles.length === 0) {
+      setAddUserError('Select at least one role');
+      return;
+    }
     try {
       setIsAdding(true);
       await api.post('/admin/users', addUserData);
       setIsAddUserOpen(false);
-      setAddUserData({ name: '', email: '', role: 'Faculty', department: '', password: '' });
+      setAddUserData({ name: '', email: '', roles: [], department: '', password: '' });
       if (onUserUpdate) onUserUpdate();
     } catch (err) {
       console.error("Failed to add user:", err);
       setAddUserError(err.response?.data?.message || "Failed to add user");
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const handleEditUserSubmit = async () => {
+    if (!editingUser) return;
+    if (!editUserData.name || !editUserData.email) {
+      setEditUserError('Name and email are required');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await api.put(`/admin/users/${editingUser.id}`, {
+        ...editUserData,
+        roles: editUserData.roles,
+        roleIds: editUserData.roleIds
+      });
+      setIsEditUserOpen(false);
+      setEditingUser(null);
+      setEditUserData({ name: '', email: '', roles: [], roleIds: [], department: '', password: '' });
+      if (onUserUpdate) onUserUpdate();
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      setEditUserError(err.response?.data?.message || 'Failed to update user');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -185,7 +329,8 @@ export default function UserManager({ users, onUserUpdate }) {
   };
 
   const downloadTemplate = () => {
-    const ws = XLSX.utils.json_to_sheet([{ Name: 'John Doe', Email: 'john@git.edu', Department: 'Computer Science', Role: 'Faculty' }]);
+    const templateRole = availableRoles[0]?.name || 'Role';
+    const ws = XLSX.utils.json_to_sheet([{ Name: 'John Doe', Email: 'john@git.edu', Department: 'Computer Science', Role: templateRole }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Users");
     XLSX.writeFile(wb, "bulk_user_template.xlsx");
@@ -283,20 +428,20 @@ export default function UserManager({ users, onUserUpdate }) {
                     <span className="text-sm font-medium text-slate-700">All Roles</span>
                   </div>
                   <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                  {Object.keys(ROLE_HIERARCHY).map((role) => {
-                    const isSelected = selectedRoles.includes(role);
+                  {availableRoles.map((role) => {
+                    const isSelected = selectedRoles.includes(role.name);
                     return (
                       <div 
-                        key={role}
+                        key={role.id}
                         className="flex items-center px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors"
-                        onClick={() => toggleRoleFilter(role)}
+                        onClick={() => toggleRoleFilter(role.name)}
                       >
                         {isSelected ? (
                           <CheckSquare className="w-4 h-4 text-indigo-600 mr-3 shrink-0" />
                         ) : (
                           <Square className="w-4 h-4 text-slate-300 mr-3 shrink-0" />
                         )}
-                        <span className="text-sm text-slate-600 truncate" title={role}>{role}</span>
+                        <span className="text-sm text-slate-600 truncate" title={role.name}>{role.name}</span>
                       </div>
                     );
                   })}
@@ -358,15 +503,25 @@ export default function UserManager({ users, onUserUpdate }) {
                   </div>
                 </td>
                 <td className="px-6 py-4">
+                  {(() => {
+                    const roles = getUserRoles(user);
+                    const displayRole = roles.join(', ') || '-';
+                    const primaryRole = roles[0] || '';
+                    const roleIds = getUserRoleIds(user);
+
+                    return (
                   <span className={`px-2.5 py-1 text-xs font-medium rounded-full 
-                    ${user.role === 'Admin' ? 'bg-purple-100 text-purple-800' : 
-                      user.role === 'Principal' ? 'bg-indigo-100 text-indigo-800' :
-                      user.role === 'HOD' ? 'bg-blue-100 text-blue-800' : 
-                      user.role === 'Non-Teaching' ? 'bg-orange-100 text-orange-800' :
+                    ${primaryRole === 'Admin' ? 'bg-purple-100 text-purple-800' : 
+                      primaryRole === 'Principal' ? 'bg-indigo-100 text-indigo-800' :
+                      primaryRole === 'HOD' ? 'bg-blue-100 text-blue-800' : 
+                      primaryRole === 'Non-Teaching' ? 'bg-orange-100 text-orange-800' :
                       'bg-slate-100 text-slate-800'}`}
+                    title={roleIds.length > 0 ? `Role IDs: ${roleIds.join(', ')}` : undefined}
                   >
-                    {user.role}
+                    {displayRole}
                   </span>
+                    );
+                  })()}
                 </td>
                 <td className="px-6 py-4">
                   <span className="text-sm text-slate-600">{user.department || '-'}</span>
@@ -377,6 +532,13 @@ export default function UserManager({ users, onUserUpdate }) {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right space-x-2">
+                  <button
+                    onClick={() => openEditModal(user)}
+                    className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                    title="Edit User"
+                  >
+                    <PencilLine className="w-4 h-4" />
+                  </button>
                   <button 
                     onClick={() => handleToggleStatus(user)}
                     disabled={loadingActionId === user.id}
@@ -481,13 +643,23 @@ export default function UserManager({ users, onUserUpdate }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-                  <select name="role" value={addUserData.role} onChange={handleAddUserChange} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600 bg-white">
-                    <option value="Faculty">Faculty</option>
-                    <option value="Non-Teaching">Non-Teaching</option>
-                    <option value="HOD">HOD</option>
-                    <option value="Principal">Principal</option>
-                    <option value="Admin">Admin</option>
-                  </select>
+                  <div className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white max-h-48 overflow-y-auto space-y-2">
+                    {availableRoles.map((role) => {
+                      const isChecked = addUserData.roles.includes(role.name);
+                      return (
+                        <label key={role.id} className="flex items-center gap-2 cursor-pointer text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleAddUserRole(role.name)}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                          />
+                          <span>{role.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">Selected: {addUserData.roles.join(', ')}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
@@ -596,6 +768,55 @@ export default function UserManager({ users, onUserUpdate }) {
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading...
                   </>
                 ) : 'Upload Users'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditUserOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800">Edit User</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {editUserError && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{editUserError}</p>}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <input name="name" value={editUserData.name} onChange={handleEditUserChange} type="text" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <input name="email" value={editUserData.email} onChange={handleEditUserChange} type="email" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                  <div className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white max-h-48 overflow-y-auto space-y-2">
+                    {availableRoles.map((role) => {
+                      const isChecked = editUserData.roles.includes(role.name);
+                      return (
+                        <label key={role.id} className="flex items-center gap-2 cursor-pointer text-slate-700">
+                          <input type="checkbox" checked={isChecked} onChange={() => toggleEditUserRole(role.name)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" />
+                          <span>{role.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                  <input name="department" value={editUserData.department} onChange={handleEditUserChange} placeholder="Type to search..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600 bg-white" />
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3">
+              <button onClick={() => setIsEditUserOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Close</button>
+              <button disabled={isSaving} onClick={handleEditUserSubmit} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

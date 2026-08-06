@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
-import { User, Mail, Briefcase, Building, Save, Edit2, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, Mail, Briefcase, Building, Save, Edit2, ArrowLeft, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { departments } from '../../utils/departments';
+import { ROLE_DASHBOARDS } from '../../constants/roles';
 
 const Profile = () => {
-  const { user, login } = useAuth();
+  const { user, login, switchRole } = useAuth();
   const navigate = useNavigate();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -19,6 +20,14 @@ const Profile = () => {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSwitchingRole, setIsSwitchingRole] = useState(false);
+
+  const assignedRoles = useMemo(() => {
+    if (Array.isArray(user?.roles) && user.roles.length > 0) {
+      return user.roles;
+    }
+    return user?.role ? [user.role] : [];
+  }, [user]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -33,6 +42,27 @@ const Profile = () => {
       navigate('/principal-dashboard');
     } else {
       navigate('/dashboard');
+    }
+  };
+
+  const handleRoleSwitch = async (event) => {
+    const nextRole = event.target.value;
+    if (!nextRole || nextRole === user?.role) return;
+
+    setError(null);
+    setMessage(null);
+    setIsSwitchingRole(true);
+
+    try {
+      const updatedUser = await switchRole(nextRole);
+      if (updatedUser?.role) {
+        setMessage(`Role switched to ${updatedUser.role}`);
+        navigate(ROLE_DASHBOARDS[updatedUser.role] || '/login', { replace: true });
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to switch role. Please try again.');
+    } finally {
+      setIsSwitchingRole(false);
     }
   };
 
@@ -188,6 +218,28 @@ const Profile = () => {
                 />
               </div>
             </div>
+
+            {assignedRoles.length >= 2 && (
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Role Switch</label>
+                <div className="relative">
+                  <RefreshCw className="w-5 h-5 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                  <select
+                    value={user?.role || assignedRoles[0] || ''}
+                    onChange={handleRoleSwitch}
+                    disabled={isSwitchingRole}
+                    className="w-full pl-11 pr-4 py-3 border border-slate-200 bg-white text-slate-700 rounded-xl text-sm font-semibold outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+                  >
+                    {assignedRoles.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 italic">Switching role updates your active dashboard and permissions.</p>
+              </div>
+            )}
 
           </div>
 

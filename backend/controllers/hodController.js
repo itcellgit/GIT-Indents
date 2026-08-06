@@ -2,6 +2,10 @@
 const prisma = require('../prismaClient');
 const generateIndentNumber = require('../utils/generateIndentNumber');
 const { sendNotification } = require('../utils/notificationService');
+const { ROLES } = require('../utils/roles');
+const { getPrimaryRoleByUserId, setUserRole: setUserRoleShared } = require('../utils/userRoles');
+
+const setUserRole = (tx, userId, roleName) => setUserRoleShared(tx, userId, roleName);
 
 // @desc    Get dashboard indents for HOD
 // @route   GET /api/hod/complaints
@@ -12,7 +16,7 @@ const getHODComplaints = async (req, res) => {
     let approvalRequests = [];
     let deptTrackIndents = [];
     
-    if (req.user.role === 'Principal') {
+    if (req.user.role === ROLES.PRINCIPAL) {
       // Principal sees everything
       maintenanceIndents = await prisma.indent.findMany({ 
         where: { status: { notIn: ['Indent Created', 'Rejected by Maintenance HOD', 'Rejected by Dept HOD', 'Rejected by Principal'] } },
@@ -38,11 +42,11 @@ const getHODComplaints = async (req, res) => {
       const categories = await prisma.category.findMany({ where: { inchargeId: req.user.id } });
       const categoryIds = categories.map(cat => cat.id);
 
-      // 2. Fetch Maintenance Indents (Approved and managed by this HOD)
+      // 2. Fetch Maintenance Indents managed by this incharge
       maintenanceIndents = await prisma.indent.findMany({ 
         where: {
           categoryId: { in: categoryIds },
-          status: { notIn: ['Indent Created', 'Rejected by Maintenance HOD', 'Rejected by Dept HOD'] }
+          status: { notIn: ['Completed', 'Rejected by Dept HOD'] }
         },
         include: {
           category: { select: { name: true, incharge: { select: { id: true } } } },
@@ -52,14 +56,11 @@ const getHODComplaints = async (req, res) => {
         }
       });
 
-      // 3. Fetch Department Approval Requests (Dept HOD role)
-      const usersInDept = await prisma.user.findMany({ where: { department: req.user.department }, select: { id: true } });
-      const userIdsInDept = usersInDept.map(u => u.id);
-      
+      // 3. Fetch department approval requests for this HOD's department
       approvalRequests = await prisma.indent.findMany({ 
         where: {
-          requesterId: { in: userIdsInDept },
-          status: { in: ['Indent Created', 'Rejected by Maintenance HOD', 'Rejected by Dept HOD'] }
+          requester: { department: req.user.department },
+          status: { in: ['Indent Created', 'Rejected by Principal'] }
         },
         include: {
           category: { select: { name: true, incharge: { select: { id: true } } } },
@@ -70,7 +71,7 @@ const getHODComplaints = async (req, res) => {
       });
         
       deptTrackIndents = await prisma.indent.findMany({
-        where: { requesterId: { in: userIdsInDept } },
+        where: { requester: { department: req.user.department } },
         include: {
           category: { select: { name: true, incharge: { select: { id: true } } } },
           requester: { select: { name: true, email: true, department: true } },
@@ -131,19 +132,21 @@ const updateComplaintStatus = async (req, res) => {
     } = req.body;
     
     // Ensure the indent exists
-    const indent = await prisma.indent.findUnique({ where: { id: req.params.id } });
+    const indent = await prisma.indent.findUnique({ 
+      where: { id: req.params.id },
+      include: {
+        requester: { select: { id: true, department: true } },
+        category: { select: { id: true, inchargeId: true } }
+      }
+    });
     if (!indent) {
       return res.status(404).json({ message: 'Indent not found' });
     }
 
-    // PERMISSION CHECK for Multi-Stage Approval
-    const userRole = req.user.role;
+    // PERMISSION CHECK for maintenance review flow
     const isMaintenanceIncharge = await prisma.category.findFirst({ where: { id: indent.categoryId, inchargeId: req.user.id } });
-    
-    // Fetch requester to check department
-    const requester = await prisma.user.findUnique({ where: { id: indent.requesterId } });
-    const isDeptHOD = req.user.role === 'HOD' && requester && requester.department === req.user.department;
-    const isPrincipal = req.user.role === 'Principal';
+    const isDeptHOD = req.user.role === ROLES.HOD && indent.requester?.department && req.user.department === indent.requester.department;
+    const isPrincipal = req.user.role === ROLES.PRINCIPAL;
 
     if (!isMaintenanceIncharge && !isDeptHOD && !isPrincipal) {
       return res.status(403).json({ 
@@ -209,9 +212,32 @@ const updateComplaintStatus = async (req, res) => {
         );
       }
     }
-    // 2. Maintenance HOD -> Principal (Rejection)
+    // 2. Department HOD -> Service Provider HOD (Rejection)
+    if (status === 'Rejected by Dept HOD' && isDeptHOD) {
+      const categoryInfo = await prisma.category.findUnique({ where: { id: indent.categoryId } });
+      if (categoryInfo && categoryInfo.inchargeId) {
+        sendNotification(
+          categoryInfo.inchargeId,
+          `Indent ${indent.indentNumber} was rejected by the Department HOD and returned to the service provider HOD review queue.`,
+          req.user.id,
+          indent.id,
+          indent.indentNumber
+        );
+      }
+    }
+    // 3. Maintenance HOD -> Principal (Rejection)
     if (status === 'Rejected by Maintenance HOD' && isMaintenanceIncharge) {
-      const principal = await prisma.user.findFirst({ where: { role: 'Principal' } });
+      const principalUsers = await prisma.$queryRawUnsafe(
+        `SELECT u.id
+         FROM "User" u
+         INNER JOIN public.user_roles ur ON ur.user_id = u.id
+         INNER JOIN public.roles r ON r.id = ur.role_id
+         WHERE r.role_name = $1
+         ORDER BY r.id ASC, u."createdAt" ASC
+         LIMIT 1`,
+        ROLES.PRINCIPAL
+      );
+      const principal = principalUsers[0];
       if (principal) {
         sendNotification(
           principal.id,
@@ -222,7 +248,7 @@ const updateComplaintStatus = async (req, res) => {
         );
       }
     }
-    // 3. Resolved -> Faculty
+    // 4. Resolved -> Faculty
     if (status === 'Completed') {
       sendNotification(
         indent.requesterId,
@@ -300,14 +326,196 @@ const createHODIndent = async (req, res) => {
 // @access  Private (HOD view)
 const getMaintainers = async (req, res) => {
   try {
-    const maintainers = await prisma.user.findMany({
-      where: {
-        role: 'Maintainer',
-        department: req.user.department
-      },
-      select: { id: true, name: true, email: true, department: true }
-    });
+    const maintainers = await prisma.$queryRawUnsafe(
+      `SELECT u.id, u.name, u.email, u.department
+       FROM "User" u
+       INNER JOIN public.user_roles ur ON ur.user_id = u.id
+       INNER JOIN public.roles r ON r.id = ur.role_id
+       WHERE r.role_name = $1 AND u.department = $2`,
+      ROLES.MAINTAINER,
+      req.user.department
+    );
     res.status(200).json({ success: true, maintainers });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Get coordinator staff in HOD's department
+// @route   GET /api/hod/coordinator-staffs
+// @access  Private (HOD view)
+const getCoordinatorStaffs = async (req, res) => {
+  try {
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT cs.id, cs.coordinator_id, cs.staff_id, cs.department_id, cs.start_date, cs.end_date, cs.level, cs.status,
+              u.name, u.email,
+              COALESCE(
+                (
+                  SELECT r.role_name
+                  FROM public.user_roles ur
+                  INNER JOIN public.roles r ON r.id = ur.role_id
+                  WHERE ur.user_id = u.id
+                  ORDER BY r.id ASC
+                  LIMIT 1
+                ),
+                'Faculty'
+              ) AS role
+       FROM public.coordinator_staffs cs
+       LEFT JOIN public."User" u ON u.id = cs.staff_id
+       WHERE cs.coordinator_id = $1
+       ORDER BY cs.created_at DESC NULLS LAST, cs.id DESC`,
+      String(req.user.id)
+    );
+
+    res.status(200).json({
+      success: true,
+      coordinatorStaffs: rows.map((row) => ({
+        id: Number(row.id),
+        coordinatorId: String(row.coordinator_id),
+        staffId: String(row.staff_id),
+        departmentId: String(row.department_id),
+        startDate: row.start_date,
+        endDate: row.end_date,
+        level: row.level,
+        status: row.status,
+        name: row.name,
+        email: row.email,
+        role: row.role
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Add coordinator staff for HOD's department
+// @route   POST /api/hod/coordinator-staffs
+// @access  Private (HOD view)
+const addCoordinatorStaff = async (req, res) => {
+  try {
+    const { name, email, password, level, status, startDate, endDate } = req.body;
+
+    if (!email || !name || !password) {
+      return res.status(400).json({ message: 'Name, email, and password are required' });
+    }
+
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      await prisma.user.update({
+        where: { email },
+        data: {
+          name,
+          department: req.user.department
+        }
+      });
+      await setUserRole(prisma, user.id, (await getPrimaryRoleByUserId(prisma, user.id)) === ROLES.NON_TEACHING ? ROLES.NON_TEACHING : ROLES.FACULTY);
+    } else {
+      const bcrypt = require('bcryptjs');
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      user = await prisma.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          department: req.user.department
+        }
+      });
+
+      await setUserRole(prisma, user.id, ROLES.FACULTY);
+    }
+
+    const existingAssignment = await prisma.$queryRawUnsafe(
+      `SELECT id
+       FROM public.coordinator_staffs
+       WHERE coordinator_id = $1 AND staff_id = $2 AND department_id = $3
+       LIMIT 1`,
+      String(req.user.id),
+      String(user.id),
+      String(req.user.department || '')
+    );
+
+    let assignmentRow;
+    if (existingAssignment.length > 0) {
+      const rows = await prisma.$queryRawUnsafe(
+        `UPDATE public.coordinator_staffs
+         SET level = COALESCE($4, level),
+             status = COALESCE($5, status),
+             start_date = COALESCE($6, start_date),
+             end_date = COALESCE($7, end_date),
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, coordinator_id, staff_id, department_id, start_date, end_date, level, status`,
+        Number(existingAssignment[0].id),
+        String(req.user.id),
+        String(user.id),
+        level || null,
+        status || null,
+        startDate || null,
+        endDate || null
+      );
+      assignmentRow = rows[0];
+    } else {
+      const rows = await prisma.$queryRawUnsafe(
+        `INSERT INTO public.coordinator_staffs
+         (coordinator_id, staff_id, department_id, start_date, end_date, level, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+         RETURNING id, coordinator_id, staff_id, department_id, start_date, end_date, level, status`,
+        String(req.user.id),
+        String(user.id),
+        String(req.user.department || ''),
+        startDate || null,
+        endDate || null,
+        level || null,
+        status || 'Active'
+      );
+      assignmentRow = rows[0];
+    }
+
+    res.status(201).json({
+      success: true,
+      coordinatorStaff: {
+        id: Number(assignmentRow.id),
+        coordinatorId: String(assignmentRow.coordinator_id),
+        staffId: String(assignmentRow.staff_id),
+        departmentId: String(assignmentRow.department_id),
+        startDate: assignmentRow.start_date,
+        endDate: assignmentRow.end_date,
+        level: assignmentRow.level,
+        status: assignmentRow.status,
+        name: user.name,
+        email: user.email,
+        role: await getPrimaryRoleByUserId(prisma, user.id)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Remove coordinator staff from HOD's department
+// @route   DELETE /api/hod/coordinator-staffs/:id
+// @access  Private (HOD view)
+const removeCoordinatorStaff = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.coordinator_staffs WHERE id = $1 AND coordinator_id = $2 LIMIT 1`,
+      Number(id),
+      String(req.user.id)
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Coordinator staff not found or unauthorized' });
+    }
+
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM public.coordinator_staffs WHERE id = $1`,
+      Number(id)
+    );
+
+    res.status(200).json({ success: true, message: 'Coordinator staff removed successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
   }
@@ -326,10 +534,9 @@ const addMaintainer = async (req, res) => {
     // Check if user exists
     let user = await prisma.user.findUnique({ where: { email } });
     if (user) {
-      // Update existing user to Maintainer
-      user = await prisma.user.update({
+      await prisma.user.update({
         where: { email },
-        data: { role: 'Maintainer', department: req.user.department }
+        data: { department: req.user.department }
       });
     } else {
       // Import bcrypt dynamically here or use plain text if testing (best to use bcrypt like authController)
@@ -342,11 +549,12 @@ const addMaintainer = async (req, res) => {
           name,
           email,
           password: hashedPassword,
-          role: 'Maintainer',
           department: req.user.department
         }
       });
     }
+
+    await setUserRole(prisma, user.id, ROLES.MAINTAINER);
 
     res.status(201).json({ success: true, maintainer: { id: user.id, name: user.name, email: user.email } });
   } catch (err) {
@@ -369,7 +577,8 @@ const assignMaintainer = async (req, res) => {
 
     // Validate if the maintainer exists
     const maintainer = await prisma.user.findUnique({ where: { id: maintainerId } });
-    if (!maintainer || maintainer.role !== 'Maintainer') {
+    const maintainerRole = maintainer ? await getPrimaryRoleByUserId(prisma, maintainer.id) : null;
+    if (!maintainer || maintainerRole !== ROLES.MAINTAINER) {
       return res.status(400).json({ message: 'Invalid maintainer selected' });
     }
 
@@ -407,14 +616,12 @@ const removeMaintainer = async (req, res) => {
     const { id } = req.params;
     
     const user = await prisma.user.findUnique({ where: { id } });
-    if (!user || user.role !== 'Maintainer' || user.department !== req.user.department) {
+    const userRole = user ? await getPrimaryRoleByUserId(prisma, user.id) : null;
+    if (!user || userRole !== ROLES.MAINTAINER || user.department !== req.user.department) {
       return res.status(404).json({ message: 'Maintainer not found or unauthorized' });
     }
 
-    await prisma.user.update({
-      where: { id },
-      data: { role: 'Faculty' }
-    });
+    await setUserRole(prisma, user.id, ROLES.FACULTY);
 
     res.status(200).json({ success: true, message: 'Maintainer removed successfully' });
   } catch (err) {
@@ -428,6 +635,9 @@ module.exports = {
   createHODIndent,
   getMaintainers,
   addMaintainer,
+  getCoordinatorStaffs,
+  addCoordinatorStaff,
+  removeCoordinatorStaff,
   assignMaintainer,
   removeMaintainer
 };

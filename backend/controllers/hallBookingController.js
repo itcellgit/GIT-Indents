@@ -1,0 +1,205 @@
+const prisma = require('../prismaClient');
+const { sendEmailNotificationToRecipients } = require('../utils/notificationService');
+
+const HALL_BOOKING_EMAILS = [
+  // 'dean_infra@git.edu',
+  // 'hodmech@git.edu',
+  // 'hodee@git.edu',
+  // 'cc@git.edu',
+  // 'hodec@git.edu',
+  'rypatil@git.edu',
+  'itcell@git.edu',
+];
+
+const mapHallBookingRow = (row) => ({
+  id: Number(row.id),
+  hall_id: Number(row.hall_id),
+  hall_name: row.hall_name || '',
+  booked_by: row.booked_by,
+  purpose: row.purpose || '',
+  start_datetime: row.start_datetime,
+  end_datetime: row.end_datetime,
+  remarks: row.remarks || '',
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const toLocalDateTime = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const getHallBookings = async (req, res) => {
+  try {
+    const bookings = await prisma.$queryRawUnsafe(
+          `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.purpose, hb.start_datetime, hb.end_datetime,
+            hb.remarks, hb.approved_by, hb.created_at, hb.updated_at
+       FROM public.hall_bookings hb
+       LEFT JOIN public.halls h ON h.id = hb.hall_id
+       ORDER BY hb.start_datetime DESC, hb.id DESC`
+    );
+
+    res.json({ success: true, bookings: bookings.map(mapHallBookingRow) });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+const createHallBooking = async (req, res) => {
+  try {
+    const {
+      hall_id,
+      booked_by,
+      purpose,
+      start_datetime,
+      end_datetime,
+      remarks,
+      approved_by,
+    } = req.body;
+
+    if (!hall_id) {
+      return res.status(400).json({ message: 'Hall is required' });
+    }
+
+    if (!booked_by || !String(booked_by).trim()) {
+      return res.status(400).json({ message: 'Booked by is required' });
+    }
+
+    if (!start_datetime || !end_datetime) {
+      return res.status(400).json({ message: 'Start and end time are required' });
+    }
+
+    const bookingRows = await prisma.$queryRawUnsafe(
+      `INSERT INTO public.hall_bookings (hall_id, booked_by, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+       RETURNING id, hall_id, booked_by, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at`,
+      Number(hall_id),
+      String(booked_by).trim(),
+      purpose ? String(purpose).trim() : null,
+      new Date(start_datetime),
+      new Date(end_datetime),
+      remarks ? String(remarks).trim() : null,
+      approved_by ? String(approved_by).trim() : null
+    );
+
+    const createdBookingRows = await prisma.$queryRawUnsafe(
+      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.purpose, hb.start_datetime, hb.end_datetime,
+        hb.remarks, hb.approved_by, hb.created_at, hb.updated_at
+       FROM public.hall_bookings hb
+       LEFT JOIN public.halls h ON h.id = hb.hall_id
+       WHERE hb.id = $1
+       LIMIT 1`,
+      Number(bookingRows[0].id)
+    );
+
+    const createdBooking = mapHallBookingRow(createdBookingRows[0] || bookingRows[0]);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const bookingDetails = [
+      `Hall: ${createdBooking.hall_name || `ID ${createdBooking.hall_id}`}`,
+      `Booked by: ${createdBooking.booked_by || 'N/A'}`,
+      `Purpose: ${createdBooking.purpose || 'N/A'}`,
+      `Start: ${createdBooking.start_datetime ? new Date(createdBooking.start_datetime).toLocaleString() : 'N/A'}`,
+      `End: ${createdBooking.end_datetime ? new Date(createdBooking.end_datetime).toLocaleString() : 'N/A'}`,
+      `Remarks: ${createdBooking.remarks || 'N/A'}`,
+      `Approved by: ${createdBooking.approved_by || 'N/A'}`,
+    ].join('<br>');
+
+    void sendEmailNotificationToRecipients({
+      recipients: HALL_BOOKING_EMAILS,
+      message: `A new hall booking entry has been completed with the following details:<br><br>${bookingDetails}`,
+      title: 'New Hall Booking Completed',
+      subject: `New Hall Booking Completed${createdBooking.hall_name ? ` - ${createdBooking.hall_name}` : ''}`,
+      actionUrl: `${frontendUrl}/hall-bookings`,
+      label: 'Hall Booking',
+    });
+
+    res.status(201).json({ success: true, booking: createdBooking });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+const updateHallBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bookingId = Number(id);
+    const {
+      hall_id,
+      booked_by,
+      purpose,
+      start_datetime,
+      end_datetime,
+      remarks,
+      approved_by,
+    } = req.body;
+
+    const existingRows = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.hall_bookings WHERE id = $1 LIMIT 1`,
+      bookingId
+    );
+
+    if (!existingRows.length) {
+      return res.status(404).json({ message: 'Hall booking not found' });
+    }
+
+    const bookingRows = await prisma.$queryRawUnsafe(
+      `UPDATE public.hall_bookings
+       SET hall_id = COALESCE($2, hall_id),
+           booked_by = COALESCE($3, booked_by),
+           purpose = $4,
+           start_datetime = COALESCE($5, start_datetime),
+           end_datetime = COALESCE($6, end_datetime),
+           remarks = $7,
+           approved_by = $8,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, hall_id, booked_by, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at`,
+      bookingId,
+      hall_id ? Number(hall_id) : null,
+      booked_by ? String(booked_by).trim() : null,
+      purpose ? String(purpose).trim() : null,
+      start_datetime ? new Date(start_datetime) : null,
+      end_datetime ? new Date(end_datetime) : null,
+      remarks ? String(remarks).trim() : null,
+      approved_by ? String(approved_by).trim() : null
+    );
+
+    res.json({ success: true, booking: mapHallBookingRow(bookingRows[0]) });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+const deleteHallBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bookingId = Number(id);
+
+    const existingRows = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.hall_bookings WHERE id = $1 LIMIT 1`,
+      bookingId
+    );
+
+    if (!existingRows.length) {
+      return res.status(404).json({ message: 'Hall booking not found' });
+    }
+
+    await prisma.$queryRawUnsafe(
+      `DELETE FROM public.hall_bookings WHERE id = $1`,
+      bookingId
+    );
+
+    res.json({ success: true, message: 'Hall booking deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+module.exports = {
+  getHallBookings,
+  createHallBooking,
+  updateHallBooking,
+  deleteHallBooking,
+};

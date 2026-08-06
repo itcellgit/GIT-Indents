@@ -4,6 +4,7 @@ import api from '../api/axios';
 
 const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, setFormData }) => {
   const [categories, setCategories] = useState([]);
+  const normalizedNature = formData?.nature === 'Fault' ? 'Maintenance/Repair' : formData?.nature || 'Maintenance/Repair';
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -65,13 +66,13 @@ const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, se
           <div className="space-y-2.5">
             <label className="block text-sm font-semibold text-slate-700">Nature of Work</label>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-              {["Fault", "Maintenance/Repair", "New Work"].map((nature) => (
+              {["Maintenance/Repair", "New Work"].map((nature) => (
                 <label key={nature} className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
                   <input
                     type="radio"
                     name="nature"
                     value={nature}
-                    checked={formData.nature === nature}
+                    checked={normalizedNature === nature}
                     onChange={(e) => setFormData({ ...formData, nature: e.target.value })}
                     className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                   />

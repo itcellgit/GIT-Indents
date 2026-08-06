@@ -149,9 +149,6 @@ const PrincipalDashboard = () => {
       }
 
       const res = await api.post('/hod/complaints', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
       });
       
       setMyRaisedIndents([res.data.complaint, ...myRaisedIndents]);

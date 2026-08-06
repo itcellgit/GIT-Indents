@@ -171,6 +171,12 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
   };
 
   const handleReject = () => {
+    const trimmedReason = rejectionReason.trim();
+    if (!trimmedReason) {
+      alert('Please enter rejection remarks before rejecting the indent.');
+      return;
+    }
+
     const rejecterInfo = `${user.name} (${user.department})`;
     
     let newStatus = 'Rejected by Maintenance HOD';
@@ -184,8 +190,9 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
     onUpdateStatus(complaint._id || complaint.id, {
       status: newStatus,
-      rejectionReason: rejectionReason,
-      rejectedBy: rejecterInfo
+      rejectionReason: trimmedReason,
+      rejectedBy: rejecterInfo,
+      remarksByHOD: trimmedReason
     });
     setShowRejectionInput(false);
   };
@@ -300,7 +307,6 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                         value={editFormData.natureOfWork}
                         onChange={(e) => setEditFormData({...editFormData, natureOfWork: e.target.value})}
                       >
-                        <option value="Fault">Fault</option>
                         <option value="Maintenance/Repair">Maintenance/Repair</option>
                         <option value="New Work">New Work</option>
                       </select>
@@ -680,22 +686,6 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                 )}
               </div>
 
-              {((isIncharge || isPrincipal) && complaint.status !== 'Completed' || (remarks && remarks.trim() !== '')) && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-indigo-800 mb-1 font-bold flex items-center gap-2">
-                    <AlignLeft className="w-4 h-4" />
-                    Official Remark from {isPrincipal ? 'Principal' : 'HOD'}
-                  </label>
-                  <textarea
-                    rows={1}
-                    readOnly={!(isIncharge || isPrincipal)}
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    placeholder={(isIncharge || isPrincipal) ? "Final remarks for resolution..." : `No ${isPrincipal ? 'Principal' : 'HOD'} remarks.`}
-                    className={`w-full border-indigo-200 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-4 border outline-none bg-indigo-50/20 font-bold italic text-indigo-900 ${!(isIncharge || isPrincipal) && 'bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200'}`}
-                  />
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -711,7 +701,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
           <div className="flex gap-3">
             {((isDeptHOD && (complaint.status === 'Indent Created' || complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Dept HOD')) || 
-               (isIncharge && (complaint.status === 'Approved by Dept HOD' || complaint.status === 'Approved by Principal')) || 
+               (isIncharge && (complaint.status === 'Indent Created' || complaint.status === 'Approved by Principal' || complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal')) || 
                (isPrincipal && (complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal' || complaint.status === 'Indent Created'))) && (
               <>
                 {!isEditing ? (
@@ -724,50 +714,51 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                         Edit Indent
                       </button>
                     )}
-                    {!complaint.status.includes('Rejected') && (
-                      !showRejectionInput ? (
+                    {isIncharge && (
+                      <>
+                        {!complaint.status.includes('Rejected') && (
+                          !showRejectionInput ? (
+                            <button
+                              onClick={() => setShowRejectionInput(true)}
+                              className="px-5 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+                            >
+                              Reject Indent
+                            </button>
+                          ) : (
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                              <textarea 
+                                rows={2}
+                                placeholder="Enter rejection remarks..." 
+                                className="text-sm border rounded px-3 py-2 w-full sm:w-72"
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={handleReject} className="px-3 py-2 bg-red-600 text-white rounded text-sm font-bold">Confirm Reject</button>
+                                <button onClick={() => setShowRejectionInput(false)} className="px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm">Cancel</button>
+                              </div>
+                            </div>
+                          )
+                        )}
                         <button
-                          onClick={() => setShowRejectionInput(true)}
-                          className="px-5 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+                          onClick={handleApprove}
+                          className="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
                         >
-                          Reject Indent
+                          Approve Indent
                         </button>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                           <input 
-                             type="text" 
-                             placeholder="Reason (Optional)" 
-                             className="text-sm border rounded px-3 py-2 w-48"
-                             value={rejectionReason}
-                             onChange={(e) => setRejectionReason(e.target.value)}
-                           />
-                           <button onClick={handleReject} className="px-3 py-2 bg-red-600 text-white rounded text-sm font-bold">Confirm Reject</button>
-                           <button onClick={() => setShowRejectionInput(false)} className="px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm">Cancel</button>
-                        </div>
-                      )
+                      </>
                     )}
-                    <button
-                      onClick={handleApprove}
-                      className="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
-                    >
-                      Approve Indent
-                    </button>
                   </>
                 ) : (
                   <div className="flex gap-2">
-                    <button onClick={handleApprove} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md">Save & Approve</button>
                     <button onClick={() => {
-                        setIsEditing(false);
-                        setEditFormData({
-                          location: complaint.location,
-                          natureOfWork: complaint.natureOfWork || complaint.workType,
-                          description: complaint.description
-                        });
-                      }} 
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm "
-                    >
-                      Cancel Edit
-                    </button>
+                      onUpdateStatus(complaint._id || complaint.id, {
+                        ...editFormData,
+                        status: complaint.status
+                      });
+                      setIsEditing(false);
+                    }} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md">Save</button>
+                    <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm">Cancel Edit</button>
                   </div>
                 )}
               </>

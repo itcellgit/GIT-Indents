@@ -1,11 +1,16 @@
 import axios from 'axios';
 
+const getApiBaseUrl = () => {
+  return 'http://10.22.0.151:5000/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api', // Backend base URL
+  baseURL: getApiBaseUrl(), // Backend base URL
   withCredentials: true, // Necessary to send and receive HttpOnly cookies securely
   timeout: 30000, // Fail loudly instead of letting a stalled request hang forever
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
 });
 
@@ -32,6 +37,22 @@ api.interceptors.request.use(config => {
     showLoader();
     config.metadata = { useLoader: true };
   }
+
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
+  }
+
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers = {
+      ...config.headers,
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
   return config;
 }, error => {
   return Promise.reject(error);

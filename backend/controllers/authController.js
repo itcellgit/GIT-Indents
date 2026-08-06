@@ -4,38 +4,120 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const nodemailer = require('nodemailer');
+const { ROLES, normalizeRole } = require('../utils/roles');
 
-const normalizeRole = (role) => {
-  if (!role) return 'Faculty';
-  const roleMap = {
-    'admin': 'Admin',
-    'principal': 'Principal',
-    'hod': 'HOD',
-    'faculty': 'Faculty',
-    'non-teaching': 'Non-Teaching',
-    'non teaching': 'Non-Teaching',
-    'nonteaching': 'Non-Teaching'
-  };
-  return roleMap[role.toLowerCase().trim()] || 'Faculty';
+const checkCoordinatorStaff = async (user) => {
+  if (!user || (user.role !== ROLES.FACULTY && user.role !== ROLES.NON_TEACHING)) {
+    return false;
+  }
+
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT 1
+     FROM public.coordinator_staffs
+     WHERE staff_id = $1
+       AND COALESCE(status, 'Active') <> 'Inactive'
+     LIMIT 1`,
+    String(user.id)
+  );
+
+  return Array.isArray(rows) && rows.length > 0;
+};
+
+const getUserRolesById = async (userId) => {
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT r.role_name AS role
+     FROM public.user_roles ur
+     INNER JOIN public.roles r ON r.id = ur.role_id
+     WHERE ur.user_id = $1
+     ORDER BY r.id ASC`,
+    userId
+  );
+
+  return rows.map((row) => row.role).filter(Boolean);
 };
 
 // Helper function to generate a JWT token
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
+  const jwtSecret = process.env.JWT_SECRET || 'dev_jwt_secret';
+  return jwt.sign({ id, role }, jwtSecret, {
     expiresIn: process.env.JWT_EXPIRE || '30d',
   });
 };
 
+const getNormalizedAuthUser = async (id, activeRole = null) => {
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT
+       u.id,
+       u.name,
+       u.email,
+       u.password,
+       u.department,
+       u."isActive" AS "isActive",
+       COALESCE(
+         (
+           SELECT r.role_name
+           FROM public.user_roles ur
+           INNER JOIN public.roles r ON r.id = ur.role_id
+           WHERE ur.user_id = u.id
+           ORDER BY r.id ASC
+           LIMIT 1
+         ),
+         'Faculty'
+       ) AS role
+     FROM "User" u
+     WHERE u.id = $1
+     LIMIT 1`,
+    id
+  );
+
+  const user = rows[0] || null;
+  if (!user) return null;
+
+  const roles = await getUserRolesById(id);
+  const role = activeRole && roles.includes(activeRole) ? activeRole : (roles[0] || user.role);
+
+  return { ...user, roles, role };
+};
+
+const getAuthUserByEmail = async (email) => {
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT u.id
+     FROM "User" u
+     WHERE u.email = $1
+     LIMIT 1`,
+    email
+  );
+
+  return rows[0] ? getNormalizedAuthUser(rows[0].id) : null;
+};
+
+const getAuthUserById = async (id) => getNormalizedAuthUser(id);
+
+const getRoleIdByName = async (roleName) => {
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT id
+     FROM public.roles
+     WHERE role_name = $1
+     LIMIT 1`,
+    roleName
+  );
+
+  return rows[0]?.id || null;
+};
+
 // Helper function to send token response
-const sendTokenResponse = (user, statusCode, res, effectiveRole = null) => {
+const sendTokenResponse = (user, statusCode, res, effectiveRole = null, extraData = {}) => {
   const roleToShow = effectiveRole || user.role;
   const token = generateToken(user.id, roleToShow);
 
+  const isLocalNetwork = process.env.NODE_ENV !== 'production';
   const options = {
     expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    secure: false,
+    sameSite: 'lax',
+    path: '/',
+    domain: undefined
   };
 
   res.status(statusCode).cookie('token', token, options).json({
@@ -43,7 +125,10 @@ const sendTokenResponse = (user, statusCode, res, effectiveRole = null) => {
     name: user.name,
     email: user.email,
     role: roleToShow,
-    department: user.department
+    roles: user.roles || [user.role].filter(Boolean),
+    department: user.department,
+    token,
+    ...extraData
   });
 };
 
@@ -61,7 +146,7 @@ const registerUser = async (req, res) => {
   try {
     const { name, email, password, department, role } = req.body;
 
-    const userExists = await prisma.user.findUnique({ where: { email } });
+    const userExists = await getAuthUserByEmail(email);
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' }); // Generic message
     }
@@ -138,14 +223,29 @@ const verifyRegistration = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(pendingUser.password, salt);
 
-    const user = await prisma.user.create({
-      data: {
-        name: pendingUser.name,
-        email: pendingUser.email,
-        password: hashedPassword,
-        department: pendingUser.department,
-        role: pendingUser.role,
-      }
+    const roleId = await getRoleIdByName(pendingUser.role);
+    if (!roleId) {
+      return res.status(400).json({ message: 'Invalid role selected' });
+    }
+
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          name: pendingUser.name,
+          email: pendingUser.email,
+          password: hashedPassword,
+          department: pendingUser.department
+        }
+      });
+
+      await tx.$executeRawUnsafe(
+        `INSERT INTO public.user_roles (user_id, role_id)
+         VALUES ($1, $2)`,
+        createdUser.id,
+        roleId
+      );
+
+      return getAuthUserById(createdUser.id);
     });
 
     pendingRegistrations.delete(email);
@@ -229,24 +329,26 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     // Use .select('+password') if password selection is false by default in schema (though it's true currently)
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await getAuthUserByEmail(email);
 
-    if (user && (await bcrypt.compare(password, user.password))) {
+    if (user && user.password && (await bcrypt.compare(password, user.password))) {
       let effectiveRole = user.role;
       
       // Check if Faculty or Non-Teaching is an incharge of any department
-      if (user.role === 'Faculty' || user.role === 'Non-Teaching') {
+      if (user.role === ROLES.FACULTY || user.role === ROLES.NON_TEACHING) {
         const category = await prisma.category.findFirst({ where: { inchargeId: user.id } });
         if (category) {
-          effectiveRole = 'HOD';
+          effectiveRole = ROLES.HOD;
         }
       }
 
-      sendTokenResponse(user, 200, res, effectiveRole);
+      const isCoordinatorStaff = await checkCoordinatorStaff(user);
+      sendTokenResponse(user, 200, res, effectiveRole, { isCoordinatorStaff });
     } else {
       res.status(401).json({ message: 'Invalid credentials' }); // Generic error message
     }
   } catch (error) {
+    console.error('Login failed:', error);
     res.status(500).json({ message: 'Server error during authentication' });
   }
 };
@@ -284,7 +386,7 @@ const getRegister = (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await getAuthUserByEmail(email);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -386,7 +488,7 @@ const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const user = await getAuthUserById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -425,24 +527,16 @@ const updateProfile = async (req, res) => {
       }
     }
 
-    const updatedUser = await prisma.user.update({
+    await prisma.user.update({
       where: { id: req.user.id },
       data: {
         name: name || undefined,
         email: email || undefined,
         department: department !== undefined ? department : undefined,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        department: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
       }
     });
+
+    const updatedUser = await getAuthUserById(req.user.id);
 
     res.status(200).json({
       success: true,
@@ -451,6 +545,30 @@ const updateProfile = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error during profile update' });
+  }
+};
+
+const switchUserRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    if (!role) {
+      return res.status(400).json({ message: 'Role is required' });
+    }
+
+    const user = await getAuthUserById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!Array.isArray(user.roles) || !user.roles.includes(role)) {
+      return res.status(403).json({ message: 'Selected role is not assigned to this user' });
+    }
+
+    const isCoordinatorStaff = await checkCoordinatorStaff(user);
+    sendTokenResponse(user, 200, res, role, { isCoordinatorStaff });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while switching role' });
   }
 };
 
@@ -466,4 +584,5 @@ module.exports = {
   resetPassword,
   changePassword,
   updateProfile,
+  switchUserRole,
 };

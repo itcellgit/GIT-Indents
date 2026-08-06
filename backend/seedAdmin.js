@@ -4,48 +4,51 @@ dotenv.config();
 
 const prisma = require('./prismaClient');
 const bcrypt = require('bcryptjs');
+const { ROLES } = require('./utils/roles');
+const { setUserRole } = require('./utils/userRoles');
 
 async function main() {
   const email = 'itcell@git.edu';
   const plainPassword = 'Password@123';
   const name = 'Super Admin';
   const department = 'IT Cell';
-  const role = 'Admin';
+  const role = ROLES.ADMIN;
 
   try {
     console.log(`Checking if user ${email} already exists...`);
     const existingUser = await prisma.user.findUnique({
       where: { email },
-    }); 
+    });
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(plainPassword, salt);
 
+    let user;
     if (existingUser) {
       console.log(`User ${email} already exists. Updating details...`);
-      const updatedUser = await prisma.user.update({
+      user = await prisma.user.update({
         where: { email },
         data: {
           name,
           password: hashedPassword,
           department,
-          role,
         },
       });
-      console.log('User updated successfully:', updatedUser);
+      console.log('User updated successfully:', user);
     } else {
       console.log(`Creating user ${email}...`);
-      const newUser = await prisma.user.create({
+      user = await prisma.user.create({
         data: {
           email,
           name,
           password: hashedPassword,
           department,
-          role,
         },
       });
-      console.log('User created successfully:', newUser);
+      console.log('User created successfully:', user);
     }
+
+    await setUserRole(prisma, user.id, role);
   } catch (error) {
     console.error('Error seeding principal user:', error);
   } finally {

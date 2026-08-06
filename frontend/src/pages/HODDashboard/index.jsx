@@ -7,6 +7,7 @@ import ComplaintTable from './ComplaintTable';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
 import ManageMaintainers from './ManageMaintainers';
+import ManageCoordinatorStaffs from './ManageCoordinatorStaffs';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
@@ -191,9 +192,6 @@ const HODDashboard = () => {
       }
 
       const res = await api.post('/hod/complaints', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
       });
       
       setMyRaisedIndents([res.data.complaint, ...myRaisedIndents]);
@@ -335,6 +333,16 @@ const HODDashboard = () => {
           >
             Manage Maintainers
           </button>
+          <button
+            onClick={() => setActiveTab('coordinatorStaffs')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              activeTab === 'coordinatorStaffs' 
+                ? 'bg-white text-indigo-600 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+            }`}
+          >
+            Coordinator Staff
+          </button>
         </div>
           <button 
             onClick={() => setIsRaiseModalOpen(true)}
@@ -415,6 +423,12 @@ const HODDashboard = () => {
           {activeTab === 'maintainers' && (
             <div id="maintainers" className="scroll-mt-32">
               <ManageMaintainers />
+            </div>
+          )}
+
+          {activeTab === 'coordinatorStaffs' && (
+            <div id="coordinatorStaffs" className="scroll-mt-32">
+              <ManageCoordinatorStaffs />
             </div>
           )}
 

@@ -8,10 +8,17 @@ import AdminDashboard from './pages/AdminDashboard';
 import HODDashboard from './pages/HODDashboard';
 import PrincipalDashboard from './pages/PrincipalDashboard';
 import MaintainerDashboard from './pages/MaintainerDashboard';
+import ReceptionistDashboard from './pages/ReceptionistDashboard';
+import HallBookingsPage from './pages/ReceptionistDashboard/HallBooking';
+import VehicleBookingsPage from './pages/ReceptionistDashboard/VehicleBooking';
+import CoordinatorDetails from './pages/AdminDashboard/CoordinatorDetails';
+import OfficeStationaryDashboard from './pages/OfficeStationaryDashboard';
+import StationaryIndentCreate from './pages/StationaryIndentCreate';
 import Profile from './pages/Profile';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import GlobalLoader from './components/GlobalLoader';
+import { ROLES } from './constants/roles';
 
 function App() {
   return (
@@ -26,37 +33,67 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/dashboard" element={
-            <ProtectedRoute allowedRoles={['Faculty']}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY]}>
               <FacultyDashboard />
             </ProtectedRoute>
           } />
           <Route path="/non-teaching-dashboard" element={
-            <ProtectedRoute allowedRoles={['Non-Teaching']}>
+            <ProtectedRoute allowedRoles={[ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY]}>
               <NonTeachingDashboard />
             </ProtectedRoute>
           } />
+          <Route path="/office-stationary-dashboard" element={
+            <ProtectedRoute allowedRoles={[ROLES.OFFICE_STATIONARY]} allowCoordinatorStaff={true}>
+              <OfficeStationaryDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/stationary-indent-create" element={
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING]} allowCoordinatorStaff={true}>
+              <StationaryIndentCreate />
+            </ProtectedRoute>
+          } />
           <Route path="/admin-dashboard" element={
-            <ProtectedRoute allowedRoles={['Admin']}>
+            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
               <AdminDashboard />
             </ProtectedRoute>
           } />
+          <Route path="/admin-dashboard/coordinators/:id" element={
+            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+              <CoordinatorDetails />
+            </ProtectedRoute>
+          } />
           <Route path="/hod-dashboard" element={
-            <ProtectedRoute allowedRoles={['HOD']}>
+            <ProtectedRoute allowedRoles={[ROLES.HOD]}>
               <HODDashboard />
             </ProtectedRoute>
           } />
           <Route path="/principal-dashboard" element={
-            <ProtectedRoute allowedRoles={['Principal']}>
+            <ProtectedRoute allowedRoles={[ROLES.PRINCIPAL]}>
               <PrincipalDashboard />
             </ProtectedRoute>
           } />
           <Route path="/maintainer-dashboard" element={
-            <ProtectedRoute allowedRoles={['Maintainer']}>
+            <ProtectedRoute allowedRoles={[ROLES.MAINTAINER]}>
               <MaintainerDashboard />
             </ProtectedRoute>
           } />
+          <Route path="/receptionist-dashboard" element={
+            <ProtectedRoute allowedRoles={[ROLES.RECEPTIONIST]}>
+              <ReceptionistDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/hall-bookings" element={
+            <ProtectedRoute allowedRoles={[ROLES.RECEPTIONIST]}>
+              <HallBookingsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/vehicle-bookings" element={
+            <ProtectedRoute allowedRoles={[ROLES.RECEPTIONIST]}>
+              <VehicleBookingsPage />
+            </ProtectedRoute>
+          } />
           <Route path="/profile" element={
-            <ProtectedRoute allowedRoles={['Faculty', 'HOD', 'Admin', 'Principal', 'Non-Teaching']}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.HOD, ROLES.ADMIN, ROLES.PRINCIPAL, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY, ROLES.RECEPTIONIST]}>
               <Profile />
             </ProtectedRoute>
           } />

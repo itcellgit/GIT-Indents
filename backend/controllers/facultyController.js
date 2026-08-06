@@ -44,6 +44,15 @@ const createComplaint = async (req, res) => {
       return res.status(400).json({ message: 'All fields are required.' });
     }
 
+    const categoryRecord = await prisma.category.findUnique({
+      where: { id: category },
+      select: { id: true, name: true }
+    });
+
+    if (!categoryRecord) {
+      return res.status(400).json({ message: 'Invalid department selected.' });
+    }
+
     let imagePath = null;
     if (req.file) {
       const uploadDir = process.env.UPLOAD_DIR || 'uploads';
@@ -56,7 +65,7 @@ const createComplaint = async (req, res) => {
       data: {
         indentNumber,
         requesterId: req.user.id,
-        categoryId: category,
+        categoryId: categoryRecord.id,
         natureOfWork: nature,
         location,
         description,
@@ -75,20 +84,30 @@ const createComplaint = async (req, res) => {
       }
     });
 
-    // Notify Department HOD
-    const deptHOD = await prisma.user.findFirst({
-      where: { role: 'HOD', department: req.user.department }
-    });
-    
-    if (deptHOD) {
-      // Fire-and-forget: don't make the client wait on the SMTP round-trip
-      sendNotification(
-        deptHOD.id,
-        `New indent ${newIndent.indentNumber} raised by ${req.user.name} requires your approval.`,
-        req.user.id,
-        newIndent.id,
-        newIndent.indentNumber
+    try {
+      const deptHODRows = await prisma.$queryRawUnsafe(
+        `SELECT u.id
+         FROM "User" u
+         INNER JOIN public.user_roles ur ON ur.user_id = u.id
+         INNER JOIN public.roles r ON r.id = ur.role_id
+         WHERE r.role_name = $1 AND u.department = $2
+         LIMIT 1`,
+        'HOD',
+        req.user.department
       );
+      const deptHOD = deptHODRows[0] || null;
+
+      if (deptHOD) {
+        sendNotification(
+          deptHOD.id,
+          `New indent ${newIndent.indentNumber} raised by ${req.user.name} requires your approval.`,
+          req.user.id,
+          newIndent.id,
+          newIndent.indentNumber
+        );
+      }
+    } catch (notifyErr) {
+      console.error('Failed to notify HOD about new faculty indent:', notifyErr);
     }
 
     res.status(201).json({
@@ -96,6 +115,7 @@ const createComplaint = async (req, res) => {
       complaint: newIndent
     });
   } catch (err) {
+    console.error('Faculty complaint creation failed:', err);
     res.status(500).json({ message: 'Server Error' });
   }
 };

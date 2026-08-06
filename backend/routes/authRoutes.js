@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
-const { registerUser, verifyRegistration, resendRegistrationOtp, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, changePassword, updateProfile } = require('../controllers/authController');
+const { registerUser, verifyRegistration, resendRegistrationOtp, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, changePassword, updateProfile, switchUserRole } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
 // --- GET ROUTES (For testing/info) ---
@@ -55,5 +55,6 @@ router.put('/change-password', protect, [
 
 // Profile page update
 router.put('/profile', protect, updateProfile);
+router.post('/switch-role', protect, switchUserRole);
 
 module.exports = router;

@@ -5,6 +5,7 @@ import api from '../api/axios';
 import logo from '../assets/logo.png';
 
 import { departments } from '../utils/departments';
+import { PUBLIC_REGISTRATION_ROLES } from '../constants/roles';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -165,9 +166,9 @@ const Register = () => {
                   onChange={handleInputChange} 
                   className="pl-12 block w-full rounded-xl border border-gray-300 bg-gray-50 py-3.5 px-4 text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand appearance-none transition-all"
                 >
-                  <option value="Faculty">Faculty</option>
-                  <option value="Non-Teaching">Non-Teaching</option>
-                  <option value="HOD">HOD</option>
+                  {PUBLIC_REGISTRATION_ROLES.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
                 </select>
                 <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
                   <ChevronDown className="h-5 w-5 text-gray-400" />

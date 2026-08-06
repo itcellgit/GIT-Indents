@@ -3,8 +3,17 @@ const prisma = require('../prismaClient');
 const { getDepartmentShortName } = require('./departments');
 
 const generateIndentNumber = async (requesterId, categoryId) => {
-  const user = await prisma.user.findUnique({ where: { id: requesterId } });
-  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  const userRows = await prisma.$queryRawUnsafe(
+    'SELECT id, department FROM "User" WHERE id = $1 LIMIT 1',
+    requesterId
+  );
+  const categoryRows = await prisma.$queryRawUnsafe(
+    'SELECT id, name FROM "Category" WHERE id = $1 LIMIT 1',
+    categoryId
+  );
+
+  const user = userRows[0] || null;
+  const category = categoryRows[0] || null;
   
   const creatorDept = getDepartmentShortName(user?.department);
   const maintDept = getDepartmentShortName(category?.name);

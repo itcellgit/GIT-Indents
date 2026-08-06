@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.png';
+import { ROLE_DASHBOARDS } from '../constants/roles';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -49,11 +50,7 @@ const Login = () => {
       const res = await api.post('/auth/login', formData);
       login(res.data);
 
-      const defaultDashboard = res.data.role === 'Admin' ? '/admin-dashboard' : 
-                               res.data.role === 'HOD' ? '/hod-dashboard' : 
-                               res.data.role === 'Principal' ? '/principal-dashboard' : 
-                               res.data.role === 'Maintainer' ? '/maintainer-dashboard' : 
-                               res.data.role === 'Non-Teaching' ? '/non-teaching-dashboard' : '/dashboard';
+      const defaultDashboard = ROLE_DASHBOARDS[res.data.role] || '/dashboard';
       
       let origin = location.state?.from?.pathname;
       if (!origin || origin === '/' || origin === '/login') {

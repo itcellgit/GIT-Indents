@@ -5,7 +5,7 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "department" TEXT,
-    "role" TEXT NOT NULL DEFAULT 'Faculty',
+    -- "role" TEXT NOT NULL DEFAULT 'Faculty',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "resetPasswordOTP" TEXT,
     "resetPasswordExpires" TIMESTAMP(3),

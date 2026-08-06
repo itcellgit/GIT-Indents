@@ -22,6 +22,7 @@ const SUMMARY_CARDS = [
 export default function NonTeachingDashboard() {
   const { user, logout } = useAuth();
   const [complaints, setComplaints] = useState([]);
+  const isCoordinatorStaff = Boolean(user?.isCoordinatorStaff);
   const [isLoadingData, setIsLoadingData] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,9 +93,6 @@ export default function NonTeachingDashboard() {
       }
 
       const res = await api.post('/faculty/complaints', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
       });
       
       setComplaints([res.data.complaint, ...complaints]);
@@ -157,14 +155,24 @@ export default function NonTeachingDashboard() {
         {/* Top Controls */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
           <h2 className="text-2xl font-semibold text-slate-800">Dashboard</h2>
-          {/* Primary Action Button */}
-          <button 
-            onClick={() => setIsRaiseModalOpen(true)}
-            className="flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Raise New Indent
-          </button>
+          <div className="flex items-center space-x-3">
+            {isCoordinatorStaff && (
+              <Link
+                to="/stationary-indent-create"
+                className="flex items-center px-4 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
+              >
+                <Wrench className="w-4 h-4 mr-2" />
+                Stationary Indent
+              </Link>
+            )}
+            <button 
+              onClick={() => setIsRaiseModalOpen(true)}
+              className="flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Raise New Indent
+            </button>
+          </div>
         </div>
 
         {/* Dashboard Summary Cards */}

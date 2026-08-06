@@ -23,23 +23,53 @@ const protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    const users = await prisma.$queryRawUnsafe(
+      `SELECT
+         u.id,
+         u.name,
+         u.email,
+         u.department,
+         u."isActive" AS "isActive",
+         u."createdAt" AS "createdAt",
+         u."updatedAt" AS "updatedAt",
+         COALESCE(
+           (
+             SELECT r.role_name
+             FROM public.user_roles ur
+             INNER JOIN public.roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id
+             ORDER BY r.id ASC
+             LIMIT 1
+           ),
+           'Faculty'
+         ) AS role
+       FROM "User" u
+       WHERE u.id = $1
+       LIMIT 1`,
+      decoded.id
+    );
+
     // Set req.user to the user extracted from DB
-    req.user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        department: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+    req.user = users[0] || null;
     
     if (!req.user) {
       return res.status(401).json({ message: 'User belonging to token does not exist' });
+    }
+
+    if (decoded.role) {
+      const roleRows = await prisma.$queryRawUnsafe(
+        `SELECT r.role_name AS role
+         FROM public.user_roles ur
+         INNER JOIN public.roles r ON r.id = ur.role_id
+         WHERE ur.user_id = $1
+         ORDER BY r.id ASC`,
+        decoded.id
+      );
+
+      const allowedRoles = roleRows.map((row) => row.role);
+      if (allowedRoles.includes(decoded.role)) {
+        req.user.role = decoded.role;
+      }
     }
 
     next();

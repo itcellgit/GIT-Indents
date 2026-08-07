@@ -18,11 +18,14 @@ const mapHallBookingRow = (row) => ({
   hall_id: Number(row.hall_id),
   hall_name: row.hall_name || '',
   booked_by: row.booked_by,
+  booked_by_name: row.booked_by_name || '',
   booked_by_email: row.booked_by_email || '',
   purpose: row.purpose || '',
   start_datetime: row.start_datetime,
   end_datetime: row.end_datetime,
   remarks: row.remarks || '',
+  status: row.status || 'PENDING',
+  approved_by: row.approved_by || '',
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -37,10 +40,11 @@ const toLocalDateTime = (value) => {
 const getHallBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
-          `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.booked_by_email, hb.purpose, hb.start_datetime, hb.end_datetime,
-            hb.remarks, hb.approved_by, hb.created_at, hb.updated_at
+          `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, u.name AS booked_by_name, hb.booked_by_email, hb.purpose, hb.start_datetime, hb.end_datetime,
+            hb.remarks, hb.status, hb.approved_by, hb.created_at, hb.updated_at
        FROM public.hall_bookings hb
        LEFT JOIN public.halls h ON h.id = hb.hall_id
+       LEFT JOIN public."User" u ON u.id = hb.booked_by
        ORDER BY hb.start_datetime DESC, hb.id DESC`
     );
 
@@ -82,7 +86,7 @@ const createHallBooking = async (req, res) => {
     const bookingRows = await prisma.$queryRawUnsafe(
       `INSERT INTO public.hall_bookings (hall_id, booked_by, booked_by_email, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-       RETURNING id, hall_id, booked_by, booked_by_email, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at`,
+       RETURNING id, hall_id, booked_by, booked_by_email, purpose, start_datetime, end_datetime, remarks, status, approved_by, created_at, updated_at`,
       Number(hall_id),
       String(booked_by).trim(),
       String(booked_by_email).trim(),
@@ -94,10 +98,11 @@ const createHallBooking = async (req, res) => {
     );
 
     const createdBookingRows = await prisma.$queryRawUnsafe(
-      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.booked_by_email, hb.purpose, hb.start_datetime, hb.end_datetime,
-        hb.remarks, hb.approved_by, hb.created_at, hb.updated_at
+      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, u.name AS booked_by_name, hb.booked_by_email, hb.purpose, hb.start_datetime, hb.end_datetime,
+        hb.remarks, hb.status, hb.approved_by, hb.created_at, hb.updated_at
        FROM public.hall_bookings hb
        LEFT JOIN public.halls h ON h.id = hb.hall_id
+       LEFT JOIN public."User" u ON u.id = hb.booked_by
        WHERE hb.id = $1
        LIMIT 1`,
       Number(bookingRows[0].id)
@@ -147,6 +152,7 @@ const updateHallBooking = async (req, res) => {
       start_datetime,
       end_datetime,
       remarks,
+      status,
       approved_by,
     } = req.body;
 
@@ -168,10 +174,11 @@ const updateHallBooking = async (req, res) => {
            start_datetime = COALESCE($6, start_datetime),
            end_datetime = COALESCE($7, end_datetime),
            remarks = $8,
-           approved_by = $9,
+           status = COALESCE($9, status),
+           approved_by = $10,
            updated_at = NOW()
        WHERE id = $1
-       RETURNING id, hall_id, booked_by, booked_by_email, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at`,
+       RETURNING id`,
       bookingId,
       hall_id ? Number(hall_id) : null,
       booked_by ? String(booked_by).trim() : null,
@@ -180,10 +187,22 @@ const updateHallBooking = async (req, res) => {
       start_datetime ? new Date(start_datetime) : null,
       end_datetime ? new Date(end_datetime) : null,
       remarks ? String(remarks).trim() : null,
+      status ? String(status).trim() : null,
       approved_by ? String(approved_by).trim() : null
     );
 
-    res.json({ success: true, booking: mapHallBookingRow(bookingRows[0]) });
+    const updatedBookingRows = await prisma.$queryRawUnsafe(
+      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, u.name AS booked_by_name, hb.booked_by_email, hb.purpose, hb.start_datetime, hb.end_datetime,
+        hb.remarks, hb.status, hb.approved_by, hb.created_at, hb.updated_at
+       FROM public.hall_bookings hb
+       LEFT JOIN public.halls h ON h.id = hb.hall_id
+       LEFT JOIN public."User" u ON u.id = hb.booked_by
+       WHERE hb.id = $1
+       LIMIT 1`,
+      bookingId
+    );
+
+    res.json({ success: true, booking: mapHallBookingRow(updatedBookingRows[0]) });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }
@@ -195,10 +214,11 @@ const deleteHallBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.booked_by_email, hb.purpose,
-              hb.start_datetime, hb.end_datetime, hb.remarks, hb.approved_by, hb.created_at, hb.updated_at
+      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, u.name AS booked_by_name, hb.booked_by_email, hb.purpose,
+              hb.start_datetime, hb.end_datetime, hb.remarks, hb.status, hb.approved_by, hb.created_at, hb.updated_at
        FROM public.hall_bookings hb
        LEFT JOIN public.halls h ON h.id = hb.hall_id
+       LEFT JOIN public."User" u ON u.id = hb.booked_by
        WHERE hb.id = $1
        LIMIT 1`,
       bookingId

@@ -29,7 +29,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://0.0.0.0:5173',
-  'http://10.22.0.151:5173',
+  'http://10.22.0.159:5173',
   ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(origin => origin.trim()).filter(Boolean) : [])
 ];
 
@@ -84,7 +84,7 @@ app.use(express.json({ limit: '10mb' })); // Limit body size
 app.use(cookieParser());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://10.22.0.151:5173');
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://10.22.0.159:5173');
   next();
 });
 

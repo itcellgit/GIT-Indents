@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, ChevronLeft, ChevronRight, CheckCircle, ShieldX } from 'lucide-react';
 import NotificationBell from '../../../components/NotificationBell';
 import ChangePasswordModal from '../../../components/ChangePasswordModal';
 import api from '../../../api/axios';
 import logo from '../../../assets/logo.png';
+import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
 
 const initialHallForm = {
   name: '',
@@ -22,12 +23,28 @@ const initialBookingForm = {
   start_datetime: '',
   end_datetime: '',
   remarks: '',
+  status: 'PENDING',
 };
 
-const tabs = [
+const managementTabs = [
   { id: 'halls', label: 'Hall List' },
   { id: 'calendar', label: 'Calendar' },
 ];
+
+const facultyTabs = [
+  { id: 'calendar', label: 'Calendar' },
+];
+
+const statusConfig = {
+  PENDING: { label: 'Pending', className: 'text-amber-600 bg-amber-50 border border-amber-200' },
+  APPROVED: { label: 'Approved', className: 'text-green-600 bg-green-50 border border-green-200' },
+  REJECTED: { label: 'Rejected', className: 'text-red-600 bg-red-50 border border-red-200' },
+};
+
+const getStatusBadge = (status) => {
+  const key = (status || 'PENDING').toUpperCase();
+  return statusConfig[key] || statusConfig.PENDING;
+};
 
 const toLocalDateString = (value) => {
   if (!value) return '';
@@ -108,6 +125,19 @@ const formatBookingDateRange = (startValue, endValue) => {
 export default function HallBookingsPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const userRole = user?.role;
+  const isAdminOrReceptionist = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+
+  const visibleTabs = isAdminOrReceptionist ? managementTabs : facultyTabs;
+  const defaultActiveTab = isAdminOrReceptionist ? 'halls' : 'calendar';
+
+  const backPath = ROLE_DASHBOARDS[userRole] || '/';
+  const backLabel = 'Back to Dashboard';
+  const sectionLabel = isAdminOrReceptionist ? 'Reception Operations' : 'Hall Booking';
+  const roleDefaultName = isAdminOrReceptionist ? (user?.name || 'Receptionist') : (user?.name || 'Staff Member');
+  const roleDefaultDept = isAdminOrReceptionist ? (user?.department || 'Reception Desk') : (user?.department || 'Staff');
+
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -120,7 +150,7 @@ export default function HallBookingsPage() {
   const [loading, setLoading] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('halls');
+  const [activeTab, setActiveTab] = useState(defaultActiveTab);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedDayBookings, setSelectedDayBookings] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -261,11 +291,13 @@ export default function HallBookingsPage() {
   const handleBookingSubmit = async (event) => {
     event.preventDefault();
 
+    const { status, ...payload } = bookingForm;
+
     try {
       if (editingHallBookingId) {
-        await api.put(`/hall-bookings/${editingHallBookingId}`, bookingForm);
+        await api.put(`/hall-bookings/${editingHallBookingId}`, payload);
       } else {
-        await api.post('/hall-bookings', bookingForm);
+        await api.post('/hall-bookings', payload);
       }
 
       setIsBookingModalOpen(false);
@@ -287,6 +319,7 @@ export default function HallBookingsPage() {
       start_datetime: toDatetimeLocalValue(booking.start_datetime),
       end_datetime: toDatetimeLocalValue(booking.end_datetime),
       remarks: booking.remarks || '',
+      status: booking.status || 'PENDING',
     });
     setEditingHallBookingId(booking.id);
     setIsBookingModalOpen(true);
@@ -305,6 +338,24 @@ export default function HallBookingsPage() {
     }
   };
 
+  const handleApproveBooking = async (booking) => {
+    try {
+      await api.put(`/hall-bookings/${booking.id}/approve`);
+      await loadHallBookings();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || 'Failed to approve booking');
+    }
+  };
+
+  const handleRejectBooking = async (booking) => {
+    try {
+      await api.put(`/hall-bookings/${booking.id}/reject`, { remarks: booking.remarks || '' });
+      await loadHallBookings();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || 'Failed to reject booking');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm no-print">
@@ -313,8 +364,8 @@ export default function HallBookingsPage() {
             <div className="flex items-center gap-3">
               <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain bg-white rounded-full p-0.5" />
               <div>
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">Hall Bookings</h1>
-                <p className="text-xs text-indigo-600">Reception desk booking management</p>
+                 <h1 className="text-lg font-bold text-slate-900 leading-tight">Hall Bookings</h1>
+                 <p className="text-xs text-indigo-600">{isAdminOrReceptionist ? 'Reception desk booking management' : 'Book and view hall reservations'}</p>
               </div>
             </div>
 
@@ -325,8 +376,8 @@ export default function HallBookingsPage() {
                   <User className="h-4 w-4 text-indigo-600" />
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-medium text-slate-700">{user?.name || 'Receptionist'}</p>
-                  <p className="text-xs text-slate-500">{user?.department || 'Reception Desk'}</p>
+                       <p className="text-sm font-medium text-slate-700">{roleDefaultName}</p>
+                       <p className="text-xs text-slate-500">{roleDefaultDept}</p>
                 </div>
               </Link>
               <button onClick={() => setIsChangePasswordOpen(true)} className="text-slate-400 hover:text-indigo-600 transition-colors bg-slate-100 p-2 rounded-lg border border-slate-200" title="Change Password">
@@ -345,19 +396,19 @@ export default function HallBookingsPage() {
           <div>
             <button
               type="button"
-              onClick={() => navigate('/receptionist-dashboard')}
+              onClick={() => navigate(backPath)}
               className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors mb-3"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Receptionist Dashboard
+              {backLabel}
             </button>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">Reception Operations</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">{sectionLabel}</p>
             <h2 className="mt-2 text-3xl font-bold text-slate-900">Hall Booking</h2>
           </div>
         </div>
 
         <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -542,7 +593,14 @@ export default function HallBookingsPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-semibold text-slate-900">{day.getDate()}</span>
-                          {dayBookings.length > 0 && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-semibold text-white">{dayBookings.length}</span>}
+                          {dayBookings.length > 0 && (() => {
+                           const hasPending = dayBookings.some((b) => (b.status || 'PENDING').toUpperCase() === 'PENDING');
+                           const hasRejected = dayBookings.some((b) => (b.status || '').toUpperCase() === 'REJECTED');
+                           const badgeBg = hasPending ? 'bg-amber-500' : (hasRejected ? 'bg-red-500' : 'bg-green-500');
+                           return (
+                             <span className={`rounded-full ${badgeBg} px-2 py-0.5 text-[11px] font-semibold text-white`}>{dayBookings.length}</span>
+                           );
+                         })()}
                         </div>
                         {dayBookings.length > 0 && (
                           <div className="mt-3 flex items-center justify-end gap-2">
@@ -573,12 +631,20 @@ export default function HallBookingsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">{editingHallBookingId ? 'Edit Hall Booking' : 'Create Hall Booking'}</h3>
-                <p className="text-sm text-slate-500">
-                  For {bookingForm.start_datetime ? bookingForm.start_datetime.slice(0, 10) : 'selected date'}
-                </p>
-              </div>
+               <div>
+                 <h3 className="text-lg font-semibold text-slate-900">{editingHallBookingId ? 'Edit Hall Booking' : 'Create Hall Booking'}</h3>
+                 <p className="text-sm text-slate-500">
+                   For {bookingForm.start_datetime ? bookingForm.start_datetime.slice(0, 10) : 'selected date'}
+                 </p>
+                 {isAdminOrReceptionist && editingHallBookingId && (() => {
+                   const badge = getStatusBadge(bookingForm.status);
+                   return (
+                     <span className={`mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.className}`}>
+                       {badge.label}
+                     </span>
+                   );
+                 })()}
+               </div>
               <button type="button" onClick={() => setIsBookingModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <XCircle className="h-5 w-5" />
               </button>
@@ -674,34 +740,67 @@ export default function HallBookingsPage() {
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || booking.booked_by || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.status || '-'}</td>
+                         <td className="px-4 py-4 text-sm">
+                           {(() => {
+                             const badge = getStatusBadge(booking.status);
+                             return (
+                               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.className}`}>
+                                 {badge.label}
+                               </span>
+                             );
+                           })()}
+                         </td>
                         <td className="px-4 py-4 text-sm text-slate-700">{formatBookingDateRange(booking.start_datetime, booking.end_datetime)}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">
                           {formatTimeWithAmPm(booking.start_datetime)} to {formatTimeWithAmPm(booking.end_datetime)}
                         </td>
-                        <td className="px-4 py-4 text-sm text-slate-700">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsDayListOpen(false);
-                                openEditHallBooking(booking);
-                              }}
-                              className="inline-flex items-center justify-center rounded-md p-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
-                              title="Edit"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteHallBooking(booking.id)}
-                              className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
+                         <td className="px-4 py-4 text-sm text-slate-700">
+                           <div className="flex items-center gap-2">
+                             {isAdminOrReceptionist && (
+                               <>
+                                 {booking.status !== 'APPROVED' && (
+                                   <button
+                                     type="button"
+                                     onClick={() => handleApproveBooking(booking)}
+                                     className="inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
+                                     title="Approve"
+                                   >
+                                     <CheckCircle className="w-3.5 h-3.5" />
+                                   </button>
+                                 )}
+                                 {booking.status !== 'REJECTED' && (
+                                   <button
+                                     type="button"
+                                     onClick={() => handleRejectBooking(booking)}
+                                     className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                     title="Reject"
+                                   >
+                                     <ShieldX className="w-3.5 h-3.5" />
+                                   </button>
+                                 )}
+                               </>
+                             )}
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 setIsDayListOpen(false);
+                                 openEditHallBooking(booking);
+                               }}
+                               className="inline-flex items-center justify-center rounded-md p-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                               title="Edit"
+                             >
+                               <Pencil className="w-3.5 h-3.5" />
+                             </button>
+                             <button
+                               type="button"
+                               onClick={() => handleDeleteHallBooking(booking.id)}
+                               className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                               title="Delete"
+                             >
+                               <Trash2 className="w-3.5 h-3.5" />
+                             </button>
+                           </div>
+                         </td>
                       </tr>
                     ))
                   )}

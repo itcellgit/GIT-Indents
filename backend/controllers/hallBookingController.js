@@ -1,5 +1,6 @@
 const prisma = require('../prismaClient');
 const { sendEmailNotificationToRecipients } = require('../utils/notificationService');
+const { ROLES } = require('../utils/roles');
 
 const HALL_BOOKING_EMAILS = [
   // 'dean_infra@git.edu',
@@ -144,6 +145,16 @@ const createHallBooking = async (req, res) => {
       const previousStatus = (beforeRows[0].status || 'PENDING').toUpperCase();
       const normalizedStatus = status ? String(status).trim().toUpperCase() : null;
       const approverId = String(req.user?.id || '').trim();
+
+      const userRole = req.user?.role;
+      const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+      const allowedStatusesForUser = isManagementRole
+        ? ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']
+        : ['PENDING', 'CANCELLED'];
+
+      if (normalizedStatus && !allowedStatusesForUser.includes(normalizedStatus)) {
+        return res.status(403).json({ message: `Your role cannot set status to ${normalizedStatus}` });
+      }
 
       await prisma.$queryRawUnsafe(
         `UPDATE public.hall_bookings

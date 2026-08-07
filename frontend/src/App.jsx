@@ -83,7 +83,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/hall-bookings" element={
-            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY, ROLES.RECEPTIONIST]}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.RECEPTIONIST]}>
               <HallBookingsPage />
             </ProtectedRoute>
           } />

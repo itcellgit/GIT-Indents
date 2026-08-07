@@ -109,30 +109,6 @@ const createHallBooking = async (req, res) => {
     );
 
     const createdBooking = mapHallBookingRow(createdBookingRows[0] || bookingRows[0]);
-    const recipientEmails = [...new Set([
-      ...HALL_BOOKING_EMAILS,
-      String(createdBooking.booked_by_email || '').trim().toLowerCase(),
-    ].filter(isValidEmail))];
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const bookingDetails = [
-      `Hall: ${createdBooking.hall_name || `ID ${createdBooking.hall_id}`}`,
-      `Booked by: ${createdBooking.booked_by || 'N/A'}`,
-      `Booked by email: ${createdBooking.booked_by_email || 'N/A'}`,
-      `Purpose: ${createdBooking.purpose || 'N/A'}`,
-      `Start: ${createdBooking.start_datetime ? new Date(createdBooking.start_datetime).toLocaleString() : 'N/A'}`,
-      `End: ${createdBooking.end_datetime ? new Date(createdBooking.end_datetime).toLocaleString() : 'N/A'}`,
-      `Remarks: ${createdBooking.remarks || 'N/A'}`,
-      `Approved by: ${createdBooking.approved_by || 'N/A'}`,
-    ].join('<br>');
-
-    void sendEmailNotificationToRecipients({
-      recipients: recipientEmails,
-      message: `A new hall booking entry has been completed with the following details:<br><br>${bookingDetails}`,
-      title: 'New Hall Booking Completed',
-      subject: `New Hall Booking Completed${createdBooking.hall_name ? ` - ${createdBooking.hall_name}` : ''}`,
-      actionUrl: `${frontendUrl}/hall-bookings`,
-      label: 'Hall Booking',
-    });
 
     res.status(201).json({ success: true, booking: createdBooking });
   } catch (error) {
@@ -140,67 +116,77 @@ const createHallBooking = async (req, res) => {
   }
 };
 
-const updateHallBooking = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const bookingId = Number(id);
-    const {
-      hall_id,
-      booked_by,
-      booked_by_email,
-      purpose,
-      start_datetime,
-      end_datetime,
-      remarks,
-    } = req.body;
+  const updateHallBooking = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const bookingId = Number(id);
+      const {
+        hall_id,
+        booked_by,
+        booked_by_email,
+        purpose,
+        start_datetime,
+        end_datetime,
+        remarks,
+        status,
+        approved_by,
+      } = req.body;
 
-    const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.hall_bookings WHERE id = $1 LIMIT 1`,
-      bookingId
-    );
+      const beforeRows = await prisma.$queryRawUnsafe(
+        `SELECT status FROM public.hall_bookings WHERE id = $1 LIMIT 1`,
+        bookingId
+      );
 
-    if (!existingRows.length) {
-      return res.status(404).json({ message: 'Hall booking not found' });
+      if (!beforeRows.length) {
+        return res.status(404).json({ message: 'Hall booking not found' });
+      }
+
+      const previousStatus = (beforeRows[0].status || 'PENDING').toUpperCase();
+      const normalizedStatus = status ? String(status).trim().toUpperCase() : null;
+      const approverId = String(req.user?.id || '').trim();
+
+      await prisma.$queryRawUnsafe(
+        `UPDATE public.hall_bookings
+         SET hall_id = COALESCE($2, hall_id),
+             booked_by = COALESCE($3, booked_by),
+             booked_by_email = COALESCE($4, booked_by_email),
+             purpose = $5,
+             start_datetime = COALESCE($6, start_datetime),
+             end_datetime = COALESCE($7, end_datetime),
+             remarks = $8,
+             status = COALESCE(NULLIF($9, '')::text, status),
+             approved_by = CASE
+               WHEN $9 IS NOT NULL AND (UPPER($9) = 'APPROVED' OR UPPER($9) = 'REJECTED')
+                 THEN COALESCE(NULLIF($10, '')::text, approved_by)
+               ELSE approved_by
+             END,
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id`,
+        bookingId,
+        hall_id ? Number(hall_id) : null,
+        booked_by ? String(booked_by).trim() : null,
+        booked_by_email ? String(booked_by_email).trim() : null,
+        purpose ? String(purpose).trim() : null,
+        start_datetime ? new Date(start_datetime) : null,
+        end_datetime ? new Date(end_datetime) : null,
+        remarks ? String(remarks).trim() : null,
+        normalizedStatus,
+        approverId
+      );
+
+      const updatedBookingRows = await fetchHallBookingById(bookingId);
+      const updatedBooking = mapHallBookingRow(updatedBookingRows[0]);
+
+      if (normalizedStatus && normalizedStatus !== previousStatus) {
+        void sendBookingStatusNotification(updatedBooking, normalizedStatus);
+      }
+
+      res.json({ success: true, booking: updatedBooking });
+    } catch (error) {
+      res.status(500).json({ message: 'Server Error' });
     }
-
-    const bookingRows = await prisma.$queryRawUnsafe(
-      `UPDATE public.hall_bookings
-       SET hall_id = COALESCE($2, hall_id),
-           booked_by = COALESCE($3, booked_by),
-           booked_by_email = COALESCE($4, booked_by_email),
-           purpose = $5,
-           start_datetime = COALESCE($6, start_datetime),
-           end_datetime = COALESCE($7, end_datetime),
-           remarks = $8,
-           updated_at = NOW()
-       WHERE id = $1
-       RETURNING id`,
-      bookingId,
-      hall_id ? Number(hall_id) : null,
-      booked_by ? String(booked_by).trim() : null,
-      booked_by_email ? String(booked_by_email).trim() : null,
-      purpose ? String(purpose).trim() : null,
-      start_datetime ? new Date(start_datetime) : null,
-      end_datetime ? new Date(end_datetime) : null,
-      remarks ? String(remarks).trim() : null
-    );
-
-    const updatedBookingRows = await prisma.$queryRawUnsafe(
-      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, u.name AS booked_by_name, hb.booked_by_email, hb.purpose, hb.start_datetime, hb.end_datetime,
-        hb.remarks, hb.status, hb.approved_by, hb.created_at, hb.updated_at
-       FROM public.hall_bookings hb
-       LEFT JOIN public.halls h ON h.id = hb.hall_id
-       LEFT JOIN public."User" u ON u.id = hb.booked_by
-       WHERE hb.id = $1
-       LIMIT 1`,
-      bookingId
-    );
-
-    res.json({ success: true, booking: mapHallBookingRow(updatedBookingRows[0]) });
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error' });
-  }
-};
+  };
 
 const deleteHallBooking = async (req, res) => {
   try {
@@ -279,13 +265,21 @@ const fetchHallBookingById = async (bookingId) => {
 };
 
 const sendBookingStatusNotification = async (booking, action) => {
+  const upperAction = action.toUpperCase();
+  if (upperAction === 'PENDING') {
+    return;
+  }
+
   const recipientEmails = [...new Set([
     ...HALL_BOOKING_EMAILS,
     String(booking.booked_by_email || '').trim().toLowerCase(),
   ].filter(isValidEmail))];
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const actionLabel = action === 'APPROVED' ? 'Approved' : 'Rejected';
+  const actionLabel = upperAction === 'APPROVED' ? 'Approved'
+    : upperAction === 'REJECTED' ? 'Rejected'
+    : upperAction === 'CANCELLED' ? 'Cancelled'
+    : 'Updated';
   const details = [
     `Hall: ${booking.hall_name || `ID ${booking.hall_id}`}`,
     `Booked by: ${booking.booked_by || 'N/A'}`,
@@ -296,9 +290,9 @@ const sendBookingStatusNotification = async (booking, action) => {
     `Remarks: ${booking.remarks || 'N/A'}`,
   ].join('<br>');
 
-  await sendEmailNotificationToRecipients({
+  void sendEmailNotificationToRecipients({
     recipients: recipientEmails,
-    message: `Your hall booking has been <strong>${actionLabel}</strong> by the reception desk.<br><br>${details}`,
+    message: `Your hall booking has been <strong>${actionLabel}</strong>.<br><br>${details}`,
     title: `Hall Booking ${actionLabel}`,
     subject: `Hall Booking ${actionLabel}${booking.hall_name ? ` - ${booking.hall_name}` : ''}`,
     actionUrl: `${frontendUrl}/hall-bookings`,

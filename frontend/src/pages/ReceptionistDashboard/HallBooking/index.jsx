@@ -39,7 +39,11 @@ const statusConfig = {
   PENDING: { label: 'Pending', className: 'text-amber-600 bg-amber-50 border border-amber-200' },
   APPROVED: { label: 'Approved', className: 'text-green-600 bg-green-50 border border-green-200' },
   REJECTED: { label: 'Rejected', className: 'text-red-600 bg-red-50 border border-red-200' },
+  CANCELLED: { label: 'Cancelled', className: 'text-slate-600 bg-slate-50 border border-slate-200' },
 };
+
+const facultyStatusOptions = ['PENDING', 'CANCELLED'];
+const managementStatusOptions = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
 
 const getStatusBadge = (status) => {
   const key = (status || 'PENDING').toUpperCase();
@@ -137,6 +141,7 @@ export default function HallBookingsPage() {
   const sectionLabel = isAdminOrReceptionist ? 'Reception Operations' : 'Hall Booking';
   const roleDefaultName = isAdminOrReceptionist ? (user?.name || 'Receptionist') : (user?.name || 'Staff Member');
   const roleDefaultDept = isAdminOrReceptionist ? (user?.department || 'Reception Desk') : (user?.department || 'Staff');
+  const statusOptions = isAdminOrReceptionist ? managementStatusOptions : facultyStatusOptions;
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -291,13 +296,11 @@ export default function HallBookingsPage() {
   const handleBookingSubmit = async (event) => {
     event.preventDefault();
 
-    const { status, ...payload } = bookingForm;
-
     try {
       if (editingHallBookingId) {
-        await api.put(`/hall-bookings/${editingHallBookingId}`, payload);
+        await api.put(`/hall-bookings/${editingHallBookingId}`, bookingForm);
       } else {
-        await api.post('/hall-bookings', payload);
+        await api.post('/hall-bookings', bookingForm);
       }
 
       setIsBookingModalOpen(false);
@@ -632,11 +635,11 @@ export default function HallBookingsPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
                <div>
-                 <h3 className="text-lg font-semibold text-slate-900">{editingHallBookingId ? 'Edit Hall Booking' : 'Create Hall Booking'}</h3>
-                 <p className="text-sm text-slate-500">
-                   For {bookingForm.start_datetime ? bookingForm.start_datetime.slice(0, 10) : 'selected date'}
-                 </p>
-                 {isAdminOrReceptionist && editingHallBookingId && (() => {
+                <h3 className="text-lg font-semibold text-slate-900">{editingHallBookingId ? 'Edit Hall Booking' : 'Create Hall Booking'}</h3>
+                <p className="text-sm text-slate-500">
+                  For {bookingForm.start_datetime ? bookingForm.start_datetime.slice(0, 10) : 'selected date'}
+                </p>
+                {editingHallBookingId && (() => {
                    const badge = getStatusBadge(bookingForm.status);
                    return (
                      <span className={`mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.className}`}>
@@ -668,6 +671,23 @@ export default function HallBookingsPage() {
                 <span>Booked By Email</span>
                 <input type="email" value={bookingForm.booked_by_email} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_email: e.target.value })} placeholder="name@example.com" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
+              {editingHallBookingId && (
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Status</span>
+                  <select
+                    value={bookingForm.status || 'PENDING'}
+                    onChange={(e) => setBookingForm({ ...bookingForm, status: e.target.value })}
+                    className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white"
+                  >
+                    {statusOptions.map((option) => {
+                      const badge = getStatusBadge(option);
+                      return (
+                        <option key={option} value={option}>{badge.label}</option>
+                      );
+                    })}
+                  </select>
+                </label>
+              )}
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
                 <span>Purpose</span>
                 <input value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} placeholder="Purpose" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
@@ -756,30 +776,30 @@ export default function HallBookingsPage() {
                         </td>
                          <td className="px-4 py-4 text-sm text-slate-700">
                            <div className="flex items-center gap-2">
-                             {isAdminOrReceptionist && (
-                               <>
-                                 {booking.status !== 'APPROVED' && (
-                                   <button
-                                     type="button"
-                                     onClick={() => handleApproveBooking(booking)}
-                                     className="inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
-                                     title="Approve"
-                                   >
-                                     <CheckCircle className="w-3.5 h-3.5" />
-                                   </button>
-                                 )}
-                                 {booking.status !== 'REJECTED' && (
-                                   <button
-                                     type="button"
-                                     onClick={() => handleRejectBooking(booking)}
-                                     className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                                     title="Reject"
-                                   >
-                                     <ShieldX className="w-3.5 h-3.5" />
-                                   </button>
-                                 )}
-                               </>
-                             )}
+                              {isAdminOrReceptionist && (
+                                <>
+                                  {booking.status !== 'APPROVED' && booking.status !== 'CANCELLED' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveBooking(booking)}
+                                      className="inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
+                                      title="Approve"
+                                    >
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {booking.status !== 'REJECTED' && booking.status !== 'CANCELLED' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRejectBooking(booking)}
+                                      className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                      title="Reject"
+                                    >
+                                      <ShieldX className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </>
+                              )}
                              <button
                                type="button"
                                onClick={() => {

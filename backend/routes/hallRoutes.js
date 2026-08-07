@@ -9,7 +9,7 @@ const HALL_MANAGEMENT_ROLES = [
   ROLES.RECEPTIONIST,
 ];
 
-router.get('/', protect, authorize(...HALL_MANAGEMENT_ROLES, ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY), getHalls);
+router.get('/', protect, authorize(ROLES.ADMIN, ROLES.RECEPTIONIST, ROLES.FACULTY, ROLES.NON_TEACHING), getHalls);
 router.post('/', protect, authorize(...HALL_MANAGEMENT_ROLES), createHall);
 router.put('/:id', protect, authorize(...HALL_MANAGEMENT_ROLES), updateHall);
 router.delete('/:id', protect, authorize(...HALL_MANAGEMENT_ROLES), deleteHall);

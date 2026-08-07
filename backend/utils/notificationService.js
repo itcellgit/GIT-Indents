@@ -203,6 +203,8 @@ const sendEmailNotificationToRecipients = async ({
 
     const emailTitle = title || 'New Notification from Indents Management Portal';
     const recipientName = 'Maintenance Head';
+    let sentCount = 0;
+    let failedCount = 0;
 
     for (const recipientEmail of normalizedRecipients) {
       const html = buildMailTemplate({
@@ -213,17 +215,28 @@ const sendEmailNotificationToRecipients = async ({
         label,
       });
 
-      await sendEmailSafely({
+      const delivered = await sendEmailSafely({
         to: recipientEmail,
         subject,
         html,
       });
+
+      if (delivered) {
+        sentCount += 1;
+      } else {
+        failedCount += 1;
+        console.error(`Email not delivered to ${recipientEmail}`);
+      }
     }
 
-    return { success: true, recipients: normalizedRecipients.length };
+    if (failedCount > 0) {
+      console.error(`Email delivery summary: sent=${sentCount}, failed=${failedCount}`);
+    }
+
+    return { success: failedCount === 0, recipients: normalizedRecipients.length, sentCount, failedCount };
   } catch (error) {
     console.error('Recipient email notification failed:', error.message);
-    return { success: false, recipients: 0 };
+    return { success: false, recipients: 0, sentCount: 0, failedCount: 0 };
   }
 };
 

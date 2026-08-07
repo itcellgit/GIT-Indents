@@ -102,6 +102,7 @@ const stationaryIndentRoutes = require('./routes/stationaryIndentRoutes');
 const hallRoutes = require('./routes/hallRoutes');
 const vehicleRoutes = require('./routes/vehicleRoutes');
 const hallBookingRoutes = require('./routes/hallBookingRoutes');
+const vehicleBookingRoutes = require('./routes/vehicleBookingRoutes');
 
 // --- MOUNT ROUTES ---
 // Every route inside authRoutes.js will automatically start with /api/auth
@@ -116,6 +117,7 @@ app.use('/api/stationary-indents', stationaryIndentRoutes);
 app.use('/api/halls', hallRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/hall-bookings', hallBookingRoutes);
+app.use('/api/vehicle-bookings', vehicleBookingRoutes);
 
 // A simple test route to verify the server is running when you visit localhost:5000 in your browser
 app.get('/', (req, res) => {

@@ -107,9 +107,6 @@ export default function AdminDashboard() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain bg-white rounded-full p-0.5" />
-              <div className="bg-indigo-500 p-2 rounded-lg">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
               <div className="hidden sm:block">
                 <h1 className="text-lg font-bold text-white leading-tight">Admin Dashboard</h1>
                 <p className="text-xs text-indigo-300">System Control Panel</p>

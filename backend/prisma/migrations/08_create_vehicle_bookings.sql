@@ -8,9 +8,7 @@ CREATE TABLE vehicle_bookings (
     start_time TIME,
     expected_return_time TIME,
     passenger_count INTEGER,
-    status VARCHAR(20) DEFAULT 'PENDING',
     remarks TEXT,
-    -- approved_by TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

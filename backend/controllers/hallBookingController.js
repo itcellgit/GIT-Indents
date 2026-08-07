@@ -8,14 +8,17 @@ const HALL_BOOKING_EMAILS = [
   // 'cc@git.edu',
   // 'hodec@git.edu',
   'rypatil@git.edu',
-  'itcell@git.edu',
+  // 'itcell@git.edu',
 ];
+
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 
 const mapHallBookingRow = (row) => ({
   id: Number(row.id),
   hall_id: Number(row.hall_id),
   hall_name: row.hall_name || '',
   booked_by: row.booked_by,
+  booked_by_email: row.booked_by_email || '',
   purpose: row.purpose || '',
   start_datetime: row.start_datetime,
   end_datetime: row.end_datetime,
@@ -34,7 +37,7 @@ const toLocalDateTime = (value) => {
 const getHallBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
-          `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.purpose, hb.start_datetime, hb.end_datetime,
+          `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.booked_by_email, hb.purpose, hb.start_datetime, hb.end_datetime,
             hb.remarks, hb.approved_by, hb.created_at, hb.updated_at
        FROM public.hall_bookings hb
        LEFT JOIN public.halls h ON h.id = hb.hall_id
@@ -52,6 +55,7 @@ const createHallBooking = async (req, res) => {
     const {
       hall_id,
       booked_by,
+      booked_by_email,
       purpose,
       start_datetime,
       end_datetime,
@@ -67,16 +71,21 @@ const createHallBooking = async (req, res) => {
       return res.status(400).json({ message: 'Booked by is required' });
     }
 
+    if (!booked_by_email || !String(booked_by_email).trim()) {
+      return res.status(400).json({ message: 'Booked by email is required' });
+    }
+
     if (!start_datetime || !end_datetime) {
       return res.status(400).json({ message: 'Start and end time are required' });
     }
 
     const bookingRows = await prisma.$queryRawUnsafe(
-      `INSERT INTO public.hall_bookings (hall_id, booked_by, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-       RETURNING id, hall_id, booked_by, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at`,
+      `INSERT INTO public.hall_bookings (hall_id, booked_by, booked_by_email, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+       RETURNING id, hall_id, booked_by, booked_by_email, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at`,
       Number(hall_id),
       String(booked_by).trim(),
+      String(booked_by_email).trim(),
       purpose ? String(purpose).trim() : null,
       new Date(start_datetime),
       new Date(end_datetime),
@@ -85,7 +94,7 @@ const createHallBooking = async (req, res) => {
     );
 
     const createdBookingRows = await prisma.$queryRawUnsafe(
-      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.purpose, hb.start_datetime, hb.end_datetime,
+      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.booked_by_email, hb.purpose, hb.start_datetime, hb.end_datetime,
         hb.remarks, hb.approved_by, hb.created_at, hb.updated_at
        FROM public.hall_bookings hb
        LEFT JOIN public.halls h ON h.id = hb.hall_id
@@ -95,10 +104,15 @@ const createHallBooking = async (req, res) => {
     );
 
     const createdBooking = mapHallBookingRow(createdBookingRows[0] || bookingRows[0]);
+    const recipientEmails = [...new Set([
+      ...HALL_BOOKING_EMAILS,
+      String(createdBooking.booked_by_email || '').trim().toLowerCase(),
+    ].filter(isValidEmail))];
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const bookingDetails = [
       `Hall: ${createdBooking.hall_name || `ID ${createdBooking.hall_id}`}`,
       `Booked by: ${createdBooking.booked_by || 'N/A'}`,
+      `Booked by email: ${createdBooking.booked_by_email || 'N/A'}`,
       `Purpose: ${createdBooking.purpose || 'N/A'}`,
       `Start: ${createdBooking.start_datetime ? new Date(createdBooking.start_datetime).toLocaleString() : 'N/A'}`,
       `End: ${createdBooking.end_datetime ? new Date(createdBooking.end_datetime).toLocaleString() : 'N/A'}`,
@@ -107,7 +121,7 @@ const createHallBooking = async (req, res) => {
     ].join('<br>');
 
     void sendEmailNotificationToRecipients({
-      recipients: HALL_BOOKING_EMAILS,
+      recipients: recipientEmails,
       message: `A new hall booking entry has been completed with the following details:<br><br>${bookingDetails}`,
       title: 'New Hall Booking Completed',
       subject: `New Hall Booking Completed${createdBooking.hall_name ? ` - ${createdBooking.hall_name}` : ''}`,
@@ -128,6 +142,7 @@ const updateHallBooking = async (req, res) => {
     const {
       hall_id,
       booked_by,
+      booked_by_email,
       purpose,
       start_datetime,
       end_datetime,
@@ -148,17 +163,19 @@ const updateHallBooking = async (req, res) => {
       `UPDATE public.hall_bookings
        SET hall_id = COALESCE($2, hall_id),
            booked_by = COALESCE($3, booked_by),
-           purpose = $4,
-           start_datetime = COALESCE($5, start_datetime),
-           end_datetime = COALESCE($6, end_datetime),
-           remarks = $7,
-           approved_by = $8,
+           booked_by_email = COALESCE($4, booked_by_email),
+           purpose = $5,
+           start_datetime = COALESCE($6, start_datetime),
+           end_datetime = COALESCE($7, end_datetime),
+           remarks = $8,
+           approved_by = $9,
            updated_at = NOW()
        WHERE id = $1
-       RETURNING id, hall_id, booked_by, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at`,
+       RETURNING id, hall_id, booked_by, booked_by_email, purpose, start_datetime, end_datetime, remarks, approved_by, created_at, updated_at`,
       bookingId,
       hall_id ? Number(hall_id) : null,
       booked_by ? String(booked_by).trim() : null,
+      booked_by_email ? String(booked_by_email).trim() : null,
       purpose ? String(purpose).trim() : null,
       start_datetime ? new Date(start_datetime) : null,
       end_datetime ? new Date(end_datetime) : null,
@@ -178,7 +195,12 @@ const deleteHallBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.hall_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, hb.booked_by_email, hb.purpose,
+              hb.start_datetime, hb.end_datetime, hb.remarks, hb.approved_by, hb.created_at, hb.updated_at
+       FROM public.hall_bookings hb
+       LEFT JOIN public.halls h ON h.id = hb.hall_id
+       WHERE hb.id = $1
+       LIMIT 1`,
       bookingId
     );
 
@@ -186,13 +208,44 @@ const deleteHallBooking = async (req, res) => {
       return res.status(404).json({ message: 'Hall booking not found' });
     }
 
+    const bookingToDelete = mapHallBookingRow(existingRows[0]);
+    const recipientEmails = [...new Set([
+      ...HALL_BOOKING_EMAILS,
+      String(bookingToDelete.booked_by_email || '').trim().toLowerCase(),
+    ].filter(isValidEmail))];
+
     await prisma.$queryRawUnsafe(
       `DELETE FROM public.hall_bookings WHERE id = $1`,
       bookingId
     );
 
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const cancellationDetails = [
+      `Hall: ${bookingToDelete.hall_name || `ID ${bookingToDelete.hall_id}`}`,
+      `Booked by: ${bookingToDelete.booked_by || 'N/A'}`,
+      `Booked by email: ${bookingToDelete.booked_by_email || 'N/A'}`,
+      `Purpose: ${bookingToDelete.purpose || 'N/A'}`,
+      `Start: ${bookingToDelete.start_datetime ? new Date(bookingToDelete.start_datetime).toLocaleString() : 'N/A'}`,
+      `End: ${bookingToDelete.end_datetime ? new Date(bookingToDelete.end_datetime).toLocaleString() : 'N/A'}`,
+      `Remarks: ${bookingToDelete.remarks || 'N/A'}`,
+    ].join('<br>');
+
+    const emailResult = await sendEmailNotificationToRecipients({
+      recipients: recipientEmails,
+      message: `A previously scheduled hall booking has been cancelled.<br><br>${cancellationDetails}`,
+      title: 'Hall Booking Cancelled',
+      subject: `Hall Booking Cancelled${bookingToDelete.hall_name ? ` - ${bookingToDelete.hall_name}` : ''}`,
+      actionUrl: `${frontendUrl}/hall-bookings`,
+      label: 'Hall Booking',
+    });
+
+    if (!emailResult?.success) {
+      console.error('Hall booking cancellation email failed for booking:', bookingId);
+    }
+
     res.json({ success: true, message: 'Hall booking deleted successfully' });
   } catch (error) {
+    console.error('Delete hall booking failed:', error.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };

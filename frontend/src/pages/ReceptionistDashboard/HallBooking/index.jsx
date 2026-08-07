@@ -16,11 +16,12 @@ const initialHallForm = {
 const initialBookingForm = {
   hall_id: '',
   booked_by: '',
+  booked_by_email: '',
   purpose: '',
   start_datetime: '',
   end_datetime: '',
   remarks: '',
-  approved_by: '',
+  // approved_by: '',
 };
 
 const tabs = [
@@ -179,6 +180,7 @@ export default function HallBookingsPage() {
     setBookingForm({
       ...initialBookingForm,
       booked_by: '',
+      booked_by_email: '',
       hall_id: '',
       start_datetime: `${dateString}T09:00`,
       end_datetime: `${dateString}T10:00`,
@@ -283,11 +285,12 @@ export default function HallBookingsPage() {
     setBookingForm({
       hall_id: String(booking.hall_id || ''),
       booked_by: looksLikeUuid(booking.booked_by) ? '' : String(booking.booked_by || ''),
+      booked_by_email: String(booking.booked_by_email || ''),
       purpose: booking.purpose || '',
       start_datetime: toDatetimeLocalValue(booking.start_datetime),
       end_datetime: toDatetimeLocalValue(booking.end_datetime),
       remarks: booking.remarks || '',
-      approved_by: booking.approved_by || '',
+      // approved_by: booking.approved_by || '',
     });
     setEditingHallBookingId(booking.id);
     setIsBookingModalOpen(true);
@@ -599,6 +602,10 @@ export default function HallBookingsPage() {
                 <span>Booked By</span>
                 <input value={bookingForm.booked_by} onChange={(e) => setBookingForm({ ...bookingForm, booked_by: e.target.value })} placeholder="Enter name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
+              <label className="grid gap-1 text-sm font-medium text-slate-700">
+                <span>Booked By Email</span>
+                <input type="email" value={bookingForm.booked_by_email} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_email: e.target.value })} placeholder="name@example.com" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+              </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
                 <span>Purpose</span>
                 <input value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} placeholder="Purpose" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
@@ -650,6 +657,7 @@ export default function HallBookingsPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">S.No</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Hall</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By Email</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Purpose</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Time</th>
@@ -659,7 +667,7 @@ export default function HallBookingsPage() {
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {selectedDayBookings.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
+                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
                     </tr>
                   ) : (
                     selectedDayBookings.map((booking, index) => (
@@ -667,6 +675,7 @@ export default function HallBookingsPage() {
                         <td className="px-4 py-4 text-sm text-slate-700">{index + 1}</td>
                         <td className="px-4 py-4 text-sm font-medium text-slate-900">{booking.hall_name || booking.hall?.name || 'Hall'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by || '-'}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{formatBookingDateRange(booking.start_datetime, booking.end_datetime)}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">

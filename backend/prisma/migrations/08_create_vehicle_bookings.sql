@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS public.vehicle_bookings
 
     vehicle_id BIGINT NOT NULL,
     booked_by TEXT NOT NULL,
+    booked_by_email TEXT,
 
     purpose VARCHAR(255),
     destination VARCHAR(255),

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, XCircle, Search, Filter, LogOut, KeyRound, Building2
+  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, XCircle, Search, Filter, LogOut, KeyRound, Building2, Car
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -171,6 +171,13 @@ export default function FacultyDashboard() {
             >
               <Building2 className="w-4 h-4 mr-2" />
               Hall Booking
+            </Link>
+            <Link
+              to="/vehicle-bookings"
+              className="flex items-center px-4 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
+            >
+              <Car className="w-4 h-4 mr-2" />
+              Vehicle Booking
             </Link>
             <button 
               onClick={() => setIsRaiseModalOpen(true)}

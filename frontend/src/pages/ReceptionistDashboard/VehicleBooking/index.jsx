@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, ChevronLeft, ChevronRight, CheckCircle, ShieldX, Clock } from 'lucide-react';
 import NotificationBell from '../../../components/NotificationBell';
 import ChangePasswordModal from '../../../components/ChangePasswordModal';
 import api from '../../../api/axios';
 import logo from '../../../assets/logo.png';
+import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
 
 const initialVehicleForm = {
   vehicle_number: '',
@@ -17,19 +18,48 @@ const initialVehicleForm = {
 const initialBookingForm = {
   vehicle_id: '',
   booked_by: '',
+  booked_by_name: '',
+  booked_by_email: '',
   purpose: '',
   destination: '',
-  travel_date: '',
+  start_date: '',
+  end_date: '',
+  booking_period: 'FULL_DAY',
   start_time: '',
-  expected_return_time: '',
+  end_time: '',
   passenger_count: '',
   remarks: '',
+  status: 'PENDING',
 };
 
 const tabs = [
   { id: 'vehicles', label: 'Vehicle List' },
   { id: 'calendar', label: 'Calendar' },
 ];
+
+const managementTabs = [
+  { id: 'vehicles', label: 'Vehicle List' },
+  { id: 'calendar', label: 'Calendar' },
+];
+
+const facultyTabs = [
+  { id: 'calendar', label: 'Calendar' },
+];
+
+const statusConfig = {
+  PENDING: { label: 'Pending', className: 'text-amber-600 bg-amber-50 border border-amber-200' },
+  APPROVED: { label: 'Approved', className: 'text-green-600 bg-green-50 border border-green-200' },
+  REJECTED: { label: 'Rejected', className: 'text-red-600 bg-red-50 border border-red-200' },
+  CANCELLED: { label: 'Cancelled', className: 'text-slate-600 bg-slate-50 border border-slate-200' },
+};
+
+const facultyStatusOptions = ['PENDING', 'CANCELLED'];
+const managementStatusOptions = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+
+const getStatusBadge = (status) => {
+  const key = (status || 'PENDING').toUpperCase();
+  return statusConfig[key] || statusConfig.PENDING;
+};
 
 const toLocalDateString = (value) => {
   if (!value) return '';
@@ -44,23 +74,195 @@ const toLocalDateString = (value) => {
 const toTimeLocalValue = (value) => {
   if (!value) return '';
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
+  const timeString = String(value);
+  const timeMatch = timeString.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!timeMatch) return '';
 
-  const pad = (num) => String(num).padStart(2, '0');
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const hours = String(Number(timeMatch[1])).padStart(2, '0');
+  const minutes = timeMatch[2];
+
+  return `${hours}:${minutes}`;
 };
 
 const isBookingOnDate = (booking, dateString) => {
   if (!dateString) return false;
 
-  const bookingDate = toLocalDateString(booking.travel_date);
+  const bookingDate = toLocalDateString(booking.start_date);
   return bookingDate === dateString;
+};
+
+const formatTimeWithAmPm = (value) => {
+  if (!value) return '-';
+
+  const timeString = String(value);
+  const timeMatch = timeString.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!timeMatch) return '-';
+
+  let hours = Number(timeMatch[1]);
+  const minutes = timeMatch[2];
+  const amPm = hours >= 12 ? 'PM' : 'AM';
+  hours %= 12;
+  if (hours === 0) hours = 12;
+
+  return `${String(hours).padStart(2, '0')}:${minutes} ${amPm}`;
+};
+
+const formatDateLabel = (value) => {
+  if (!value) return '-';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+const getVehicleLabel = (booking) => {
+  if (!booking) return 'Vehicle';
+  const number = booking.vehicle_number || '';
+  const name = booking.vehicle_name || '';
+  if (number && name) return `${number} - ${name}`;
+  return number || name || 'Vehicle';
+};
+
+const formatBookingDateRange = (startDate, endDate) => {
+  const startLabel = formatDateLabel(startDate);
+  const endLabel = formatDateLabel(endDate);
+
+  if (!startDate) return '-';
+  if (!endDate || startLabel === endLabel) return startLabel;
+
+  return `${startLabel} - ${endLabel}`;
+};
+
+const getTimeOfDay = (datetime) => {
+  if (!datetime) return 'Unknown';
+
+  const date = new Date(datetime);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+
+  const hours = date.getHours();
+  if (hours >= 5 && hours < 12) return 'Morning';
+  if (hours >= 12 && hours < 17) return 'Afternoon';
+  if (hours >= 17 && hours < 21) return 'Evening';
+  return 'Night';
+};
+
+const TIME_PERIODS = ['Morning', 'Afternoon', 'Evening', 'Night'];
+
+const groupByTimeOfDay = (bookings) => {
+  const groups = {};
+  TIME_PERIODS.forEach((period) => { groups[period] = []; });
+
+  bookings.forEach((booking) => {
+    const period = getTimeOfDay(booking.start_datetime || `${booking.start_date}T${booking.start_time || '00:00'}`);
+    if (!groups[period]) groups[period] = [];
+    groups[period].push(booking);
+  });
+
+  return groups;
+};
+
+const detectConflicts = (bookings) => {
+  const conflicts = new Set();
+  for (let i = 0; i < bookings.length; i += 1) {
+    for (let j = i + 1; j < bookings.length; j += 1) {
+      const a = bookings[i];
+      const b = bookings[j];
+      if (a.vehicle_id !== b.vehicle_id) continue;
+
+      const startA = new Date(`${a.start_date}T${a.start_time || '00:00'}`);
+      const endA = new Date(`${a.start_date}T${a.end_time || '23:59'}`);
+      const startB = new Date(`${b.start_date}T${b.start_time || '00:00'}`);
+      const endB = new Date(`${b.start_date}T${b.end_time || '23:59'}`);
+
+      if (startA < endB && startB < endA && a.id !== b.id) {
+        conflicts.add(a.id);
+        conflicts.add(b.id);
+      }
+    }
+  }
+  return conflicts;
+};
+
+const SummaryBookingList = ({ bookings, conflicts, dateString, onOpenDayList }) => {
+  const timeGroups = useMemo(() => groupByTimeOfDay(bookings), [bookings]);
+
+  return (
+    <div className="space-y-1.5">
+      {TIME_PERIODS.map((period) => {
+        const periodBookings = timeGroups[period] || [];
+        if (periodBookings.length === 0) return null;
+
+        return (
+          <div key={period}>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              {period}
+            </div>
+            <div className="space-y-1">
+              {periodBookings.map((booking) => {
+                const badge = getStatusBadge(booking.status);
+                const isConflict = conflicts?.has(booking.id);
+                return (
+                  <button
+                    key={booking.id}
+                    type="button"
+                    onClick={() => onOpenDayList(dateString, bookings)}
+                    className={`w-full flex items-center justify-between gap-2 rounded-lg border p-2 text-left transition-colors ${isConflict ? 'border-amber-300 bg-amber-50 hover:bg-amber-100' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-slate-800 text-sm truncate">{getVehicleLabel(booking)}</span>
+                        <span className="text-xs text-slate-500 truncate">
+                          {formatTimeWithAmPm(booking.start_time)} – {formatTimeWithAmPm(booking.end_time)}
+                          {booking.purpose ? ` • ${booking.purpose}` : ''}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {isConflict && (
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600" title="Time conflict">
+                          <span className="text-[9px] font-bold">!</span>
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 export default function VehicleBookingsPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const userRole = user?.role;
+  const isAdminOrReceptionist = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+
+  const visibleTabs = isAdminOrReceptionist ? managementTabs : facultyTabs;
+  const defaultActiveTab = isAdminOrReceptionist ? 'vehicles' : 'calendar';
+
+  const backPath = ROLE_DASHBOARDS[userRole] || '/';
+  const backLabel = 'Back to Dashboard';
+  const sectionLabel = isAdminOrReceptionist ? 'Reception Operations' : 'Vehicle Booking';
+  const roleDefaultName = isAdminOrReceptionist ? (user?.name || 'Receptionist') : (user?.name || 'Staff Member');
+  const roleDefaultDept = isAdminOrReceptionist ? (user?.department || 'Reception Desk') : (user?.department || 'Staff');
+  const statusOptions = isAdminOrReceptionist ? managementStatusOptions : facultyStatusOptions;
+
+  const isActionDisabledForApproved = (status) => !isAdminOrReceptionist && (status || '').toUpperCase() === 'APPROVED';
+
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -74,7 +276,7 @@ export default function VehicleBookingsPage() {
   const [loading, setLoading] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('vehicles');
+  const [activeTab, setActiveTab] = useState(defaultActiveTab);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedDayBookings, setSelectedDayBookings] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -109,6 +311,24 @@ export default function VehicleBookingsPage() {
     return cells;
   }, [selectedMonthDate]);
 
+  const today = useMemo(() => toLocalDateString(new Date()), []);
+  const tomorrow = useMemo(() => {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    return toLocalDateString(t);
+  }, []);
+
+  const upcomingBookings = useMemo(() => {
+    const todayBookings = vehicleBookings.filter((b) => isBookingOnDate(b, today));
+    const tomorrowBookings = vehicleBookings.filter((b) => isBookingOnDate(b, tomorrow));
+    return {
+      today: todayBookings,
+      todayConflicts: detectConflicts(todayBookings),
+      tomorrow: tomorrowBookings,
+      tomorrowConflicts: detectConflicts(tomorrowBookings),
+    };
+  }, [vehicleBookings, today, tomorrow]);
+
   const loadVehicleBookings = async () => {
     setCalendarLoading(true);
     setError('');
@@ -129,10 +349,14 @@ export default function VehicleBookingsPage() {
     setBookingForm({
       ...initialBookingForm,
       vehicle_id: '',
-      booked_by: '',
-      travel_date: dateString,
+      booked_by: user?.id || '',
+      booked_by_name: user?.name || '',
+      booked_by_email: user?.email || '',
+      start_date: dateString,
+      end_date: dateString,
+      booking_period: 'FULL_DAY',
       start_time: '09:00',
-      expected_return_time: '10:00',
+      end_time: '10:00',
       passenger_count: '',
     });
     setEditingVehicleBookingId(null);
@@ -206,13 +430,17 @@ export default function VehicleBookingsPage() {
     const payload = {
       vehicle_id: bookingForm.vehicle_id,
       booked_by: bookingForm.booked_by,
+      booked_by_email: bookingForm.booked_by_email,
       purpose: bookingForm.purpose,
       destination: bookingForm.destination,
-      travel_date: bookingForm.travel_date,
+      start_date: bookingForm.start_date,
+      end_date: bookingForm.end_date,
+      booking_period: bookingForm.booking_period,
       start_time: bookingForm.start_time || null,
-      expected_return_time: bookingForm.expected_return_time || null,
+      end_time: bookingForm.end_time || null,
       passenger_count: bookingForm.passenger_count || null,
       remarks: bookingForm.remarks,
+      status: bookingForm.status,
     };
 
     try {
@@ -235,13 +463,18 @@ export default function VehicleBookingsPage() {
     setBookingForm({
       vehicle_id: String(booking.vehicle_id || ''),
       booked_by: String(booking.booked_by || ''),
+      booked_by_name: String(booking.booked_by_name || booking.booked_by || ''),
+      booked_by_email: String(booking.booked_by_email || ''),
       purpose: booking.purpose || '',
       destination: booking.destination || '',
-      travel_date: toLocalDateString(booking.travel_date),
+      start_date: toLocalDateString(booking.start_date),
+      end_date: toLocalDateString(booking.end_date),
+      booking_period: booking.booking_period || 'FULL_DAY',
       start_time: toTimeLocalValue(booking.start_time),
-      expected_return_time: toTimeLocalValue(booking.expected_return_time),
+      end_time: toTimeLocalValue(booking.end_time),
       passenger_count: booking.passenger_count ? String(booking.passenger_count) : '',
       remarks: booking.remarks || '',
+      status: booking.status || 'PENDING',
     });
     setEditingVehicleBookingId(booking.id);
     setIsBookingModalOpen(true);
@@ -256,9 +489,29 @@ export default function VehicleBookingsPage() {
       setBookingForm(initialBookingForm);
       await loadVehicleBookings();
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Failed to delete vehicle booking');
+      setError(apiError.response?.data?.message || 'Failed to delete booking');
     }
   };
+
+  const handleApproveBooking = async (booking) => {
+    try {
+      await api.put(`/vehicle-bookings/${booking.id}/approve`);
+      await loadVehicleBookings();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || 'Failed to approve booking');
+    }
+  };
+
+  const handleRejectBooking = async (booking) => {
+    try {
+      await api.put(`/vehicle-bookings/${booking.id}/reject`, { remarks: booking.remarks || '' });
+      await loadVehicleBookings();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || 'Failed to reject booking');
+    }
+  };
+
+  const canSelectVehicle = isAdminOrReceptionist;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -280,8 +533,8 @@ export default function VehicleBookingsPage() {
                   <User className="h-4 w-4 text-indigo-600" />
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-medium text-slate-700">{user?.name || 'Receptionist'}</p>
-                  <p className="text-xs text-slate-500">{user?.department || 'Reception Desk'}</p>
+                  <p className="text-sm font-medium text-slate-700">{roleDefaultName}</p>
+                  <p className="text-xs text-slate-500">{roleDefaultDept}</p>
                 </div>
               </Link>
               <button onClick={() => setIsChangePasswordOpen(true)} className="text-slate-400 hover:text-indigo-600 transition-colors bg-slate-100 p-2 rounded-lg border border-slate-200" title="Change Password">
@@ -300,19 +553,19 @@ export default function VehicleBookingsPage() {
           <div>
             <button
               type="button"
-              onClick={() => navigate('/receptionist-dashboard')}
+              onClick={() => navigate(backPath)}
               className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors mb-3"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Receptionist Dashboard
+              {backLabel}
             </button>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">Reception Operations</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">{sectionLabel}</p>
             <h2 className="mt-2 text-3xl font-bold text-slate-900">Vehicle Booking</h2>
           </div>
         </div>
 
         <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -474,9 +727,53 @@ export default function VehicleBookingsPage() {
               </div>
             </div>
 
-            {calendarLoading ? (
-              <div className="py-10 text-center text-sm text-slate-500">Loading vehicle bookings...</div>
-            ) : (
+            {!calendarLoading && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {((upcomingBookings.today.length > 0 && upcomingBookings.todayConflicts.size > 0) ||
+                  (upcomingBookings.tomorrow.length > 0 && upcomingBookings.tomorrowConflicts.size > 0)) && (
+                  <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+                    <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.097a4.5 4.5 0 0 1 7.706 3.103v3.747a2 2 0 0 1-.614 1.414l-5.5 5a2 2 0 0 1-2.878-1.553V9.355a2 2 0 0 1 .614-1.414l3.654-3.654a.75.75 0 0 0-1.06-1.06L7.5 5.5v9.5a.5.5 0 0 0 .776.416l4.5-3a.5.5 0 0 0-.025-.845V6.1a4.5 4.5 0 0 1-.019-.003z" clipRule="evenodd" /></svg>
+                    <span>
+                      <strong>Conflict alert:</strong> Overlapping bookings detected for the same vehicle on today or tomorrow. Please review and adjust timings.
+                    </span>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Today<span className="text-xs text-slate-400 font-normal">({formatDateLabel(today)})</span>
+                  </h4>
+                  {upcomingBookings.today.length === 0 ? (
+                    <p className="text-sm text-slate-400">No bookings for today.</p>
+                  ) : (
+                    <SummaryBookingList
+                      bookings={upcomingBookings.today}
+                      conflicts={upcomingBookings.todayConflicts}
+                      dateString={today}
+                      onOpenDayList={openDayList}
+                    />
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                    Tomorrow<span className="text-xs text-slate-400 font-normal">({formatDateLabel(tomorrow)})</span>
+                  </h4>
+                  {upcomingBookings.tomorrow.length === 0 ? (
+                    <p className="text-sm text-slate-400">No bookings for tomorrow.</p>
+                  ) : (
+                    <SummaryBookingList
+                      bookings={upcomingBookings.tomorrow}
+                      conflicts={upcomingBookings.tomorrowConflicts}
+                      dateString={tomorrow}
+                      onOpenDayList={openDayList}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
               <>
                 <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
@@ -508,7 +805,14 @@ export default function VehicleBookingsPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-semibold text-slate-900">{day.getDate()}</span>
-                          {dayBookings.length > 0 && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[11px] font-semibold text-white">{dayBookings.length}</span>}
+                          {dayBookings.length > 0 && (() => {
+                           const hasPending = dayBookings.some((b) => (b.status || 'PENDING').toUpperCase() === 'PENDING');
+                           const hasRejected = dayBookings.some((b) => (b.status || '').toUpperCase() === 'REJECTED');
+                           const badgeBg = hasPending ? 'bg-amber-500' : (hasRejected ? 'bg-red-500' : 'bg-green-500');
+                           return (
+                             <span className={`rounded-full ${badgeBg} px-2 py-0.5 text-[11px] font-semibold text-white`}>{dayBookings.length}</span>
+                           );
+                         })()}
                         </div>
                         {dayBookings.length > 0 && (
                           <div className="mt-3 flex items-center justify-end gap-2">
@@ -529,7 +833,7 @@ export default function VehicleBookingsPage() {
                   })}
                 </div>
               </>
-            )}
+            )
           </section>
         )}
       </main>
@@ -540,7 +844,15 @@ export default function VehicleBookingsPage() {
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">{editingVehicleBookingId ? 'Edit Vehicle Booking' : 'Create Vehicle Booking'}</h3>
-                <p className="text-sm text-slate-500">For {bookingForm.travel_date || 'selected date'}</p>
+                <p className="text-sm text-slate-500">For {bookingForm.start_date || 'selected date'}</p>
+                {editingVehicleBookingId && (() => {
+                   const badge = getStatusBadge(bookingForm.status);
+                   return (
+                     <span className={`mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.className}`}>
+                       {badge.label}
+                     </span>
+                   );
+                 })()}
               </div>
               <button type="button" onClick={() => setIsBookingModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <XCircle className="h-5 w-5" />
@@ -548,38 +860,81 @@ export default function VehicleBookingsPage() {
             </div>
 
             <form onSubmit={handleBookingSubmit} className="p-6 grid gap-4 md:grid-cols-2">
-              <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Vehicle</span>
-                <select value={bookingForm.vehicle_id} onChange={(e) => setBookingForm({ ...bookingForm, vehicle_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
-                  <option value="">Select Vehicle</option>
-                  {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_number} - {vehicle.vehicle_name}</option>
-                  ))}
-                </select>
-              </label>
+              {canSelectVehicle ? (
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Vehicle</span>
+                  <select value={bookingForm.vehicle_id} onChange={(e) => setBookingForm({ ...bookingForm, vehicle_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                    <option value="">Select Vehicle</option>
+                    {vehicles.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_number} - {vehicle.vehicle_name}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Vehicle</span>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
+                    Vehicle will be assigned by the Receptionist
+                  </div>
+                </div>
+              )}
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Booked By</span>
-                <input value={bookingForm.booked_by} onChange={(e) => setBookingForm({ ...bookingForm, booked_by: e.target.value })} placeholder="Enter name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <input value={bookingForm.booked_by_name} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_name: e.target.value })} placeholder="Enter name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Destination</span>
-                <input value={bookingForm.destination} onChange={(e) => setBookingForm({ ...bookingForm, destination: e.target.value })} placeholder="Destination" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>Booked By Email</span>
+                <input type="email" value={bookingForm.booked_by_email} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_email: e.target.value })} placeholder="name@example.com" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
+              {editingVehicleBookingId && (
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Status</span>
+                  <select
+                    value={bookingForm.status || 'PENDING'}
+                    onChange={(e) => setBookingForm({ ...bookingForm, status: e.target.value })}
+                    className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white"
+                  >
+                    {statusOptions.map((option) => {
+                      const badge = getStatusBadge(option);
+                      return (
+                        <option key={option} value={option}>{badge.label}</option>
+                      );
+                    })}
+                  </select>
+                </label>
+              )}
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Passenger Count</span>
                 <input type="number" value={bookingForm.passenger_count} onChange={(e) => setBookingForm({ ...bookingForm, passenger_count: e.target.value })} placeholder="Passenger Count" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Travel Date</span>
-                <input type="date" value={bookingForm.travel_date} onChange={(e) => setBookingForm({ ...bookingForm, travel_date: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>Start Date</span>
+                <input type="date" value={bookingForm.start_date} onChange={(e) => setBookingForm({ ...bookingForm, start_date: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-slate-700">
+                <span>End Date</span>
+                <input type="date" value={bookingForm.end_date} onChange={(e) => setBookingForm({ ...bookingForm, end_date: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-slate-700">
+                <span>Booking Period</span>
+                <select value={bookingForm.booking_period} onChange={(e) => setBookingForm({ ...bookingForm, booking_period: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                  <option value="MORNING">Morning</option>
+                  <option value="SECOND_HALF">Second Half</option>
+                  <option value="FULL_DAY">Full Day</option>
+                  <option value="CUSTOM">Custom</option>
+                </select>
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Start Time</span>
                 <input type="time" value={bookingForm.start_time} onChange={(e) => setBookingForm({ ...bookingForm, start_time: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Expected Return Time</span>
-                <input type="time" value={bookingForm.expected_return_time} onChange={(e) => setBookingForm({ ...bookingForm, expected_return_time: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>End Time</span>
+                <input type="time" value={bookingForm.end_time} onChange={(e) => setBookingForm({ ...bookingForm, end_time: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-slate-700">
+                <span>Destination</span>
+                <input value={bookingForm.destination} onChange={(e) => setBookingForm({ ...bookingForm, destination: e.target.value })} placeholder="Destination" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
                 <span>Purpose</span>
@@ -591,7 +946,15 @@ export default function VehicleBookingsPage() {
               </label>
               <div className="md:col-span-2 flex justify-end gap-3 pt-2">
                 {editingVehicleBookingId && (
-                  <button type="button" onClick={() => handleDeleteVehicleBooking(editingVehicleBookingId)} className="px-4 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 inline-flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isActionDisabledForApproved(bookingForm.status)) return;
+                      handleDeleteVehicleBooking(editingVehicleBookingId);
+                    }}
+                    disabled={isActionDisabledForApproved(bookingForm.status)}
+                    className={`px-4 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 inline-flex items-center gap-2 ${isActionDisabledForApproved(bookingForm.status) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
                     <Trash2 className="h-4 w-4" />
                     Delete Booking
                   </button>
@@ -624,9 +987,10 @@ export default function VehicleBookingsPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">S.No</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Destination</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By Email</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Purpose</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Time</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                   </tr>
@@ -634,41 +998,79 @@ export default function VehicleBookingsPage() {
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {selectedDayBookings.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
+                      <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
                     </tr>
                   ) : (
                     selectedDayBookings.map((booking, index) => (
                       <tr key={booking.id} className="hover:bg-slate-50">
                         <td className="px-4 py-4 text-sm text-slate-700">{index + 1}</td>
-                        <td className="px-4 py-4 text-sm font-medium text-slate-900">{booking.vehicle_number || booking.vehicle_name || 'Vehicle'}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by || '-'}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.destination || '-'}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-slate-900">{getVehicleLabel(booking)}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || booking.booked_by || '-'}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.status || '-'}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.start_time || '-'} to {booking.expected_return_time || '-'}</td>
+                         <td className="px-4 py-4 text-sm text-slate-700">
+                           {(() => {
+                             const badge = getStatusBadge(booking.status);
+                             return (
+                               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.className}`}>
+                                 {badge.label}
+                               </span>
+                             );
+                           })()}
+                         </td>
+                        <td className="px-4 py-4 text-sm text-slate-700">{formatBookingDateRange(booking.start_date, booking.end_date)}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsDayListOpen(false);
-                                openEditVehicleBooking(booking);
-                              }}
-                              className="inline-flex items-center justify-center rounded-md p-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
-                              title="Edit"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteVehicleBooking(booking.id)}
-                              className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          {formatTimeWithAmPm(booking.start_time)} to {formatTimeWithAmPm(booking.end_time)}
                         </td>
+                         <td className="px-4 py-4 text-sm text-slate-700">
+                            <div className="flex items-center gap-2">
+                              {isAdminOrReceptionist && (
+                                <>
+                                  {booking.status !== 'APPROVED' && booking.status !== 'CANCELLED' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveBooking(booking)}
+                                      className="inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
+                                      title="Approve"
+                                    >
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {booking.status !== 'REJECTED' && booking.status !== 'CANCELLED' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRejectBooking(booking)}
+                                      className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                      title="Reject"
+                                    >
+                                      <ShieldX className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                               <button
+                                 type="button"
+                                 onClick={() => {
+                                   setIsDayListOpen(false);
+                                   openEditVehicleBooking(booking);
+                                 }}
+                                 disabled={isActionDisabledForApproved(booking.status)}
+                                 className={`inline-flex items-center justify-center rounded-md p-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors ${isActionDisabledForApproved(booking.status) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                 title={isActionDisabledForApproved(booking.status) ? 'Cannot edit an approved booking' : 'Edit'}
+                               >
+                                 <Pencil className="w-3.5 h-3.5" />
+                               </button>
+                               <button
+                                 type="button"
+                                 onClick={() => handleDeleteVehicleBooking(booking.id)}
+                                 disabled={isActionDisabledForApproved(booking.status)}
+                                 className={`inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${isActionDisabledForApproved(booking.status) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                 title={isActionDisabledForApproved(booking.status) ? 'Cannot delete an approved booking' : 'Delete'}
+                               >
+                                 <Trash2 className="w-3.5 h-3.5" />
+                               </button>
+                            </div>
+                          </td>
                       </tr>
                     ))
                   )}

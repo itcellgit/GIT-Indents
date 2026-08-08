@@ -1,4 +1,12 @@
 const prisma = require('../prismaClient');
+const { sendEmailNotificationToRecipients } = require('../utils/notificationService');
+const { ROLES } = require('../utils/roles');
+
+const VEHICLE_BOOKING_EMAILS = [
+  'rypatil@git.edu',
+];
+
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 
 const mapVehicleBookingRow = (row) => ({
   id: Number(row.id),
@@ -7,28 +15,58 @@ const mapVehicleBookingRow = (row) => ({
   vehicle_name: row.vehicle_name || '',
   vehicle_type: row.vehicle_type || '',
   booked_by: row.booked_by,
+  booked_by_name: row.booked_by_name || '',
+  booked_by_email: row.booked_by_email || '',
   purpose: row.purpose || '',
   destination: row.destination || '',
-  travel_date: row.travel_date,
+  start_date: row.start_date,
+  end_date: row.end_date,
+  booking_period: row.booking_period || 'FULL_DAY',
   start_time: row.start_time,
-  expected_return_time: row.expected_return_time,
+  end_time: row.end_time,
   passenger_count: row.passenger_count,
-  status: 'PENDING',
+  status: row.status || 'PENDING',
+  approved_by: row.approved_by || '',
+  approved_at: row.approved_at || null,
   remarks: row.remarks || '',
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
 
+const toLocalDateTime = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const fetchVehicleBookingById = async (bookingId) => {
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+            vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
+            vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
+            vb.created_at, vb.updated_at
+     FROM public.vehicle_bookings vb
+     LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
+     LEFT JOIN public."User" u ON u.id = vb.booked_by
+     WHERE vb.id = $1
+     LIMIT 1`,
+    bookingId
+  );
+  return rows;
+};
+
 const getVehicleBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
       `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
-              vb.booked_by, vb.purpose, vb.destination, vb.travel_date, vb.start_time,
-              vb.expected_return_time, vb.passenger_count, vb.remarks,
+              vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
+              vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
               vb.created_at, vb.updated_at
-       FROM public.vehicle_bookings vb
-       LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
-       ORDER BY vb.travel_date DESC, vb.id DESC`
+         FROM public.vehicle_bookings vb
+         LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
+         LEFT JOIN public."User" u ON u.id = vb.booked_by
+         ORDER BY vb.start_date DESC, vb.id DESC`
     );
 
     res.json({ success: true, bookings: bookings.map(mapVehicleBookingRow) });
@@ -44,47 +82,58 @@ const createVehicleBooking = async (req, res) => {
       booked_by,
       purpose,
       destination,
-      travel_date,
+      start_date,
+      end_date,
+      booking_period,
       start_time,
-      expected_return_time,
+      end_time,
       passenger_count,
       remarks,
     } = req.body;
 
-    if (!vehicle_id) return res.status(400).json({ message: 'Vehicle is required' });
-    if (!booked_by || !String(booked_by).trim()) return res.status(400).json({ message: 'Booked by is required' });
-    if (!travel_date) return res.status(400).json({ message: 'Travel date is required' });
+    if (!booked_by || !String(booked_by).trim()) {
+      return res.status(400).json({ message: 'Booked by is required' });
+    }
+
+    if (!start_date) {
+      return res.status(400).json({ message: 'Start date is required' });
+    }
 
     const bookingRows = await prisma.$queryRawUnsafe(
       `INSERT INTO public.vehicle_bookings
-       (vehicle_id, booked_by, purpose, destination, travel_date, start_time, expected_return_time, passenger_count, remarks, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-       RETURNING id, vehicle_id, booked_by, purpose, destination, travel_date, start_time, expected_return_time, passenger_count, remarks, created_at, updated_at`,
-      Number(vehicle_id),
+        (vehicle_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDING', NOW(), NOW())
+       RETURNING id, vehicle_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at`,
+      vehicle_id ? Number(vehicle_id) : null,
       String(booked_by).trim(),
+      req.body.booked_by_email ? String(req.body.booked_by_email).trim() : null,
       purpose ? String(purpose).trim() : null,
       destination ? String(destination).trim() : null,
-      travel_date,
+      start_date,
+      end_date || start_date,
+      booking_period || 'FULL_DAY',
       start_time || null,
-      expected_return_time || null,
+      end_time || null,
       passenger_count ? Number(passenger_count) : null,
       remarks ? String(remarks).trim() : null
     );
 
-    const booking = bookingRows[0];
-    const joinedRows = await prisma.$queryRawUnsafe(
+    const createdBookingRows = await prisma.$queryRawUnsafe(
       `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
-              vb.booked_by, vb.purpose, vb.destination, vb.travel_date, vb.start_time,
-              vb.expected_return_time, vb.passenger_count, vb.remarks,
+              vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
+              vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
               vb.created_at, vb.updated_at
-       FROM public.vehicle_bookings vb
-       LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
-       WHERE vb.id = $1
-       LIMIT 1`,
-      booking.id
+         FROM public.vehicle_bookings vb
+         LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
+         LEFT JOIN public."User" u ON u.id = vb.booked_by
+         WHERE vb.id = $1
+         LIMIT 1`,
+      Number(bookingRows[0].id)
     );
 
-    res.status(201).json({ success: true, booking: mapVehicleBookingRow(joinedRows[0]) });
+    const createdBooking = mapVehicleBookingRow(createdBookingRows[0] || bookingRows[0]);
+
+    res.status(201).json({ success: true, booking: createdBooking });
   } catch (error) {
     console.error('Create vehicle booking failed:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -98,62 +147,90 @@ const updateVehicleBooking = async (req, res) => {
     const {
       vehicle_id,
       booked_by,
+      booked_by_email,
       purpose,
       destination,
-      travel_date,
+      start_date,
+      end_date,
+      booking_period,
       start_time,
-      expected_return_time,
+      end_time,
       passenger_count,
       remarks,
+      status,
+      approved_by,
     } = req.body;
 
-    const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
+    const beforeRows = await prisma.$queryRawUnsafe(
+      `SELECT status FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
-    if (!existingRows.length) {
+    if (!beforeRows.length) {
       return res.status(404).json({ message: 'Vehicle booking not found' });
+    }
+
+    const previousStatus = (beforeRows[0].status || 'PENDING').toUpperCase();
+    const normalizedStatus = status ? String(status).trim().toUpperCase() : null;
+    const approverId = String(req.user?.id || '').trim();
+
+    const userRole = req.user?.role;
+    const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+    const allowedStatusesForUser = isManagementRole
+      ? ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']
+      : ['PENDING', 'CANCELLED'];
+
+    if (normalizedStatus && !allowedStatusesForUser.includes(normalizedStatus)) {
+      return res.status(403).json({ message: `Your role cannot set status to ${normalizedStatus}` });
     }
 
     await prisma.$queryRawUnsafe(
       `UPDATE public.vehicle_bookings
-       SET vehicle_id = COALESCE($2, vehicle_id),
-           booked_by = COALESCE($3, booked_by),
-           purpose = $4,
-           destination = $5,
-           travel_date = COALESCE($6, travel_date),
-           start_time = $7,
-           expected_return_time = $8,
-           passenger_count = $9,
-           remarks = $10,
-           updated_at = NOW()
+         SET vehicle_id = COALESCE($2, vehicle_id),
+             booked_by = COALESCE($3, booked_by),
+             booked_by_email = COALESCE($4, booked_by_email),
+             purpose = $5,
+             destination = $6,
+             start_date = COALESCE($7, start_date),
+             end_date = COALESCE($8, end_date),
+             booking_period = COALESCE($9, booking_period),
+             start_time = $10,
+             end_time = $11,
+             passenger_count = $12,
+             remarks = $13,
+             status = COALESCE(NULLIF($14, '')::text, status),
+             approved_by = CASE
+               WHEN $14 IS NOT NULL AND (UPPER($14) = 'APPROVED' OR UPPER($14) = 'REJECTED')
+                 THEN COALESCE(NULLIF($15, '')::text, approved_by)
+               ELSE approved_by
+             END,
+             updated_at = NOW()
        WHERE id = $1`,
       bookingId,
       vehicle_id ? Number(vehicle_id) : null,
       booked_by ? String(booked_by).trim() : null,
+      booked_by_email ? String(booked_by_email).trim() : null,
       purpose ? String(purpose).trim() : null,
       destination ? String(destination).trim() : null,
-      travel_date || null,
+      start_date || null,
+      end_date || null,
+      booking_period || 'FULL_DAY',
       start_time || null,
-      expected_return_time || null,
+      end_time || null,
       passenger_count === undefined || passenger_count === null || passenger_count === '' ? null : Number(passenger_count),
-      remarks ? String(remarks).trim() : null
+      remarks ? String(remarks).trim() : null,
+      normalizedStatus,
+      approverId
     );
 
-    const joinedRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
-              vb.booked_by, vb.purpose, vb.destination, vb.travel_date, vb.start_time,
-              vb.expected_return_time, vb.passenger_count, vb.remarks,
-              vb.created_at, vb.updated_at
-       FROM public.vehicle_bookings vb
-       LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
-       WHERE vb.id = $1
-       LIMIT 1`,
-      bookingId
-    );
+    const updatedBookingRows = await fetchVehicleBookingById(bookingId);
+    const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
 
-    res.json({ success: true, booking: mapVehicleBookingRow(joinedRows[0]) });
+    if (normalizedStatus && normalizedStatus !== previousStatus) {
+      void sendVehicleBookingStatusNotification(updatedBooking, normalizedStatus);
+    }
+
+    res.json({ success: true, booking: updatedBooking });
   } catch (error) {
     console.error('Update vehicle booking failed:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -161,6 +238,73 @@ const updateVehicleBooking = async (req, res) => {
 };
 
 const deleteVehicleBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bookingId = Number(id);
+
+    const existingRows = await prisma.$queryRawUnsafe(
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
+              vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time, vb.passenger_count, vb.remarks,
+              vb.status, vb.approved_by, vb.created_at, vb.updated_at
+         FROM public.vehicle_bookings vb
+         LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
+         LEFT JOIN public."User" u ON u.id = vb.booked_by
+         WHERE vb.id = $1
+         LIMIT 1`,
+      bookingId
+    );
+
+    if (!existingRows.length) {
+      return res.status(404).json({ message: 'Vehicle booking not found' });
+    }
+
+    const bookingToDelete = mapVehicleBookingRow(existingRows[0]);
+    const recipientEmails = [...new Set([
+      ...VEHICLE_BOOKING_EMAILS,
+      String(bookingToDelete.booked_by_email || '').trim().toLowerCase(),
+    ].filter(isValidEmail))];
+
+    await prisma.$queryRawUnsafe(
+      `DELETE FROM public.vehicle_bookings WHERE id = $1`,
+      bookingId
+    );
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const cancellationDetails = [
+      `Vehicle: ${bookingToDelete.vehicle_number || bookingToDelete.vehicle_name || `ID ${bookingToDelete.vehicle_id}`}`,
+      `Booked by: ${bookingToDelete.booked_by_name || bookingToDelete.booked_by || 'N/A'}`,
+      `Purpose: ${bookingToDelete.purpose || 'N/A'}`,
+      `Destination: ${bookingToDelete.destination || 'N/A'}`,
+      `Start Date: ${bookingToDelete.start_date || 'N/A'}`,
+      `End Date: ${bookingToDelete.end_date || 'N/A'}`,
+      `Period: ${bookingToDelete.booking_period || 'N/A'}`,
+      `Start Time: ${bookingToDelete.start_time || 'N/A'}`,
+      `End Time: ${bookingToDelete.end_time || 'N/A'}`,
+      `Passengers: ${bookingToDelete.passenger_count || 'N/A'}`,
+      `Remarks: ${bookingToDelete.remarks || 'N/A'}`,
+    ].join('<br>');
+
+    const emailResult = await sendEmailNotificationToRecipients({
+      recipients: recipientEmails,
+      message: `A previously scheduled vehicle booking has been cancelled.<br><br>${cancellationDetails}`,
+      title: 'Vehicle Booking Cancelled',
+      subject: `Vehicle Booking Cancelled${bookingToDelete.vehicle_number ? ` - ${bookingToDelete.vehicle_number}` : ''}`,
+      actionUrl: `${frontendUrl}/vehicle-bookings`,
+      label: 'Vehicle Booking',
+    });
+
+    if (!emailResult?.success) {
+      console.error('Vehicle booking cancellation email failed for booking:', bookingId);
+    }
+
+    res.json({ success: true, message: 'Vehicle booking deleted successfully' });
+  } catch (error) {
+    console.error('Delete vehicle booking failed:', error.message);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+const approveVehicleBooking = async (req, res) => {
   try {
     const { id } = req.params;
     const bookingId = Number(id);
@@ -174,15 +318,112 @@ const deleteVehicleBooking = async (req, res) => {
       return res.status(404).json({ message: 'Vehicle booking not found' });
     }
 
-    await prisma.$queryRawUnsafe(
-      `DELETE FROM public.vehicle_bookings WHERE id = $1`,
+    const approverId = String(req.user?.id || '').trim();
+
+    const bookingRows = await prisma.$queryRawUnsafe(
+      `UPDATE public.vehicle_bookings
+         SET status = 'APPROVED',
+             approved_by = NULLIF($2, '')::text,
+             approved_at = NOW(),
+             updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      bookingId,
+      approverId
+    );
+
+    const updatedBookingRows = await fetchVehicleBookingById(bookingId);
+    const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
+
+    void sendVehicleBookingStatusNotification(updatedBooking, 'APPROVED');
+
+    res.json({ success: true, booking: updatedBooking });
+  } catch (error) {
+    console.error('Approve vehicle booking failed:', error.message);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+const rejectVehicleBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const bookingId = Number(id);
+    const { remarks } = req.body;
+
+    const existingRows = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
-    res.json({ success: true, message: 'Vehicle booking deleted successfully' });
+    if (!existingRows.length) {
+      return res.status(404).json({ message: 'Vehicle booking not found' });
+    }
+
+    const approverId = String(req.user?.id || '').trim();
+
+    await prisma.$queryRawUnsafe(
+      `UPDATE public.vehicle_bookings
+         SET status = 'REJECTED',
+             approved_by = NULLIF($2, '')::text,
+             remarks = COALESCE($3, remarks),
+             updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      bookingId,
+      approverId,
+      remarks ? String(remarks).trim() : null
+    );
+
+    const updatedBookingRows = await fetchVehicleBookingById(bookingId);
+    const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
+
+    void sendVehicleBookingStatusNotification(updatedBooking, 'REJECTED');
+
+    res.json({ success: true, booking: updatedBooking });
   } catch (error) {
+    console.error('Reject vehicle booking failed:', error.message);
     res.status(500).json({ message: 'Server Error' });
   }
+};
+
+const sendVehicleBookingStatusNotification = async (booking, action) => {
+  const upperAction = action.toUpperCase();
+  if (upperAction === 'PENDING') {
+    return;
+  }
+
+  const recipientEmails = [...new Set([
+    ...VEHICLE_BOOKING_EMAILS,
+    String(booking.booked_by_email || '').trim().toLowerCase(),
+  ].filter(isValidEmail))];
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const actionLabel = upperAction === 'APPROVED' ? 'Approved'
+    : upperAction === 'REJECTED' ? 'Rejected'
+    : upperAction === 'CANCELLED' ? 'Cancelled'
+    : 'Updated';
+  const details = [
+    `Vehicle: ${booking.vehicle_number || booking.vehicle_name || `ID ${booking.vehicle_id}`}`,
+    `Booked by: ${booking.booked_by_name || booking.booked_by || 'N/A'}`,
+    `Purpose: ${booking.purpose || 'N/A'}`,
+    `Destination: ${booking.destination || 'N/A'}`,
+    `Start Date: ${booking.start_date || 'N/A'}`,
+    `End Date: ${booking.end_date || 'N/A'}`,
+    `Period: ${booking.booking_period || 'N/A'}`,
+    `Start Time: ${booking.start_time || 'N/A'}`,
+    `End Time: ${booking.end_time || 'N/A'}`,
+    `Passengers: ${booking.passenger_count || 'N/A'}`,
+    `Remarks: ${booking.remarks || 'N/A'}`,
+  ].join('<br>');
+
+  void sendEmailNotificationToRecipients({
+    recipients: recipientEmails,
+    message: `Your vehicle booking has been <strong>${actionLabel}</strong>.<br><br>${details}`,
+    title: `Vehicle Booking ${actionLabel}`,
+    subject: `Vehicle Booking ${actionLabel}${booking.vehicle_number ? ` - ${booking.vehicle_number}` : ''}`,
+    actionUrl: `${frontendUrl}/vehicle-bookings`,
+    label: 'Vehicle Booking',
+  });
 };
 
 module.exports = {
@@ -190,4 +431,6 @@ module.exports = {
   createVehicleBooking,
   updateVehicleBooking,
   deleteVehicleBooking,
+  approveVehicleBooking,
+  rejectVehicleBooking,
 };

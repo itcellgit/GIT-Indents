@@ -88,7 +88,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/vehicle-bookings" element={
-            <ProtectedRoute allowedRoles={[ROLES.RECEPTIONIST]}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.RECEPTIONIST]}>
               <VehicleBookingsPage />
             </ProtectedRoute>
           } />

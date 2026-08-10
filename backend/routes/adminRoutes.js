@@ -15,6 +15,9 @@ const {
   getSystemStats,
   getAllUsers,
   getAllRoles,
+  createRole,
+  updateRole,
+  deleteRole,
   createUser,
   updateUser,
   getAllComplaints,
@@ -37,6 +40,9 @@ const { protect } = require('../middleware/authMiddleware');
 router.get('/stats', protect, getSystemStats);
 router.get('/users', protect, getAllUsers);
 router.get('/roles', protect, getAllRoles);
+router.post('/roles', protect, createRole);
+router.put('/roles/:id', protect, updateRole);
+router.delete('/roles/:id', protect, deleteRole);
 router.post('/users', protect, createUser);
 router.put('/users/:id', protect, updateUser);
 router.post('/users/bulk', protect, bulkCreateUsers);

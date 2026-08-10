@@ -8,15 +8,15 @@ import api from '../../../api/axios';
 import logo from '../../../assets/logo.png';
 import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
 
-const initialVehicleForm = {
-  vehicle_number: '',
-  vehicle_name: '',
-  vehicle_type: '',
+const initialBusForm = {
+  bus_number: '',
+  bus_name: '',
+  bus_type: '',
   status: 'Available',
 };
 
 const initialBookingForm = {
-  vehicle_id: '',
+  bus_id: '',
   booked_by: '',
   booked_by_name: '',
   booked_by_email: '',
@@ -33,12 +33,12 @@ const initialBookingForm = {
 };
 
 const tabs = [
-  { id: 'vehicles', label: 'Vehicle List' },
+  { id: 'buses', label: 'Bus List' },
   { id: 'calendar', label: 'Calendar' },
 ];
 
 const managementTabs = [
-  { id: 'vehicles', label: 'Vehicle List' },
+  { id: 'buses', label: 'Bus List' },
   { id: 'calendar', label: 'Calendar' },
 ];
 
@@ -118,12 +118,12 @@ const formatDateLabel = (value) => {
   });
 };
 
-const getVehicleLabel = (booking) => {
-  if (!booking) return 'Vehicle';
-  const number = booking.vehicle_number || '';
-  const name = booking.vehicle_name || '';
+const getBusLabel = (booking) => {
+  if (!booking) return 'Bus';
+  const number = booking.bus_number || '';
+  const name = booking.bus_name || '';
   if (number && name) return `${number} - ${name}`;
-  return number || name || 'Vehicle';
+  return number || name || 'Bus';
 };
 
 const formatBookingDateRange = (startDate, endDate) => {
@@ -171,7 +171,7 @@ const detectConflicts = (bookings) => {
     for (let j = i + 1; j < bookings.length; j += 1) {
       const a = bookings[i];
       const b = bookings[j];
-      if (a.vehicle_id !== b.vehicle_id) continue;
+      if (a.bus_id !== b.bus_id) continue;
 
       const startA = new Date(`${a.start_date}T${toTimeLocalValue(a.start_time) || '00:00'}`);
       const endA = new Date(`${a.start_date}T${toTimeLocalValue(a.end_time) || '23:59'}`);
@@ -215,7 +215,7 @@ const SummaryBookingList = ({ bookings, conflicts, dateString, onOpenDayList }) 
                     <div className="flex items-center gap-2 min-w-0">
                       <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                       <div className="flex flex-col min-w-0">
-                        <span className="font-medium text-slate-800 text-sm truncate">{getVehicleLabel(booking)}</span>
+                        <span className="font-medium text-slate-800 text-sm truncate">{getBusLabel(booking)}</span>
                         <span className="text-xs text-slate-500 truncate">
                           {formatTimeWithAmPm(booking.start_time)} – {formatTimeWithAmPm(booking.end_time)}
                           {booking.purpose ? ` • ${booking.purpose}` : ''}
@@ -243,34 +243,34 @@ const SummaryBookingList = ({ bookings, conflicts, dateString, onOpenDayList }) 
   );
 };
 
-export default function VehicleBookingsPage() {
+export default function BusBookingsPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const userRole = user?.role;
-  const isAdminOrReceptionist = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+  const isAdminOrTransport = userRole === ROLES.ADMIN || userRole === ROLES.TRANSPORT;
 
-  const visibleTabs = isAdminOrReceptionist ? managementTabs : facultyTabs;
-  const defaultActiveTab = isAdminOrReceptionist ? 'vehicles' : 'calendar';
+  const visibleTabs = isAdminOrTransport ? managementTabs : facultyTabs;
+  const defaultActiveTab = isAdminOrTransport ? 'buses' : 'calendar';
 
   const backPath = ROLE_DASHBOARDS[userRole] || '/';
   const backLabel = 'Back to Dashboard';
-  const sectionLabel = isAdminOrReceptionist ? 'Reception Operations' : 'Vehicle Booking';
-  const roleDefaultName = isAdminOrReceptionist ? (user?.name || 'Receptionist') : (user?.name || 'Staff Member');
-  const roleDefaultDept = isAdminOrReceptionist ? (user?.department || 'Reception Desk') : (user?.department || 'Staff');
-  const statusOptions = isAdminOrReceptionist ? managementStatusOptions : facultyStatusOptions;
+  const sectionLabel = isAdminOrTransport ? 'Transportation Operations' : 'Bus Booking';
+  const roleDefaultName = isAdminOrTransport ? (user?.name || 'Transport Coordinator') : (user?.name || 'Staff Member');
+  const roleDefaultDept = isAdminOrTransport ? (user?.department || 'Transportation') : (user?.department || 'Staff');
+  const statusOptions = isAdminOrTransport ? managementStatusOptions : facultyStatusOptions;
 
-  const isActionDisabledForApproved = (status) => !isAdminOrReceptionist && (status || '').toUpperCase() === 'APPROVED';
+  const isActionDisabledForApproved = (status) => !isAdminOrTransport && (status || '').toUpperCase() === 'APPROVED';
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isDayListOpen, setIsDayListOpen] = useState(false);
-  const [editingVehicleId, setEditingVehicleId] = useState(null);
-  const [editingVehicleBookingId, setEditingVehicleBookingId] = useState(null);
-  const [vehicles, setVehicles] = useState([]);
-  const [vehicleBookings, setVehicleBookings] = useState([]);
-  const [form, setForm] = useState(initialVehicleForm);
+  const [editingBusId, setEditingBusId] = useState(null);
+  const [editingBusBookingId, setEditingBusBookingId] = useState(null);
+  const [buses, setBuses] = useState([]);
+  const [busBookings, setBusBookings] = useState([]);
+  const [form, setForm] = useState(initialBusForm);
   const [bookingForm, setBookingForm] = useState(initialBookingForm);
   const [loading, setLoading] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
@@ -280,15 +280,15 @@ export default function VehicleBookingsPage() {
   const [selectedDayBookings, setSelectedDayBookings] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
-  const loadVehicles = async () => {
+  const loadBuses = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const response = await api.get('/vehicles');
-      setVehicles(response.data?.vehicles || []);
+      const response = await api.get('/buses');
+      setBuses(response.data?.buses || []);
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Failed to load vehicles');
+      setError(apiError.response?.data?.message || 'Failed to load buses');
     } finally {
       setLoading(false);
     }
@@ -318,25 +318,25 @@ export default function VehicleBookingsPage() {
   }, []);
 
   const upcomingBookings = useMemo(() => {
-    const todayBookings = vehicleBookings.filter((b) => isBookingOnDate(b, today));
-    const tomorrowBookings = vehicleBookings.filter((b) => isBookingOnDate(b, tomorrow));
+    const todayBookings = busBookings.filter((b) => isBookingOnDate(b, today));
+    const tomorrowBookings = busBookings.filter((b) => isBookingOnDate(b, tomorrow));
     return {
       today: todayBookings,
       todayConflicts: detectConflicts(todayBookings),
       tomorrow: tomorrowBookings,
       tomorrowConflicts: detectConflicts(tomorrowBookings),
     };
-  }, [vehicleBookings, today, tomorrow]);
+  }, [busBookings, today, tomorrow]);
 
-  const loadVehicleBookings = async () => {
+  const loadBusBookings = async () => {
     setCalendarLoading(true);
     setError('');
 
     try {
-      const response = await api.get('/vehicle-bookings');
-      setVehicleBookings(response.data?.bookings || []);
+      const response = await api.get('/bus-bookings');
+      setBusBookings(response.data?.bookings || []);
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Failed to load vehicle bookings');
+      setError(apiError.response?.data?.message || 'Failed to load bus bookings');
     } finally {
       setCalendarLoading(false);
     }
@@ -347,7 +347,7 @@ export default function VehicleBookingsPage() {
     setIsDayListOpen(false);
     setBookingForm({
       ...initialBookingForm,
-      vehicle_id: '',
+      bus_id: '',
       booked_by: user?.id || '',
       booked_by_name: user?.name || '',
       booked_by_email: user?.email || '',
@@ -358,7 +358,7 @@ export default function VehicleBookingsPage() {
       end_time: '10:00',
       passenger_count: '',
     });
-    setEditingVehicleBookingId(null);
+    setEditingBusBookingId(null);
     setIsBookingModalOpen(true);
   };
 
@@ -369,12 +369,12 @@ export default function VehicleBookingsPage() {
   };
 
   useEffect(() => {
-    loadVehicles();
+    loadBuses();
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'calendar' && vehicleBookings.length === 0) {
-      loadVehicleBookings();
+    if (activeTab === 'calendar' && busBookings.length === 0) {
+      loadBusBookings();
     }
   }, [activeTab]);
 
@@ -382,44 +382,44 @@ export default function VehicleBookingsPage() {
     event.preventDefault();
 
     try {
-      if (editingVehicleId) {
-        await api.put(`/vehicles/${editingVehicleId}`, form);
+      if (editingBusId) {
+        await api.put(`/buses/${editingBusId}`, form);
       } else {
-        await api.post('/vehicles', form);
+        await api.post('/buses', form);
       }
 
-      setForm(initialVehicleForm);
-      setEditingVehicleId(null);
+      setForm(initialBusForm);
+      setEditingBusId(null);
       setIsModalOpen(false);
-      await loadVehicles();
+      await loadBuses();
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Failed to save vehicle');
+      setError(apiError.response?.data?.message || 'Failed to save bus');
     }
   };
 
-  const handleAddVehicle = () => {
-    setForm(initialVehicleForm);
-    setEditingVehicleId(null);
+  const handleAddBus = () => {
+    setForm(initialBusForm);
+    setEditingBusId(null);
     setIsModalOpen(true);
   };
 
-  const handleEditVehicle = (vehicle) => {
+  const handleEditBus = (bus) => {
     setForm({
-      vehicle_number: vehicle.vehicle_number,
-      vehicle_name: vehicle.vehicle_name,
-      vehicle_type: vehicle.vehicle_type,
-      status: vehicle.status || 'Available',
+      bus_number: bus.bus_number,
+      bus_name: bus.bus_name,
+      bus_type: bus.bus_type,
+      status: bus.status || 'Available',
     });
-    setEditingVehicleId(vehicle.id);
+    setEditingBusId(bus.id);
     setIsModalOpen(true);
   };
 
-  const handleDeleteVehicle = async (vehicleId) => {
+  const handleDeleteBus = async (busId) => {
     try {
-      await api.delete(`/vehicles/${vehicleId}`);
-      await loadVehicles();
+      await api.delete(`/buses/${busId}`);
+      await loadBuses();
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Failed to delete vehicle');
+      setError(apiError.response?.data?.message || 'Failed to delete bus');
     }
   };
 
@@ -427,7 +427,7 @@ export default function VehicleBookingsPage() {
     event.preventDefault();
 
     const payload = {
-      vehicle_id: bookingForm.vehicle_id,
+      bus_id: bookingForm.bus_id,
       booked_by: bookingForm.booked_by,
       booked_by_email: bookingForm.booked_by_email,
       purpose: bookingForm.purpose,
@@ -443,24 +443,24 @@ export default function VehicleBookingsPage() {
     };
 
     try {
-      if (editingVehicleBookingId) {
-        await api.put(`/vehicle-bookings/${editingVehicleBookingId}`, payload);
+      if (editingBusBookingId) {
+        await api.put(`/bus-bookings/${editingBusBookingId}`, payload);
       } else {
-        await api.post('/vehicle-bookings', payload);
+        await api.post('/bus-bookings', payload);
       }
 
       setIsBookingModalOpen(false);
       setBookingForm(initialBookingForm);
-      setEditingVehicleBookingId(null);
-      await loadVehicleBookings();
+      setEditingBusBookingId(null);
+      await loadBusBookings();
     } catch (apiError) {
-      setError(apiError.response?.data?.message || 'Failed to save vehicle booking');
+      setError(apiError.response?.data?.message || 'Failed to save bus booking');
     }
   };
 
-  const openEditVehicleBooking = (booking) => {
+  const openEditBusBooking = (booking) => {
     setBookingForm({
-      vehicle_id: String(booking.vehicle_id || ''),
+      bus_id: String(booking.bus_id || ''),
       booked_by: String(booking.booked_by || ''),
       booked_by_name: String(booking.booked_by_name || booking.booked_by || ''),
       booked_by_email: String(booking.booked_by_email || ''),
@@ -475,18 +475,18 @@ export default function VehicleBookingsPage() {
       remarks: booking.remarks || '',
       status: booking.status || 'PENDING',
     });
-    setEditingVehicleBookingId(booking.id);
+    setEditingBusBookingId(booking.id);
     setIsBookingModalOpen(true);
   };
 
-  const handleDeleteVehicleBooking = async (bookingId) => {
+  const handleDeleteBusBooking = async (bookingId) => {
     try {
-      await api.delete(`/vehicle-bookings/${bookingId}`);
+      await api.delete(`/bus-bookings/${bookingId}`);
       setIsBookingModalOpen(false);
       setIsDayListOpen(false);
-      setEditingVehicleBookingId(null);
+      setEditingBusBookingId(null);
       setBookingForm(initialBookingForm);
-      await loadVehicleBookings();
+      await loadBusBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to delete booking');
     }
@@ -494,8 +494,8 @@ export default function VehicleBookingsPage() {
 
   const handleApproveBooking = async (booking) => {
     try {
-      await api.put(`/vehicle-bookings/${booking.id}/approve`);
-      await loadVehicleBookings();
+      await api.put(`/bus-bookings/${booking.id}/approve`);
+      await loadBusBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to approve booking');
     }
@@ -503,14 +503,14 @@ export default function VehicleBookingsPage() {
 
   const handleRejectBooking = async (booking) => {
     try {
-      await api.put(`/vehicle-bookings/${booking.id}/reject`, { remarks: booking.remarks || '' });
-      await loadVehicleBookings();
+      await api.put(`/bus-bookings/${booking.id}/reject`, { remarks: booking.remarks || '' });
+      await loadBusBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to reject booking');
     }
   };
 
-  const canSelectVehicle = isAdminOrReceptionist;
+  const canSelectBus = isAdminOrTransport;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -520,8 +520,8 @@ export default function VehicleBookingsPage() {
             <div className="flex items-center gap-3">
               <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain bg-white rounded-full p-0.5" />
               <div>
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">Vehicle Bookings</h1>
-                <p className="text-xs text-indigo-600">Reception desk vehicle management</p>
+                <h1 className="text-lg font-bold text-slate-900 leading-tight">Bus Bookings</h1>
+                <p className="text-xs text-indigo-600">Transportation bus management</p>
               </div>
             </div>
 
@@ -559,7 +559,7 @@ export default function VehicleBookingsPage() {
               {backLabel}
             </button>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">{sectionLabel}</p>
-            <h2 className="mt-2 text-3xl font-bold text-slate-900">Vehicle Booking</h2>
+            <h2 className="mt-2 text-3xl font-bold text-slate-900">Bus Booking</h2>
           </div>
         </div>
 
@@ -576,16 +576,16 @@ export default function VehicleBookingsPage() {
           ))}
         </div>
 
-        {activeTab === 'vehicles' && (
+        {activeTab === 'buses' && (
           <>
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={handleAddVehicle}
+                onClick={handleAddBus}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                Add Vehicle
+                Add Bus
               </button>
             </div>
 
@@ -594,7 +594,7 @@ export default function VehicleBookingsPage() {
                 <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
                   <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">{editingVehicleId ? 'Edit Vehicle' : 'Add Vehicle'}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">{editingBusId ? 'Edit Bus' : 'Add Bus'}</h3>
                     </div>
                     <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                       <XCircle className="h-5 w-5" />
@@ -603,16 +603,16 @@ export default function VehicleBookingsPage() {
 
                   <form onSubmit={handleSubmit} className="p-6 grid gap-4 md:grid-cols-2">
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
-                      <span>Vehicle Number</span>
-                      <input value={form.vehicle_number} onChange={(e) => setForm({ ...form, vehicle_number: e.target.value })} placeholder="Vehicle Number" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                      <span>Bus Number</span>
+                      <input value={form.bus_number} onChange={(e) => setForm({ ...form, bus_number: e.target.value })} placeholder="Bus Number" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                     </label>
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
-                      <span>Vehicle Name</span>
-                      <input value={form.vehicle_name} onChange={(e) => setForm({ ...form, vehicle_name: e.target.value })} placeholder="Vehicle Name" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                      <span>Bus Name</span>
+                      <input value={form.bus_name} onChange={(e) => setForm({ ...form, bus_name: e.target.value })} placeholder="Bus Name" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                     </label>
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
-                      <span>Vehicle Type</span>
-                      <input value={form.vehicle_type} onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })} placeholder="Vehicle Type" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                      <span>Bus Type</span>
+                      <input value={form.bus_type} onChange={(e) => setForm({ ...form, bus_type: e.target.value })} placeholder="Bus Type" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                     </label>
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
                       <span>Status</span>
@@ -623,7 +623,7 @@ export default function VehicleBookingsPage() {
                     </label>
                     <div className="md:col-span-2 flex justify-end gap-3 pt-2">
                       <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50">Cancel</button>
-                      <button type="submit" className="px-4 py-2.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">{editingVehicleId ? 'Update Vehicle' : 'Save Vehicle'}</button>
+                      <button type="submit" className="px-4 py-2.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">{editingBusId ? 'Update Bus' : 'Save Bus'}</button>
                     </div>
                   </form>
                 </div>
@@ -637,9 +637,9 @@ export default function VehicleBookingsPage() {
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">S.No</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Number</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Bus Number</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Bus Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Bus Type</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                     </tr>
@@ -647,25 +647,25 @@ export default function VehicleBookingsPage() {
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {loading ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">Loading vehicles...</td>
+                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">Loading buses...</td>
                       </tr>
-                    ) : vehicles.length === 0 ? (
+                    ) : buses.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">No vehicles yet. Add one above to get started.</td>
+                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">No buses yet. Add one above to get started.</td>
                       </tr>
                     ) : (
-                      vehicles.map((vehicle, index) => (
-                        <tr key={vehicle.id} className="hover:bg-slate-50">
+                      buses.map((bus, index) => (
+                        <tr key={bus.id} className="hover:bg-slate-50">
                           <td className="px-6 py-4 text-sm text-slate-700">{index + 1}</td>
-                          <td className="px-6 py-4 text-sm font-medium text-slate-900">{vehicle.vehicle_number}</td>
-                          <td className="px-6 py-4 text-sm text-slate-700">{vehicle.vehicle_name}</td>
-                          <td className="px-6 py-4 text-sm text-slate-700">{vehicle.vehicle_type}</td>
-                          <td className="px-6 py-4 text-sm text-indigo-600 font-semibold">{vehicle.status}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-slate-900">{bus.bus_number}</td>
+                          <td className="px-6 py-4 text-sm text-slate-700">{bus.bus_name}</td>
+                          <td className="px-6 py-4 text-sm text-slate-700">{bus.bus_type}</td>
+                          <td className="px-6 py-4 text-sm text-indigo-600 font-semibold">{bus.status}</td>
                           <td className="px-6 py-4 text-sm text-slate-700">
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleEditVehicle(vehicle)}
+                                onClick={() => handleEditBus(bus)}
                                 className="inline-flex items-center justify-center rounded-md p-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                                 title="Edit"
                               >
@@ -673,7 +673,7 @@ export default function VehicleBookingsPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteVehicle(vehicle.id)}
+                                onClick={() => handleDeleteBus(bus.id)}
                                 className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
                                 title="Delete"
                               >
@@ -733,7 +733,7 @@ export default function VehicleBookingsPage() {
                   <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
                     <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.097a4.5 4.5 0 0 1 7.706 3.103v3.747a2 2 0 0 1-.614 1.414l-5.5 5a2 2 0 0 1-2.878-1.553V9.355a2 2 0 0 1 .614-1.414l3.654-3.654a.75.75 0 0 0-1.06-1.06L7.5 5.5v9.5a.5.5 0 0 0 .776.416l4.5-3a.5.5 0 0 0-.025-.845V6.1a4.5 4.5 0 0 1-.019-.003z" clipRule="evenodd" /></svg>
                     <span>
-                      <strong>Conflict alert:</strong> Overlapping bookings detected for the same vehicle on today or tomorrow. Please review and adjust timings.
+                      <strong>Conflict alert:</strong> Overlapping bookings detected for the same bus on today or tomorrow. Please review and adjust timings.
                     </span>
                   </div>
                 )}
@@ -773,66 +773,65 @@ export default function VehicleBookingsPage() {
                 </div>
               </div>
             )}
-              <>
-                <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="py-2">{day}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-2">
-                  {calendarDays.map((day, index) => {
-                    if (!day) {
-                      return <div key={`blank-${index}`} className="min-h-28 rounded-xl border border-dashed border-slate-200 bg-slate-50/50" />;
-                    }
+            <>
+              <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                  <div key={day} className="py-2">{day}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-2">
+                {calendarDays.map((day, index) => {
+                  if (!day) {
+                    return <div key={`blank-${index}`} className="min-h-28 rounded-xl border border-dashed border-slate-200 bg-slate-50/50" />;
+                  }
 
-                    const dateString = toLocalDateString(day);
-                    const dayBookings = vehicleBookings.filter((booking) => isBookingOnDate(booking, dateString));
+                  const dateString = toLocalDateString(day);
+                  const dayBookings = busBookings.filter((booking) => isBookingOnDate(booking, dateString));
 
-                    return (
-                      <div
-                        key={dateString}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => openBookingModal(dateString)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            openBookingModal(dateString);
-                          }
-                        }}
-                        className={`min-h-28 rounded-xl border p-3 text-left transition-colors cursor-pointer ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-semibold text-slate-900">{day.getDate()}</span>
-                          {dayBookings.length > 0 && (() => {
-                           const hasPending = dayBookings.some((b) => (b.status || 'PENDING').toUpperCase() === 'PENDING');
-                           const hasRejected = dayBookings.some((b) => (b.status || '').toUpperCase() === 'REJECTED');
-                           const badgeBg = hasPending ? 'bg-amber-500' : (hasRejected ? 'bg-red-500' : 'bg-green-500');
-                           return (
-                             <span className={`rounded-full ${badgeBg} px-2 py-0.5 text-[11px] font-semibold text-white`}>{dayBookings.length}</span>
-                           );
-                         })()}
-                        </div>
-                        {dayBookings.length > 0 && (
-                          <div className="mt-3 flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openDayList(dateString, dayBookings);
-                              }}
-                              className="rounded-md bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700"
-                            >
-                              List
-                            </button>
-                          </div>
-                        )}
+                  return (
+                    <div
+                      key={dateString}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openBookingModal(dateString)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          openBookingModal(dateString);
+                        }
+                      }}
+                      className={`min-h-28 rounded-xl border p-3 text-left transition-colors cursor-pointer ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-semibold text-slate-900">{day.getDate()}</span>
+                        {dayBookings.length > 0 && (() => {
+                         const hasPending = dayBookings.some((b) => (b.status || 'PENDING').toUpperCase() === 'PENDING');
+                         const hasRejected = dayBookings.some((b) => (b.status || '').toUpperCase() === 'REJECTED');
+                         const badgeBg = hasPending ? 'bg-amber-500' : (hasRejected ? 'bg-red-500' : 'bg-green-500');
+                         return (
+                           <span className={`rounded-full ${badgeBg} px-2 py-0.5 text-[11px] font-semibold text-white`}>{dayBookings.length}</span>
+                         );
+                       })()}
                       </div>
-                    );
-                  })}
-                </div>
-              </>
-            )
+                      {dayBookings.length > 0 && (
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openDayList(dateString, dayBookings);
+                            }}
+                            className="rounded-md bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700"
+                          >
+                            List
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           </section>
         )}
       </main>
@@ -842,9 +841,9 @@ export default function VehicleBookingsPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">{editingVehicleBookingId ? 'Edit Vehicle Booking' : 'Create Vehicle Booking'}</h3>
+                <h3 className="text-lg font-semibold text-slate-900">{editingBusBookingId ? 'Edit Bus Booking' : 'Create Bus Booking'}</h3>
                 <p className="text-sm text-slate-500">For {bookingForm.start_date || 'selected date'}</p>
-                {editingVehicleBookingId && (() => {
+                {editingBusBookingId && (() => {
                    const badge = getStatusBadge(bookingForm.status);
                    return (
                      <span className={`mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${badge.className}`}>
@@ -859,21 +858,21 @@ export default function VehicleBookingsPage() {
             </div>
 
             <form onSubmit={handleBookingSubmit} className="p-6 grid gap-4 md:grid-cols-2">
-              {canSelectVehicle ? (
+              {canSelectBus ? (
                 <label className="grid gap-1 text-sm font-medium text-slate-700">
-                  <span>Vehicle</span>
-                  <select value={bookingForm.vehicle_id} onChange={(e) => setBookingForm({ ...bookingForm, vehicle_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
-                    <option value="">Select Vehicle</option>
-                    {vehicles.map((vehicle) => (
-                      <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_number} - {vehicle.vehicle_name}</option>
+                  <span>Bus</span>
+                  <select value={bookingForm.bus_id} onChange={(e) => setBookingForm({ ...bookingForm, bus_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                    <option value="">Select Bus</option>
+                    {buses.map((bus) => (
+                      <option key={bus.id} value={bus.id}>{bus.bus_number} - {bus.bus_name}</option>
                     ))}
                   </select>
                 </label>
               ) : (
                 <div className="grid gap-1 text-sm font-medium text-slate-700">
-                  <span>Vehicle</span>
+                  <span>Bus</span>
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
-                    Vehicle will be assigned by the Receptionist
+                    Bus will be assigned by Transportation
                   </div>
                 </div>
               )}
@@ -885,7 +884,7 @@ export default function VehicleBookingsPage() {
                 <span>Booked By Email</span>
                 <input type="email" value={bookingForm.booked_by_email} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_email: e.target.value })} placeholder="name@example.com" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
-              {editingVehicleBookingId && (
+              {editingBusBookingId && (
                 <label className="grid gap-1 text-sm font-medium text-slate-700">
                   <span>Status</span>
                   <select
@@ -944,12 +943,12 @@ export default function VehicleBookingsPage() {
                 <textarea value={bookingForm.remarks} onChange={(e) => setBookingForm({ ...bookingForm, remarks: e.target.value })} placeholder="Remarks" rows={3} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <div className="md:col-span-2 flex justify-end gap-3 pt-2">
-                {editingVehicleBookingId && (
+                {editingBusBookingId && (
                   <button
                     type="button"
                     onClick={() => {
                       if (isActionDisabledForApproved(bookingForm.status)) return;
-                      handleDeleteVehicleBooking(editingVehicleBookingId);
+                      handleDeleteBusBooking(editingBusBookingId);
                     }}
                     disabled={isActionDisabledForApproved(bookingForm.status)}
                     className={`px-4 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 inline-flex items-center gap-2 ${isActionDisabledForApproved(bookingForm.status) ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -959,7 +958,7 @@ export default function VehicleBookingsPage() {
                   </button>
                 )}
                 <button type="button" onClick={() => setIsBookingModalOpen(false)} className="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50">Cancel</button>
-                <button type="submit" className="px-4 py-2.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">{editingVehicleBookingId ? 'Update Booking' : 'Save Booking'}</button>
+                <button type="submit" className="px-4 py-2.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">{editingBusBookingId ? 'Update Booking' : 'Save Booking'}</button>
               </div>
             </form>
           </div>
@@ -984,7 +983,7 @@ export default function VehicleBookingsPage() {
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">S.No</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Bus</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By Email</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Purpose</th>
@@ -1003,7 +1002,7 @@ export default function VehicleBookingsPage() {
                     selectedDayBookings.map((booking, index) => (
                       <tr key={booking.id} className="hover:bg-slate-50">
                         <td className="px-4 py-4 text-sm text-slate-700">{index + 1}</td>
-                        <td className="px-4 py-4 text-sm font-medium text-slate-900">{getVehicleLabel(booking)}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-slate-900">{getBusLabel(booking)}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || booking.booked_by || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>
@@ -1023,7 +1022,7 @@ export default function VehicleBookingsPage() {
                         </td>
                          <td className="px-4 py-4 text-sm text-slate-700">
                             <div className="flex items-center gap-2">
-                              {isAdminOrReceptionist && (
+                              {isAdminOrTransport && (
                                 <>
                                   {booking.status !== 'APPROVED' && booking.status !== 'CANCELLED' && (
                                     <button
@@ -1051,7 +1050,7 @@ export default function VehicleBookingsPage() {
                                  type="button"
                                  onClick={() => {
                                    setIsDayListOpen(false);
-                                   openEditVehicleBooking(booking);
+                                   openEditBusBooking(booking);
                                  }}
                                  disabled={isActionDisabledForApproved(booking.status)}
                                  className={`inline-flex items-center justify-center rounded-md p-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors ${isActionDisabledForApproved(booking.status) ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1061,7 +1060,7 @@ export default function VehicleBookingsPage() {
                                </button>
                                <button
                                  type="button"
-                                 onClick={() => handleDeleteVehicleBooking(booking.id)}
+                                 onClick={() => handleDeleteBusBooking(booking.id)}
                                  disabled={isActionDisabledForApproved(booking.status)}
                                  className={`inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${isActionDisabledForApproved(booking.status) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                  title={isActionDisabledForApproved(booking.status) ? 'Cannot delete an approved booking' : 'Delete'}

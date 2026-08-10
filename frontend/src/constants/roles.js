@@ -6,7 +6,8 @@ export const ROLES = Object.freeze({
   RECEPTIONIST: 'Receptionist',
   FACULTY: 'Faculty',
   NON_TEACHING: 'Non-Teaching',
-  OFFICE_STATIONARY: 'Office_Stationary'
+  OFFICE_STATIONARY: 'Office_Stationary',
+  TRANSPORT: 'Transport'
 });
 
 export const ROLE_DASHBOARDS = Object.freeze({
@@ -17,7 +18,8 @@ export const ROLE_DASHBOARDS = Object.freeze({
   [ROLES.RECEPTIONIST]: '/receptionist-dashboard',
   [ROLES.FACULTY]: '/dashboard',
   [ROLES.NON_TEACHING]: '/non-teaching-dashboard',
-  [ROLES.OFFICE_STATIONARY]: '/office-stationary-dashboard'
+  [ROLES.OFFICE_STATIONARY]: '/office-stationary-dashboard',
+  [ROLES.TRANSPORT]: '/transportation-dashboard'
 });
 
 export const PUBLIC_REGISTRATION_ROLES = [

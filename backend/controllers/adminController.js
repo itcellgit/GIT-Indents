@@ -244,6 +244,13 @@ const syncUserRoles = async (tx, userId, roleNames) => {
   );
 };
 
+const mapRoleRow = (row) => ({
+  id: Number(row.id),
+  name: row.role_name,
+  created_at: row.created_at,
+  updated_at: row.Updated_at
+});
+
 // @desc    Get all roles from roles table
 // @route   GET /api/admin/roles
 // @access  Private/Admin
@@ -260,6 +267,118 @@ const getAllRoles = async (req, res) => {
         name: role.role_name
       }))
     });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Create role
+// @route   POST /api/admin/roles
+// @access  Private/Admin
+const createRole = async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ message: 'Role name is required' });
+    }
+
+    const roleName = String(name).trim();
+
+    const existing = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.roles WHERE LOWER(role_name) = LOWER($1)`,
+      roleName
+    );
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ message: 'A role with this name already exists' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO public.roles (role_name, created_at, "Updated_at")
+       VALUES ($1, NOW(), NOW())
+       RETURNING id, role_name, created_at, "Updated_at"`,
+      roleName
+    );
+
+    res.status(201).json({ success: true, role: mapRoleRow(rows[0]) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Update role
+// @route   PUT /api/admin/roles/:id
+// @access  Private/Admin
+const updateRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ message: 'Role name is required' });
+    }
+
+    const roleName = String(name).trim();
+
+    const existingRole = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.roles WHERE id = $1`,
+      Number(id)
+    );
+    if (!existingRole || existingRole.length === 0) {
+      return res.status(404).json({ message: 'Role not found' });
+    }
+
+    const duplicate = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.roles WHERE LOWER(role_name) = LOWER($1) AND id != $2`,
+      roleName,
+      Number(id)
+    );
+    if (duplicate && duplicate.length > 0) {
+      return res.status(400).json({ message: 'A role with this name already exists' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `UPDATE public.roles
+       SET role_name = $2,
+           "Updated_at" = NOW()
+       WHERE id = $1
+       RETURNING id, role_name, created_at, "Updated_at"`,
+      Number(id),
+      roleName
+    );
+
+    res.json({ success: true, role: mapRoleRow(rows[0]) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Delete role
+// @route   DELETE /api/admin/roles/:id
+// @access  Private/Admin
+const deleteRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existingRole = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.roles WHERE id = $1`,
+      Number(id)
+    );
+    if (!existingRole || existingRole.length === 0) {
+      return res.status(404).json({ message: 'Role not found' });
+    }
+
+    const inUse = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.user_roles WHERE role_id = $1 LIMIT 1`,
+      Number(id)
+    );
+    if (inUse && inUse.length > 0) {
+      return res.status(400).json({ message: 'Cannot delete a role that is assigned to users' });
+    }
+
+    await prisma.$executeRawUnsafe(`DELETE FROM public.roles WHERE id = $1`, Number(id));
+
+    res.json({ success: true, message: 'Role deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
   }
@@ -1259,6 +1378,9 @@ module.exports = {
   getSystemStats,
   getAllUsers,
   getAllRoles,
+  createRole,
+  updateRole,
+  deleteRole,
   createUser,
   updateUser,
   getAllComplaints,

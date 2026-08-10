@@ -7,7 +7,7 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 const getApiBaseUrl = () => {
-  return 'http://10.22.0.159:5000/api';
+  return 'http://10.22.0.151:5000/api';
 };
 
 export const AuthProvider = ({ children }) => {

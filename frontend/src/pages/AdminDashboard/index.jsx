@@ -5,6 +5,7 @@ import { Shield, User, LogOut, KeyRound } from 'lucide-react';
 import StatsCards from './StatsCards';
 import DepartmentManager from './DepartmentManager';
 import CoordinatorManager from './CoordinatorManager';
+import RoleManager from './RoleManager';
 import UserManager from './UserManager';
 import ComplaintTable from './ComplaintTable';
 import Analytics from '../../components/Analytics';
@@ -196,6 +197,16 @@ export default function AdminDashboard() {
               >
                 Coordinator MGT
               </button>
+              <button
+                onClick={() => setActiveTab('roles')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'roles'
+                    ? 'border-indigo-400 text-indigo-300'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                }`}
+              >
+                Role MGT
+              </button>
             </div>
           </div>
         </div>
@@ -251,6 +262,12 @@ export default function AdminDashboard() {
           {activeTab === 'coordinators' && (
             <div id="coordinators" className="scroll-mt-32">
               <CoordinatorManager />
+            </div>
+          )}
+
+          {activeTab === 'roles' && (
+            <div id="roles" className="scroll-mt-32">
+              <RoleManager />
             </div>
           )}
 

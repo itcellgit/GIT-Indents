@@ -7,6 +7,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import StatsCards from '../FacultyDashboard/StatsCards';
 import MaintainerIndentTable from './MaintainerIndentTable';
+import ComplaintTable from '../HODDashboard/ComplaintTable';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
@@ -21,8 +22,10 @@ const SUMMARY_CARDS = [
 export default function MaintainerDashboard() {
   const { user, logout } = useAuth();
   const [complaints, setComplaints] = useState([]);
+  const [approvalRequests, setApprovalRequests] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  
+
+  const [activeTab, setActiveTab] = useState('approvals');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [selectedComplaint, setSelectedComplaint] = useState(null);
@@ -33,9 +36,11 @@ export default function MaintainerDashboard() {
       setIsLoadingData(true);
       const res = await api.get('/maintainer/dashboard');
       setComplaints(res.data.assignedIndents || []);
+      setApprovalRequests(res.data.approvalRequests || []);
     } catch (err) {
       console.error("Failed to fetch secure dashboard data:", err);
-      setComplaints([]); 
+      setComplaints([]);
+      setApprovalRequests([]);
     } finally {
       setIsLoadingData(false);
     }
@@ -72,7 +77,11 @@ export default function MaintainerDashboard() {
 
   const handleUpdateStatus = async (id, updates) => {
     try {
-      await api.put(`/maintainer/complaints/${id}`, updates);
+      if (updates.status) {
+        await api.put(`/maintainer/complaints/${id}/review`, updates);
+      } else {
+        await api.put(`/maintainer/complaints/${id}`, updates);
+      }
       if (updates.isMaintainerCompleted) {
         alert("Work marked as completed and pending verification by HOD!");
       }
@@ -117,12 +126,33 @@ export default function MaintainerDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 no-print">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-          <h2 className="text-2xl font-semibold text-slate-800">Assigned Indents</h2>
-          
+          <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl w-full sm:w-fit">
+            <button
+              onClick={() => setActiveTab('approvals')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'approvals'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Approval Queue ({approvalRequests.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('tasks')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'tasks'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Your Tasks
+            </button>
+          </div>
+
           {/* E-Tendering Link button */}
-          <a 
-            href="https://officerp.git.edu" 
-            target="_blank" 
+          <a
+            href="https://officerp.git.edu"
+            target="_blank"
             rel="noopener noreferrer"
             className="flex items-center px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
           >
@@ -131,45 +161,60 @@ export default function MaintainerDashboard() {
           </a>
         </div>
 
-        <StatsCards 
-          statsCards={SUMMARY_CARDS} 
-          statsCounts={statsCounts} 
-          onCardClick={(title) => setFilterStatus(prev => prev === title ? 'All' : title)}
-          activeFilter={filterStatus}
-        />
-
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-slate-800">Your Tasks</h3>
-            <div className="flex space-x-3">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search by ID, location..." 
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm w-64"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <select 
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="All">All Status</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Pending Verification">Pending Verification</option>
-                <option value="Completed">Completed</option>
-              </select>
-            </div>
+        {activeTab === 'approvals' && (
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Approval Queue</h2>
+            <ComplaintTable
+              complaints={approvalRequests}
+              onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
+              showStatusFilter={false}
+            />
           </div>
+        )}
 
-          <MaintainerIndentTable 
-            filteredComplaints={filteredComplaints} 
-            setSelectedComplaint={setSelectedComplaint} 
-          />
-        </div>
+        {activeTab === 'tasks' && (
+          <>
+            <StatsCards
+              statsCards={SUMMARY_CARDS}
+              statsCounts={statsCounts}
+              onCardClick={(title) => setFilterStatus(prev => prev === title ? 'All' : title)}
+              activeFilter={filterStatus}
+            />
+
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-slate-800">Your Tasks</h3>
+                <div className="flex space-x-3">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by ID, location..."
+                      className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm w-64"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <select
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                  >
+                    <option value="All">All Status</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Pending Verification">Pending Verification</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+
+              <MaintainerIndentTable
+                filteredComplaints={filteredComplaints}
+                setSelectedComplaint={setSelectedComplaint}
+              />
+            </div>
+          </>
+        )}
       </main>
 
       {selectedComplaint && (

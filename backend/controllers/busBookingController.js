@@ -2,16 +2,16 @@ const prisma = require('../prismaClient');
 const { sendEmailNotificationToRecipients } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
-const VEHICLE_BOOKING_EMAILS = [];
+const BUS_BOOKING_EMAILS = [];
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 
-const mapVehicleBookingRow = (row) => ({
+const mapBusBookingRow = (row) => ({
   id: Number(row.id),
-  vehicle_id: row.vehicle_id === null || row.vehicle_id === undefined ? null : Number(row.vehicle_id),
-  vehicle_number: row.vehicle_number || '',
-  vehicle_name: row.vehicle_name || '',
-  vehicle_type: row.vehicle_type || '',
+  bus_id: row.bus_id === null || row.bus_id === undefined ? null : Number(row.bus_id),
+  bus_number: row.bus_number || '',
+  bus_name: row.bus_name || '',
+  bus_type: row.bus_type || '',
   booked_by: row.booked_by,
   booked_by_name: row.booked_by_name || '',
   booked_by_email: row.booked_by_email || '',
@@ -31,52 +31,45 @@ const mapVehicleBookingRow = (row) => ({
   updatedAt: row.updated_at,
 });
 
-const toLocalDateTime = (value) => {
-  if (!value) return null;
-  const date = new Date(value);
-  const pad = (num) => String(num).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
-
-const fetchVehicleBookingById = async (bookingId) => {
+const fetchBusBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
-    `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
-            vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
-            vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
-            vb.created_at, vb.updated_at
-     FROM public.vehicle_bookings vb
-     LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
-     LEFT JOIN public."User" u ON u.id = vb.booked_by
-     WHERE vb.id = $1
+    `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
+            bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
+            bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks,
+            bb.created_at, bb.updated_at
+     FROM public.bus_bookings bb
+     LEFT JOIN public.buses b ON b.id = bb.bus_id
+     LEFT JOIN public."User" u ON u.id = bb.booked_by
+     WHERE bb.id = $1
      LIMIT 1`,
     bookingId
   );
   return rows;
 };
 
-const getVehicleBookings = async (req, res) => {
+const getBusBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
-              vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
-              vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
-              vb.created_at, vb.updated_at
-         FROM public.vehicle_bookings vb
-         LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
-         LEFT JOIN public."User" u ON u.id = vb.booked_by
-         ORDER BY vb.start_date DESC, vb.id DESC`
+      `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
+              bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
+              bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks,
+              bb.created_at, bb.updated_at
+         FROM public.bus_bookings bb
+         LEFT JOIN public.buses b ON b.id = bb.bus_id
+         LEFT JOIN public."User" u ON u.id = bb.booked_by
+         ORDER BY bb.start_date DESC, bb.id DESC`
     );
 
-    res.json({ success: true, bookings: bookings.map(mapVehicleBookingRow) });
+    res.json({ success: true, bookings: bookings.map(mapBusBookingRow) });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-const createVehicleBooking = async (req, res) => {
+const createBusBooking = async (req, res) => {
   try {
     const {
-      vehicle_id,
+      bus_id,
       booked_by,
       purpose,
       destination,
@@ -98,11 +91,11 @@ const createVehicleBooking = async (req, res) => {
     }
 
     const bookingRows = await prisma.$queryRawUnsafe(
-      `INSERT INTO public.vehicle_bookings
-        (vehicle_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at)
+      `INSERT INTO public.bus_bookings
+        (bus_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDING', NOW(), NOW())
-       RETURNING id, vehicle_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at`,
-      vehicle_id ? Number(vehicle_id) : null,
+       RETURNING id`,
+      bus_id ? Number(bus_id) : null,
       String(booked_by).trim(),
       req.body.booked_by_email ? String(req.body.booked_by_email).trim() : null,
       purpose ? String(purpose).trim() : null,
@@ -116,34 +109,22 @@ const createVehicleBooking = async (req, res) => {
       remarks ? String(remarks).trim() : null
     );
 
-    const createdBookingRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
-              vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
-              vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
-              vb.created_at, vb.updated_at
-         FROM public.vehicle_bookings vb
-         LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
-         LEFT JOIN public."User" u ON u.id = vb.booked_by
-         WHERE vb.id = $1
-         LIMIT 1`,
-      Number(bookingRows[0].id)
-    );
-
-    const createdBooking = mapVehicleBookingRow(createdBookingRows[0] || bookingRows[0]);
+    const createdBookingRows = await fetchBusBookingById(Number(bookingRows[0].id));
+    const createdBooking = mapBusBookingRow(createdBookingRows[0]);
 
     res.status(201).json({ success: true, booking: createdBooking });
   } catch (error) {
-    console.error('Create vehicle booking failed:', error);
+    console.error('Create bus booking failed:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-const updateVehicleBooking = async (req, res) => {
+const updateBusBooking = async (req, res) => {
   try {
     const { id } = req.params;
     const bookingId = Number(id);
     const {
-      vehicle_id,
+      bus_id,
       booked_by,
       booked_by_email,
       purpose,
@@ -156,16 +137,15 @@ const updateVehicleBooking = async (req, res) => {
       passenger_count,
       remarks,
       status,
-      approved_by,
     } = req.body;
 
     const beforeRows = await prisma.$queryRawUnsafe(
-      `SELECT status FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT status FROM public.bus_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
     if (!beforeRows.length) {
-      return res.status(404).json({ message: 'Vehicle booking not found' });
+      return res.status(404).json({ message: 'Bus booking not found' });
     }
 
     const previousStatus = (beforeRows[0].status || 'PENDING').toUpperCase();
@@ -173,7 +153,7 @@ const updateVehicleBooking = async (req, res) => {
     const approverId = String(req.user?.id || '').trim();
 
     const userRole = req.user?.role;
-    const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+    const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.TRANSPORT;
     const allowedStatusesForUser = isManagementRole
       ? ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']
       : ['PENDING', 'CANCELLED'];
@@ -183,8 +163,8 @@ const updateVehicleBooking = async (req, res) => {
     }
 
     await prisma.$queryRawUnsafe(
-      `UPDATE public.vehicle_bookings
-         SET vehicle_id = COALESCE($2, vehicle_id),
+      `UPDATE public.bus_bookings
+         SET bus_id = COALESCE($2, bus_id),
              booked_by = COALESCE($3, booked_by),
              booked_by_email = COALESCE($4, booked_by_email),
              purpose = $5,
@@ -205,7 +185,7 @@ const updateVehicleBooking = async (req, res) => {
              updated_at = NOW()
        WHERE id = $1`,
       bookingId,
-      vehicle_id ? Number(vehicle_id) : null,
+      bus_id ? Number(bus_id) : null,
       booked_by ? String(booked_by).trim() : null,
       booked_by_email ? String(booked_by_email).trim() : null,
       purpose ? String(purpose).trim() : null,
@@ -221,55 +201,45 @@ const updateVehicleBooking = async (req, res) => {
       approverId
     );
 
-    const updatedBookingRows = await fetchVehicleBookingById(bookingId);
-    const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
+    const updatedBookingRows = await fetchBusBookingById(bookingId);
+    const updatedBooking = mapBusBookingRow(updatedBookingRows[0]);
 
     if (normalizedStatus && normalizedStatus !== previousStatus) {
-      void sendVehicleBookingStatusNotification(updatedBooking, normalizedStatus);
+      void sendBusBookingStatusNotification(updatedBooking, normalizedStatus);
     }
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
-    console.error('Update vehicle booking failed:', error);
+    console.error('Update bus booking failed:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-const deleteVehicleBooking = async (req, res) => {
+const deleteBusBooking = async (req, res) => {
   try {
     const { id } = req.params;
     const bookingId = Number(id);
 
-    const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
-              vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time, vb.passenger_count, vb.remarks,
-              vb.status, vb.approved_by, vb.created_at, vb.updated_at
-         FROM public.vehicle_bookings vb
-         LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
-         LEFT JOIN public."User" u ON u.id = vb.booked_by
-         WHERE vb.id = $1
-         LIMIT 1`,
-      bookingId
-    );
+    const existingRows = await fetchBusBookingById(bookingId);
 
     if (!existingRows.length) {
-      return res.status(404).json({ message: 'Vehicle booking not found' });
+      return res.status(404).json({ message: 'Bus booking not found' });
     }
 
-    const bookingToDelete = mapVehicleBookingRow(existingRows[0]);
+    const bookingToDelete = mapBusBookingRow(existingRows[0]);
     const recipientEmails = [...new Set([
-      ...VEHICLE_BOOKING_EMAILS,
+      ...BUS_BOOKING_EMAILS,
       String(bookingToDelete.booked_by_email || '').trim().toLowerCase(),
     ].filter(isValidEmail))];
 
     await prisma.$queryRawUnsafe(
-      `DELETE FROM public.vehicle_bookings WHERE id = $1`,
+      `DELETE FROM public.bus_bookings WHERE id = $1`,
       bookingId
     );
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
-      `Vehicle: ${bookingToDelete.vehicle_number || bookingToDelete.vehicle_name || `ID ${bookingToDelete.vehicle_id}`}`,
+      `Bus: ${bookingToDelete.bus_number || bookingToDelete.bus_name || `ID ${bookingToDelete.bus_id}`}`,
       `Booked by: ${bookingToDelete.booked_by_name || bookingToDelete.booked_by || 'N/A'}`,
       `Purpose: ${bookingToDelete.purpose || 'N/A'}`,
       `Destination: ${bookingToDelete.destination || 'N/A'}`,
@@ -284,42 +254,42 @@ const deleteVehicleBooking = async (req, res) => {
 
     const emailResult = await sendEmailNotificationToRecipients({
       recipients: recipientEmails,
-      message: `A previously scheduled vehicle booking has been cancelled.<br><br>${cancellationDetails}`,
-      title: 'Vehicle Booking Cancelled',
-      subject: `Vehicle Booking Cancelled${bookingToDelete.vehicle_number ? ` - ${bookingToDelete.vehicle_number}` : ''}`,
-      actionUrl: `${frontendUrl}/vehicle-bookings`,
-      label: 'Vehicle Booking',
+      message: `A previously scheduled bus booking has been cancelled.<br><br>${cancellationDetails}`,
+      title: 'Bus Booking Cancelled',
+      subject: `Bus Booking Cancelled${bookingToDelete.bus_number ? ` - ${bookingToDelete.bus_number}` : ''}`,
+      actionUrl: `${frontendUrl}/bus-bookings`,
+      label: 'Bus Booking',
     });
 
     if (!emailResult?.success) {
-      console.error('Vehicle booking cancellation email failed for booking:', bookingId);
+      console.error('Bus booking cancellation email failed for booking:', bookingId);
     }
 
-    res.json({ success: true, message: 'Vehicle booking deleted successfully' });
+    res.json({ success: true, message: 'Bus booking deleted successfully' });
   } catch (error) {
-    console.error('Delete vehicle booking failed:', error.message);
+    console.error('Delete bus booking failed:', error.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-const approveVehicleBooking = async (req, res) => {
+const approveBusBooking = async (req, res) => {
   try {
     const { id } = req.params;
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT id FROM public.bus_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
     if (!existingRows.length) {
-      return res.status(404).json({ message: 'Vehicle booking not found' });
+      return res.status(404).json({ message: 'Bus booking not found' });
     }
 
     const approverId = String(req.user?.id || '').trim();
 
-    const bookingRows = await prisma.$queryRawUnsafe(
-      `UPDATE public.vehicle_bookings
+    await prisma.$queryRawUnsafe(
+      `UPDATE public.bus_bookings
          SET status = 'APPROVED',
              approved_by = NULLIF($2, '')::text,
              approved_at = NOW(),
@@ -330,37 +300,37 @@ const approveVehicleBooking = async (req, res) => {
       approverId
     );
 
-    const updatedBookingRows = await fetchVehicleBookingById(bookingId);
-    const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
+    const updatedBookingRows = await fetchBusBookingById(bookingId);
+    const updatedBooking = mapBusBookingRow(updatedBookingRows[0]);
 
-    void sendVehicleBookingStatusNotification(updatedBooking, 'APPROVED');
+    void sendBusBookingStatusNotification(updatedBooking, 'APPROVED');
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
-    console.error('Approve vehicle booking failed:', error.message);
+    console.error('Approve bus booking failed:', error.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-const rejectVehicleBooking = async (req, res) => {
+const rejectBusBooking = async (req, res) => {
   try {
     const { id } = req.params;
     const bookingId = Number(id);
     const { remarks } = req.body;
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT id FROM public.bus_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
     if (!existingRows.length) {
-      return res.status(404).json({ message: 'Vehicle booking not found' });
+      return res.status(404).json({ message: 'Bus booking not found' });
     }
 
     const approverId = String(req.user?.id || '').trim();
 
     await prisma.$queryRawUnsafe(
-      `UPDATE public.vehicle_bookings
+      `UPDATE public.bus_bookings
          SET status = 'REJECTED',
              approved_by = NULLIF($2, '')::text,
              remarks = COALESCE($3, remarks),
@@ -372,26 +342,26 @@ const rejectVehicleBooking = async (req, res) => {
       remarks ? String(remarks).trim() : null
     );
 
-    const updatedBookingRows = await fetchVehicleBookingById(bookingId);
-    const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
+    const updatedBookingRows = await fetchBusBookingById(bookingId);
+    const updatedBooking = mapBusBookingRow(updatedBookingRows[0]);
 
-    void sendVehicleBookingStatusNotification(updatedBooking, 'REJECTED');
+    void sendBusBookingStatusNotification(updatedBooking, 'REJECTED');
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
-    console.error('Reject vehicle booking failed:', error.message);
+    console.error('Reject bus booking failed:', error.message);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-const sendVehicleBookingStatusNotification = async (booking, action) => {
+const sendBusBookingStatusNotification = async (booking, action) => {
   const upperAction = action.toUpperCase();
   if (upperAction === 'PENDING') {
     return;
   }
 
   const recipientEmails = [...new Set([
-    ...VEHICLE_BOOKING_EMAILS,
+    ...BUS_BOOKING_EMAILS,
     String(booking.booked_by_email || '').trim().toLowerCase(),
   ].filter(isValidEmail))];
 
@@ -401,7 +371,7 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
     : upperAction === 'CANCELLED' ? 'Cancelled'
     : 'Updated';
   const details = [
-    `Vehicle: ${booking.vehicle_number || booking.vehicle_name || `ID ${booking.vehicle_id}`}`,
+    `Bus: ${booking.bus_number || booking.bus_name || `ID ${booking.bus_id}`}`,
     `Booked by: ${booking.booked_by_name || booking.booked_by || 'N/A'}`,
     `Purpose: ${booking.purpose || 'N/A'}`,
     `Destination: ${booking.destination || 'N/A'}`,
@@ -416,19 +386,19 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
 
   void sendEmailNotificationToRecipients({
     recipients: recipientEmails,
-    message: `Your vehicle booking has been <strong>${actionLabel}</strong>.<br><br>${details}`,
-    title: `Vehicle Booking ${actionLabel}`,
-    subject: `Vehicle Booking ${actionLabel}${booking.vehicle_number ? ` - ${booking.vehicle_number}` : ''}`,
-    actionUrl: `${frontendUrl}/vehicle-bookings`,
-    label: 'Vehicle Booking',
+    message: `Your bus booking has been <strong>${actionLabel}</strong>.<br><br>${details}`,
+    title: `Bus Booking ${actionLabel}`,
+    subject: `Bus Booking ${actionLabel}${booking.bus_number ? ` - ${booking.bus_number}` : ''}`,
+    actionUrl: `${frontendUrl}/bus-bookings`,
+    label: 'Bus Booking',
   });
 };
 
 module.exports = {
-  getVehicleBookings,
-  createVehicleBooking,
-  updateVehicleBooking,
-  deleteVehicleBooking,
-  approveVehicleBooking,
-  rejectVehicleBooking,
+  getBusBookings,
+  createBusBooking,
+  updateBusBooking,
+  deleteBusBooking,
+  approveBusBooking,
+  rejectBusBooking,
 };

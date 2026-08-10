@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const getApiBaseUrl = () => {
-  return 'http://10.22.0.159:5000/api';
+  return 'http://10.22.0.151:5000/api';
 };
 
 const api = axios.create({

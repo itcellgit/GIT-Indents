@@ -29,7 +29,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://0.0.0.0:5173',
-  'http://10.22.0.159:5173',
+  'http://10.22.0.151:5173',
   ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(origin => origin.trim()).filter(Boolean) : [])
 ];
 
@@ -84,7 +84,7 @@ app.use(express.json({ limit: '10mb' })); // Limit body size
 app.use(cookieParser());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://10.22.0.159:5173');
+  res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://10.22.0.151:5173');
   next();
 });
 
@@ -103,6 +103,8 @@ const hallRoutes = require('./routes/hallRoutes');
 const vehicleRoutes = require('./routes/vehicleRoutes');
 const hallBookingRoutes = require('./routes/hallBookingRoutes');
 const vehicleBookingRoutes = require('./routes/vehicleBookingRoutes');
+const busRoutes = require('./routes/busRoutes');
+const busBookingRoutes = require('./routes/busBookingRoutes');
 
 // --- MOUNT ROUTES ---
 // Every route inside authRoutes.js will automatically start with /api/auth
@@ -118,6 +120,8 @@ app.use('/api/halls', hallRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/hall-bookings', hallBookingRoutes);
 app.use('/api/vehicle-bookings', vehicleBookingRoutes);
+app.use('/api/buses', busRoutes);
+app.use('/api/bus-bookings', busBookingRoutes);
 
 // A simple test route to verify the server is running when you visit localhost:5000 in your browser
 app.get('/', (req, res) => {

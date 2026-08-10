@@ -4,22 +4,41 @@ const { sendNotification } = require('../utils/notificationService');
 // @desc    Get dashboard indents for Maintainer
 // @route   GET /api/maintainer/dashboard
 // @access  Private (Maintainer view)
+const DASHBOARD_INCLUDE = {
+  category: { select: { name: true, incharge: { select: { id: true, name: true } } } },
+  requester: { select: { name: true, email: true, department: true } },
+  statusHistory: { orderBy: { timestamp: 'asc' } },
+  materialsUsed: true
+};
+
+// Statuses awaiting review in the Maintainer Approval Queue (any Maintainer can act on these)
+const APPROVAL_QUEUE_STATUSES = [
+  'Indent Created',
+  'Approved by Dept HOD',
+  'Rejected by Maintenance HOD',
+  'Rejected by Dept HOD',
+  'Approved by Principal',
+  'Rejected by Principal'
+];
+
 const getDashboardData = async (req, res) => {
   try {
-    const assignedIndents = await prisma.indent.findMany({ 
+    const assignedIndents = await prisma.indent.findMany({
       where: { maintainerId: req.user.id },
-      include: {
-        category: { select: { name: true, incharge: { select: { id: true, name: true } } } },
-        requester: { select: { name: true, email: true, department: true } },
-        statusHistory: { orderBy: { timestamp: 'asc' } },
-        materialsUsed: true
-      },
+      include: DASHBOARD_INCLUDE,
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const approvalRequests = await prisma.indent.findMany({
+      where: { status: { in: APPROVAL_QUEUE_STATUSES } },
+      include: DASHBOARD_INCLUDE,
       orderBy: { createdAt: 'desc' }
     });
 
     res.status(200).json({
       success: true,
-      assignedIndents
+      assignedIndents,
+      approvalRequests
     });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
@@ -100,7 +119,68 @@ const updateComplaint = async (req, res) => {
   }
 };
 
+// Statuses a Maintainer is allowed to set an indent to via the review action
+const REVIEW_TARGET_STATUSES = [
+  'Approved by Dept HOD',
+  'Approved by Maintenance HOD',
+  'Rejected by Dept HOD',
+  'Rejected by Maintenance HOD'
+];
+
+// @desc    Approve/Reject an indent from the Maintainer Approval Queue
+// @route   PUT /api/maintainer/complaints/:id/review
+// @access  Private (Maintainer view) - any Maintainer may act on any pending indent
+const reviewIndent = async (req, res) => {
+  try {
+    const { status, rejectionReason, rejectedBy, location, natureOfWork, description } = req.body;
+
+    if (!status || !REVIEW_TARGET_STATUSES.includes(status)) {
+      return res.status(400).json({ message: 'Invalid review status' });
+    }
+
+    const indent = await prisma.indent.findUnique({ where: { id: req.params.id } });
+    if (!indent) {
+      return res.status(404).json({ message: 'Indent not found' });
+    }
+
+    const updateData = {
+      status,
+      statusHistory: { create: [{ status }] }
+    };
+    if (rejectionReason !== undefined) updateData.rejectionReason = rejectionReason;
+    if (rejectedBy !== undefined) updateData.rejectedBy = rejectedBy;
+    if (location) updateData.location = location;
+    if (natureOfWork) updateData.natureOfWork = natureOfWork;
+    if (description) updateData.description = description;
+
+    const updatedIndent = await prisma.indent.update({
+      where: { id: indent.id },
+      data: updateData,
+      include: DASHBOARD_INCLUDE
+    });
+
+    const isRejection = status.startsWith('Rejected');
+    sendNotification(
+      indent.requesterId,
+      isRejection
+        ? `Your indent ${indent.indentNumber} was rejected by a Maintainer. Reason: ${rejectionReason || 'No reason provided'}`
+        : `Your indent ${indent.indentNumber} was approved by a Maintainer and is progressing.`,
+      req.user.id,
+      indent.id,
+      indent.indentNumber
+    );
+
+    res.status(200).json({
+      success: true,
+      complaint: updatedIndent
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 module.exports = {
   getDashboardData,
-  updateComplaint
+  updateComplaint,
+  reviewIndent
 };

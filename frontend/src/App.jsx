@@ -11,6 +11,8 @@ import MaintainerDashboard from './pages/MaintainerDashboard';
 import ReceptionistDashboard from './pages/ReceptionistDashboard';
 import HallBookingsPage from './pages/ReceptionistDashboard/HallBooking';
 import VehicleBookingsPage from './pages/ReceptionistDashboard/VehicleBooking';
+import TransportationDashboard from './pages/Transportation';
+import BusBookingsPage from './pages/Transportation/BusBooking';
 import CoordinatorDetails from './pages/AdminDashboard/CoordinatorDetails';
 import OfficeStationaryDashboard from './pages/OfficeStationaryDashboard';
 import StationaryIndentCreate from './pages/StationaryIndentCreate';
@@ -92,8 +94,18 @@ function App() {
               <VehicleBookingsPage />
             </ProtectedRoute>
           } />
+          <Route path="/transportation-dashboard" element={
+            <ProtectedRoute allowedRoles={[ROLES.TRANSPORT]}>
+              <TransportationDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/bus-bookings" element={
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.TRANSPORT]}>
+              <BusBookingsPage />
+            </ProtectedRoute>
+          } />
           <Route path="/profile" element={
-            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.HOD, ROLES.ADMIN, ROLES.PRINCIPAL, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY, ROLES.RECEPTIONIST]}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.HOD, ROLES.ADMIN, ROLES.PRINCIPAL, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY, ROLES.RECEPTIONIST, ROLES.TRANSPORT]}>
               <Profile />
             </ProtectedRoute>
           } />

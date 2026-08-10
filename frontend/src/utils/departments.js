@@ -26,7 +26,9 @@ export const departments = [
   { name: 'Placement', shortName: 'Plac' },
   { name: 'Sports', shortName: 'Spor' },
   { name: 'Vehicle Maintenance', shortName: 'Veh' },
-  { name: 'Design & Maintenance Cell', shortName: 'DMC' }
+  { name: 'Design & Maintenance Cell', shortName: 'DMC' },
+  { name: 'Transportation', shortName: 'TRANS' }
+  
 ];
 
 export const getDepartmentShortName = (name) => {

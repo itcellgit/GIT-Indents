@@ -6,7 +6,8 @@ const ROLES = Object.freeze({
   RECEPTIONIST: 'Receptionist',
   FACULTY: 'Faculty',
   NON_TEACHING: 'Non-Teaching',
-  OFFICE_STATIONARY: 'Office_Stationary'
+  OFFICE_STATIONARY: 'Office_Stationary',
+  TRANSPORT: 'Transport'
 });
 
 const ROLE_DASHBOARDS = Object.freeze({
@@ -14,9 +15,11 @@ const ROLE_DASHBOARDS = Object.freeze({
   [ROLES.PRINCIPAL]: '/principal-dashboard',
   [ROLES.HOD]: '/hod-dashboard',
   [ROLES.MAINTAINER]: '/maintainer-dashboard',
+  [ROLES.RECEPTIONIST]: '/receptionist-dashboard',
   [ROLES.FACULTY]: '/dashboard',
   [ROLES.NON_TEACHING]: '/non-teaching-dashboard',
-  [ROLES.OFFICE_STATIONARY]: '/office-stationary-dashboard'
+  [ROLES.OFFICE_STATIONARY]: '/office-stationary-dashboard',
+  [ROLES.TRANSPORT]: '/transportation-dashboard'
 });
 
 const ROLE_ALIASES = Object.freeze({
@@ -32,7 +35,8 @@ const ROLE_ALIASES = Object.freeze({
   officestationary: ROLES.OFFICE_STATIONARY,
   maintainer: ROLES.MAINTAINER,
   'maintain er': ROLES.MAINTAINER,
-  receptionist: ROLES.RECEPTIONIST
+  receptionist: ROLES.RECEPTIONIST,
+  transport: ROLES.TRANSPORT
 });
 
 const ROLE_VALUES = Object.freeze(Object.values(ROLES));

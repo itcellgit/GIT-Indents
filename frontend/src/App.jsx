@@ -13,6 +13,7 @@ import HallBookingsPage from './pages/ReceptionistDashboard/HallBooking';
 import VehicleBookingsPage from './pages/ReceptionistDashboard/VehicleBooking';
 import TransportationDashboard from './pages/Transportation';
 import BusBookingsPage from './pages/Transportation/BusBooking';
+import BookIndentPage from './pages/BookIndent';
 import CoordinatorDetails from './pages/AdminDashboard/CoordinatorDetails';
 import OfficeStationaryDashboard from './pages/OfficeStationaryDashboard';
 import StationaryIndentCreate from './pages/StationaryIndentCreate';
@@ -102,6 +103,11 @@ function App() {
           <Route path="/bus-bookings" element={
             <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.TRANSPORT]}>
               <BusBookingsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/book-indents" element={
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY]}>
+              <BookIndentPage />
             </ProtectedRoute>
           } />
           <Route path="/profile" element={

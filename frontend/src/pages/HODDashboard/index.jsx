@@ -8,7 +8,11 @@ import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
 import ManageMaintainers from './ManageMaintainers';
 import ManageCoordinatorStaffs from './ManageCoordinatorStaffs';
+import BranchManager from '../../components/BranchManager';
+import BookIndentManager from '../../components/BookIndentManager';
 import api from '../../api/axios';
+
+const LIBRARY_HOD_EMAIL = 'librarian@git.edu';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
@@ -16,6 +20,7 @@ import logo from '../../assets/logo.png';
 
 const HODDashboard = () => {
   const { user, logout } = useAuth();
+  const isLibraryHod = user?.role === 'HOD' && String(user?.email || '').toLowerCase() === LIBRARY_HOD_EMAIL;
   const [departmentIndents, setDepartmentIndents] = useState([]);
   const [approvalRequests, setApprovalRequests] = useState([]);
   const [myRaisedIndents, setMyRaisedIndents] = useState([]);
@@ -343,6 +348,30 @@ const HODDashboard = () => {
           >
             Coordinator Staff
           </button>
+          {isLibraryHod && (
+            <button
+              onClick={() => setActiveTab('branches')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'branches'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Branches
+            </button>
+          )}
+          {isLibraryHod && (
+            <button
+              onClick={() => setActiveTab('bookIndents')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'bookIndents'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Book Indents
+            </button>
+          )}
         </div>
           <button 
             onClick={() => setIsRaiseModalOpen(true)}
@@ -429,6 +458,18 @@ const HODDashboard = () => {
           {activeTab === 'coordinatorStaffs' && (
             <div id="coordinatorStaffs" className="scroll-mt-32">
               <ManageCoordinatorStaffs />
+            </div>
+          )}
+
+          {activeTab === 'branches' && isLibraryHod && (
+            <div id="branches" className="scroll-mt-32">
+              <BranchManager />
+            </div>
+          )}
+
+          {activeTab === 'bookIndents' && isLibraryHod && (
+            <div id="bookIndents" className="scroll-mt-32">
+              <BookIndentManager />
             </div>
           )}
 

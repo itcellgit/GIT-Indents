@@ -7,7 +7,6 @@ import DepartmentManager from './DepartmentManager';
 import CoordinatorManager from './CoordinatorManager';
 import RoleManager from './RoleManager';
 import BranchManager from '../../components/BranchManager';
-import BookIndentManager from '../../components/BookIndentManager';
 import UserManager from './UserManager';
 import ComplaintTable from './ComplaintTable';
 import Analytics from '../../components/Analytics';
@@ -219,16 +218,6 @@ export default function AdminDashboard() {
               >
                 Branch MGT
               </button>
-              <button
-                onClick={() => setActiveTab('bookIndents')}
-                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
-                  activeTab === 'bookIndents'
-                    ? 'border-indigo-400 text-indigo-300'
-                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
-                }`}
-              >
-                Book Indents
-              </button>
             </div>
           </div>
         </div>
@@ -296,12 +285,6 @@ export default function AdminDashboard() {
           {activeTab === 'branches' && (
             <div id="branches" className="scroll-mt-32">
               <BranchManager />
-            </div>
-          )}
-
-          {activeTab === 'bookIndents' && (
-            <div id="bookIndents" className="scroll-mt-32">
-              <BookIndentManager />
             </div>
           )}
 

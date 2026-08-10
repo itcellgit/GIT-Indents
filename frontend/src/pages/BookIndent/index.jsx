@@ -109,8 +109,27 @@ export default function BookIndentPage() {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  const validateForm = () => {
+    if (!formData.libraryIdNo.trim()) return 'Library ID No. is required';
+    if (!formData.branchId) return 'Branch is required';
+    if (!formData.booksRequiredFor) return '"Books required for" is required';
+    if (!formData.semester) return '"Books required for the sem" is required';
+    if (!formData.bookAuthor.trim()) return 'Book Author/s is required';
+    if (!formData.bookTitle.trim()) return 'Book Title is required';
+    if (!formData.publisher.trim()) return 'Publisher is required';
+    if (!formData.requiredQuantity || Number(formData.requiredQuantity) <= 0) return 'Required Quantity must be a positive number';
+    if (!formData.studentStrength || Number(formData.studentStrength) <= 0) return 'Student Strength must be a positive number';
+    if (!formData.bookType) return 'Type of Book is required';
+    return '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     try {
       setIsSaving(true);
       setError('');
@@ -361,7 +380,7 @@ export default function BookIndentPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Library ID No.</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Library ID No. <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     required
@@ -371,7 +390,7 @@ export default function BookIndentPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Branch</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Branch <span className="text-red-500">*</span></label>
                   <select
                     required
                     value={formData.branchId}
@@ -388,7 +407,7 @@ export default function BookIndentPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Books required for</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Books required for <span className="text-red-500">*</span></label>
                   <select
                     required
                     value={formData.booksRequiredFor}
@@ -402,7 +421,7 @@ export default function BookIndentPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Books required for the sem</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Books required for the sem <span className="text-red-500">*</span></label>
                   <select
                     required
                     value={formData.semester}
@@ -418,7 +437,7 @@ export default function BookIndentPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Book Author/s</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Book Author/s <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   required
@@ -429,7 +448,7 @@ export default function BookIndentPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Book Title</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Book Title <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   required
@@ -440,7 +459,7 @@ export default function BookIndentPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Publisher</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Publisher <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   required
@@ -452,7 +471,7 @@ export default function BookIndentPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Required Quantity</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Required Quantity <span className="text-red-500">*</span></label>
                   <input
                     type="number"
                     min="1"
@@ -463,7 +482,7 @@ export default function BookIndentPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Student Strength</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Student Strength <span className="text-red-500">*</span></label>
                   <input
                     type="number"
                     min="1"
@@ -476,7 +495,7 @@ export default function BookIndentPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Type of Book</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Type of Book <span className="text-red-500">*</span></label>
                 <select
                   required
                   value={formData.bookType}

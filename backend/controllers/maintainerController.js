@@ -1,6 +1,18 @@
 const prisma = require('../prismaClient');
 const { sendNotification } = require('../utils/notificationService');
 
+const parseJsonField = (value, fallback) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  return value;
+};
+
 // @desc    Get dashboard indents for Maintainer
 // @route   GET /api/maintainer/dashboard
 // @access  Private (Maintainer view)
@@ -179,8 +191,102 @@ const reviewIndent = async (req, res) => {
   }
 };
 
+// @desc    Mark indent as completed by Maintainer with optional completion photo
+// @route   PUT /api/maintainer/complaints/:id/complete
+// @access  Private (Maintainer view)
+const completeIndent = async (req, res) => {
+  try {
+    const indent = await prisma.indent.findUnique({
+      where: { id: req.params.id },
+      include: { category: true }
+    });
+
+    if (!indent) {
+      return res.status(404).json({ message: 'Indent not found' });
+    }
+
+    if (indent.maintainerId !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden: You are not assigned to this indent.' });
+    }
+
+    const assignedWorkerNames = parseJsonField(req.body.assignedWorkerNames, []);
+    const materialsUsed = parseJsonField(req.body.materialsUsed, []);
+    const durationRequiredHours = req.body.durationRequiredHours !== undefined && req.body.durationRequiredHours !== ''
+      ? parseFloat(req.body.durationRequiredHours)
+      : null;
+
+    const updateData = {
+      status: 'Completed',
+      isMaintainerCompleted: true,
+      assignedWorkerNames: Array.isArray(assignedWorkerNames) ? assignedWorkerNames : indent.assignedWorkerNames,
+      durationRequiredHours,
+      reasonForDelayedWork: req.body.reasonForDelayedWork !== undefined ? req.body.reasonForDelayedWork : indent.reasonForDelayedWork,
+      remarksByIncharge: req.body.remarksByIncharge !== undefined ? req.body.remarksByIncharge : indent.remarksByIncharge,
+      remarksByCoordinator: req.body.remarksByCoordinator !== undefined ? req.body.remarksByCoordinator : indent.remarksByCoordinator,
+      statusHistory: { create: [{ status: 'Completed' }] }
+    };
+
+    if (req.file) {
+      const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+      updateData.completionImagePath = `/${uploadDir}/${req.file.filename}`;
+    }
+
+    if (Array.isArray(materialsUsed)) {
+      await prisma.materialUsed.deleteMany({ where: { indentId: indent.id } });
+      const validMaterials = materialsUsed
+        .filter(m => m && ((m.itemName && String(m.itemName).trim() !== '') || (m.quantity && String(m.quantity).trim() !== '')))
+        .map(m => ({
+          itemName: String(m.itemName || '').trim(),
+          quantity: parseFloat(m.quantity) || 0,
+          unit: m.unit || null
+        }));
+
+      if (validMaterials.length > 0) {
+        updateData.materialsUsed = { create: validMaterials };
+      }
+    }
+
+    const updatedIndent = await prisma.indent.update({
+      where: { id: indent.id },
+      data: updateData,
+      include: {
+        category: { select: { name: true, inchargeId: true, incharge: { select: { id: true, name: true } } } },
+        requester: { select: { name: true, email: true, department: true } },
+        materialsUsed: true,
+        statusHistory: { orderBy: { timestamp: 'asc' } }
+      }
+    });
+
+    sendNotification(
+      indent.requesterId,
+      `Your indent ${indent.indentNumber} has been marked as Completed by Maintainer ${req.user.name}.`,
+      req.user.id,
+      indent.id,
+      indent.indentNumber
+    );
+
+    if (indent.category && indent.category.inchargeId) {
+      sendNotification(
+        indent.category.inchargeId,
+        `Indent ${indent.indentNumber} has been completed by Maintainer ${req.user.name}.`,
+        req.user.id,
+        indent.id,
+        indent.indentNumber
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      complaint: updatedIndent
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 module.exports = {
   getDashboardData,
   updateComplaint,
-  reviewIndent
+  reviewIndent,
+  completeIndent
 };

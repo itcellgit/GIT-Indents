@@ -77,7 +77,28 @@ export default function MaintainerDashboard() {
 
   const handleUpdateStatus = async (id, updates) => {
     try {
-      if (updates.status) {
+      if (updates.completeWork) {
+        const formData = new FormData();
+        formData.append('assignedWorkerNames', JSON.stringify(updates.assignedWorkerNames || []));
+        formData.append('materialsUsed', JSON.stringify(updates.materialsUsed || []));
+        if (updates.durationRequiredHours !== undefined && updates.durationRequiredHours !== null) {
+          formData.append('durationRequiredHours', String(updates.durationRequiredHours));
+        }
+        if (updates.reasonForDelayedWork !== undefined) {
+          formData.append('reasonForDelayedWork', updates.reasonForDelayedWork || '');
+        }
+        if (updates.remarksByIncharge !== undefined) {
+          formData.append('remarksByIncharge', updates.remarksByIncharge || '');
+        }
+        if (updates.remarksByCoordinator !== undefined) {
+          formData.append('remarksByCoordinator', updates.remarksByCoordinator || '');
+        }
+        if (updates.completionImage) {
+          formData.append('completionImage', updates.completionImage);
+        }
+
+        await api.put(`/maintainer/complaints/${id}/complete`, formData);
+      } else if (updates.status) {
         await api.put(`/maintainer/complaints/${id}/review`, updates);
       } else {
         await api.put(`/maintainer/complaints/${id}`, updates);

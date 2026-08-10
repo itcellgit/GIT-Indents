@@ -31,6 +31,8 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
   const [coordinatorRemarks, setCoordinatorRemarks] = useState(complaint.remarksByCoordinator || '');
   const [duration, setDuration] = useState(complaint.durationRequiredHours || 0);
   const [delayReason, setDelayReason] = useState(complaint.reasonForDelayedWork || '');
+  const [completionImageFile, setCompletionImageFile] = useState(null);
+  const [completionImagePreview, setCompletionImagePreview] = useState(complaint.completionImagePath || '');
 
   // Check if current user is the incharge of the Category (Maintenance HOD)
   const isIncharge = user &&
@@ -67,6 +69,8 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       setCoordinatorRemarks(complaint.remarksByCoordinator || '');
       setDuration(complaint.durationRequiredHours || 0);
       setDelayReason(complaint.reasonForDelayedWork || '');
+      setCompletionImageFile(null);
+      setCompletionImagePreview(complaint.completionImagePath || '');
       setEditFormData({
         location: complaint.location,
         natureOfWork: complaint.natureOfWork || complaint.workType,
@@ -161,7 +165,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       newStatus = 'Approved by Maintenance HOD';
     } else if (isPrincipal) {
       newStatus = 'Approved by Principal';
-    } else if (isIncharge && (complaint.status === 'Approved by Dept HOD' || complaint.status === 'Approved by Principal')) {
+    } else if (isIncharge) {
       newStatus = 'Approved by Maintenance HOD';
     } else if (isDeptHOD) {
       newStatus = 'Approved by Dept HOD';
@@ -397,6 +401,21 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   </div>
                 </div>
               )}
+
+              {complaint.completionImagePath && (
+                <div className="mt-6 bg-emerald-50 p-5 rounded-xl border border-emerald-200 shadow-inner print:hidden">
+                  <div className="flex items-center gap-2 mb-3 border-b border-emerald-200 pb-2">
+                    <ImageIcon className="w-5 h-5 text-emerald-600" />
+                    <p className="text-sm text-emerald-900 uppercase tracking-widest font-bold">Completion Photo</p>
+                  </div>
+                  <div className="mt-2">
+                    <a href={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${complaint.completionImagePath}`} target="_blank" rel="noopener noreferrer" className="block max-w-sm rounded-lg overflow-hidden border border-emerald-300 hover:border-emerald-500 hover:shadow-md transition-all">
+                      <img src={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${complaint.completionImagePath}`} alt="Completed Work" className="w-full h-auto object-cover" />
+                    </a>
+                    <p className="text-xs text-emerald-700 mt-2 italic">Uploaded when work was marked complete.</p>
+                  </div>
+                </div>
+              )}
               
               {(complaint.status === 'Rejected by HOD' || complaint.status === 'Rejected by Dept HOD' || complaint.status === 'Rejected by Principal') && (
                 <div className="mt-4 bg-red-50 p-4 rounded-lg border border-red-100">
@@ -586,22 +605,48 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   {(isIncharge && complaint.status === 'Approved by Maintenance HOD') ? 'Finalize Assignment & Save' : 'Save All Progress'}
                 </button>
                 {isMaintainer && (complaint.status === 'In Progress' || complaint.status === 'Approved by Maintenance HOD') && !complaint.isMaintainerCompleted && (
-                  <button
-                    onClick={() => {
-                      if (materials.length > 0 && materials.some(m => (m.itemName || m.quantity) && (!m.itemName || !m.quantity))) {
-                        return alert('Please fill complete details for added materials or remove empty rows.');
-                      }
-                      onUpdateStatus(complaint._id || complaint.id, {
-                        isMaintainerCompleted: true,
-                        assignedWorkerNames: workerList,
-                        durationRequiredHours: duration ? parseFloat(duration) : null,
-                        materialsUsed: materials.filter(m => m.itemName && m.quantity).map(m => ({ ...m, quantity: parseFloat(m.quantity) || 0 }))
-                      });
-                    }}
-                    className="bg-green-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors shadow-md transform active:scale-95"
-                  >
-                    Complete Work
-                  </button>
+                  <div className="flex flex-col items-end gap-2">
+                    <label className="text-xs font-semibold text-slate-600">Upload Completion Photo (Optional)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                        setCompletionImageFile(file);
+                        if (file) {
+                          setCompletionImagePreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="text-xs w-full max-w-xs"
+                    />
+                    {completionImagePreview && (
+                      <img
+                        src={completionImagePreview.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${completionImagePreview}` : completionImagePreview}
+                        alt="Completion preview"
+                        className="w-24 h-24 object-cover rounded border border-slate-200"
+                      />
+                    )}
+                    <button
+                      onClick={() => {
+                        if (materials.length > 0 && materials.some(m => (m.itemName || m.quantity) && (!m.itemName || !m.quantity))) {
+                          return alert('Please fill complete details for added materials or remove empty rows.');
+                        }
+                        onUpdateStatus(complaint._id || complaint.id, {
+                          completeWork: true,
+                          completionImage: completionImageFile,
+                          assignedWorkerNames: workerList,
+                          durationRequiredHours: duration ? parseFloat(duration) : null,
+                          reasonForDelayedWork: delayReason,
+                          remarksByIncharge: inchargeRemarks,
+                          remarksByCoordinator: coordinatorRemarks,
+                          materialsUsed: materials.filter(m => (m.itemName && m.itemName.trim() !== '') || (m.quantity && m.quantity.toString().trim() !== '')).map(m => ({ ...m, quantity: parseFloat(m.quantity) || 0 }))
+                        });
+                      }}
+                      className="bg-green-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition-colors shadow-md transform active:scale-95"
+                    >
+                      Complete Work
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -667,7 +712,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {((isIncharge || isMaintainer) && complaint.status !== 'Completed' || (delayReason && delayReason.trim() !== '')) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">Reason for Delayed Work (if any)</label>
+                    <label className="block text-sm text-gray-700 mb-1 font-semibold">Reason for Delayed Work (if any)</label>
                     <textarea
                       rows={1}
                       readOnly={!(isIncharge || isMaintainer) || complaint.status === 'Completed'}
@@ -680,7 +725,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                 )}
                 {((isIncharge || isMaintainer) && complaint.status !== 'Completed' || (coordinatorRemarks && coordinatorRemarks.trim() !== '')) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">Remark from Technical Coordinator</label>
+                    <label className="block text-sm text-gray-700 mb-1 font-semibold">Remark from Technical Coordinator</label>
                     <textarea
                       rows={1}
                       readOnly={!(isIncharge || isMaintainer) || complaint.status === 'Completed'}
@@ -708,13 +753,12 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
           <div className="flex gap-3">
             {((isDeptHOD && (complaint.status === 'Indent Created' || complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Dept HOD')) ||
-               (isIncharge && (complaint.status === 'Indent Created' || complaint.status === 'Approved by Principal' || complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal')) ||
-               (isPrincipal && (complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal' || complaint.status === 'Indent Created')) ||
-               (isMaintainerRole && APPROVAL_QUEUE_STATUSES.includes(complaint.status))) && (
+              (isIncharge && (complaint.status === 'Indent Created' || complaint.status === 'Approved by Dept HOD' || complaint.status === 'Approved by Principal' || complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal')) ||
+               (isPrincipal && (complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal' || complaint.status === 'Indent Created'))) && (
               <>
                 {!isEditing ? (
                   <>
-                    {(isDeptHOD || isPrincipal || isMaintainerRole) && (
+                    {(isDeptHOD || isPrincipal) && (
                       <button
                         onClick={() => setIsEditing(true)}
                         className="px-5 py-2 text-sm font-semibold text-indigo-600 bg-white border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm"
@@ -722,7 +766,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                         Edit Indent
                       </button>
                     )}
-                    {isMaintainerRole && (
+                    {(isPrincipal || isIncharge) && (
                       <>
                         {!complaint.status.includes('Rejected') && (
                           !showRejectionInput ? (
@@ -757,7 +801,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                       </>
                     )}
                   </>
-                ) : (
+                ) : ( 
                   <div className="flex gap-2">
                     <button onClick={() => {
                       onUpdateStatus(complaint._id || complaint.id, {
@@ -798,13 +842,10 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   </span>
                 )}
 
-                {(complaint.status === 'In Progress' || (complaint.isMaintainerCompleted && complaint.status !== 'Completed')) && (
-                  <button
-                    onClick={handleResolve}
-                    className="px-6 py-2 text-sm font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors shadow-md shadow-green-100"
-                  >
-                    {complaint.isMaintainerCompleted ? 'Verify & Complete' : 'Complete & Resolve'}
-                  </button>
+                {(complaint.status === 'In Progress' || complaint.isMaintainerCompleted) && (
+                  <span className="px-4 py-2 text-sm font-semibold text-indigo-700 bg-indigo-50 rounded-lg border border-indigo-200">
+                    Completion is handled by assigned Maintainer.
+                  </span>
                 )}
               </>
             )}

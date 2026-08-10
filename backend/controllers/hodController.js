@@ -154,6 +154,12 @@ const updateComplaintStatus = async (req, res) => {
       });
     }
 
+    if (status === 'Completed') {
+      return res.status(403).json({
+        message: 'Completion is restricted to the assigned Maintainer.'
+      });
+    }
+
     const updateData = {};
     if (status) {
       updateData.status = status;

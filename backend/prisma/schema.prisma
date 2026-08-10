@@ -48,6 +48,7 @@ model Indent {
   location                String
   description             String
   imagePath               String?
+  completionImagePath     String?
   status                  String   @default("Indent Created")
   assignedWorkerNames     String[]
   durationRequiredHours   Float?

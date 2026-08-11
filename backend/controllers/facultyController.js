@@ -46,7 +46,7 @@ const createComplaint = async (req, res) => {
 
     const categoryRecord = await prisma.category.findUnique({
       where: { id: category },
-      select: { id: true, name: true }
+      select: { id: true, name: true, inchargeId: true }
     });
 
     if (!categoryRecord) {
@@ -85,6 +85,20 @@ const createComplaint = async (req, res) => {
     });
 
     try {
+      if (categoryRecord.inchargeId) {
+        sendNotification(
+          categoryRecord.inchargeId,
+          `New indent ${newIndent.indentNumber} raised by ${req.user.name} requires your approval.`,
+          req.user.id,
+          newIndent.id,
+          newIndent.indentNumber
+        );
+      }
+    } catch (notifyErr) {
+      console.error('Failed to notify Maintenance HOD in-charge about new faculty indent:', notifyErr);
+    }
+
+    try {
       const deptHODRows = await prisma.$queryRawUnsafe(
         `SELECT u.id
          FROM "User" u
@@ -100,14 +114,14 @@ const createComplaint = async (req, res) => {
       if (deptHOD) {
         sendNotification(
           deptHOD.id,
-          `New indent ${newIndent.indentNumber} raised by ${req.user.name} requires your approval.`,
+          `New indent ${newIndent.indentNumber} was raised by ${req.user.name} in your department.`,
           req.user.id,
           newIndent.id,
           newIndent.indentNumber
         );
       }
     } catch (notifyErr) {
-      console.error('Failed to notify HOD about new faculty indent:', notifyErr);
+      console.error('Failed to notify Dept HOD about new faculty indent:', notifyErr);
     }
 
     res.status(201).json({

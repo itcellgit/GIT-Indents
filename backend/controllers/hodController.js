@@ -32,8 +32,10 @@ const getHODComplaints = async (req, res) => {
     let maintenanceIndents = [];
     let approvalRequests = [];
     let deptTrackIndents = [];
-    
+    let isCategoryIncharge = false;
+
     if (req.user.role === ROLES.PRINCIPAL) {
+      isCategoryIncharge = true;
       // Principal sees everything
       maintenanceIndents = await prisma.indent.findMany({ 
         where: { status: { notIn: ['Indent Created', 'Rejected by Maintenance HOD', 'Rejected by Dept HOD', 'Rejected by Principal'] } },
@@ -48,6 +50,7 @@ const getHODComplaints = async (req, res) => {
       // 1. Find all categories where the current user is the incharge (Maintenance HOD role)
       const categories = await prisma.category.findMany({ where: { inchargeId: req.user.id } });
       const categoryIds = categories.map(cat => cat.id);
+      isCategoryIncharge = categoryIds.length > 0;
 
       // 2. Fetch Maintenance Indents managed by this incharge
       maintenanceIndents = await prisma.indent.findMany({ 
@@ -104,7 +107,8 @@ const getHODComplaints = async (req, res) => {
       departmentIndents: maintenanceIndents,
       approvalRequests,
       myRaisedIndents,
-      deptTrackIndents
+      deptTrackIndents,
+      isCategoryIncharge
     });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });

@@ -25,7 +25,8 @@ const HODDashboard = () => {
   const [approvalRequests, setApprovalRequests] = useState([]);
   const [myRaisedIndents, setMyRaisedIndents] = useState([]);
   const [deptTrackIndents, setDeptTrackIndents] = useState([]);
-  
+  const [isCategoryIncharge, setIsCategoryIncharge] = useState(false);
+
   const [activeTab, setActiveTab] = useState('approvals');
 
   const [filterStatus, setFilterStatus] = useState('All');
@@ -73,6 +74,7 @@ const HODDashboard = () => {
         setApprovalRequests(res.data.approvalRequests || []);
         setMyRaisedIndents(res.data.myRaisedIndents || []);
         setDeptTrackIndents(res.data.deptTrackIndents || []);
+        setIsCategoryIncharge(Boolean(res.data.isCategoryIncharge));
       } catch (err) {
         console.error("Failed to fetch complaints:", err);
       } finally {
@@ -291,16 +293,18 @@ const HODDashboard = () => {
           >
             Approval Queue ({approvalRequests.length})
           </button>
-          <button
-            onClick={() => setActiveTab('department')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'department' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-            }`}
-          >
-            Maintenance Queue ({activeMaintenanceCount})
-          </button>
+          {isCategoryIncharge && (
+            <button
+              onClick={() => setActiveTab('department')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'department'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Maintenance Queue ({activeMaintenanceCount})
+            </button>
+          )}
           {user?.role === 'HOD' && (
             <button
               onClick={() => setActiveTab('deptTrack')}
@@ -394,7 +398,7 @@ const HODDashboard = () => {
             </div>
           )}
 
-          {activeTab === 'department' && (
+          {activeTab === 'department' && isCategoryIncharge && (
             <div id="department" className="scroll-mt-32">
               <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Maintenance Queue</h2>
               <StatsCards 

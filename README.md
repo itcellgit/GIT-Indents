@@ -30,7 +30,7 @@ This is incorrect. The notification should be shown in the **Maintenance HOD In-
 3)in Faculty and Non-Teaching staff login,Calendar tab showing instead of that show calendar not tab.
 
 
-4)In the Receptionist login, when the Receptionist approves or rejects a hall or vehicle booking, the modal does not close automatically. Kindly check and fix this issue.
+4)In the Receptionist login, when the Receptionist approved or rejects a hall or vehicle booking, the modal does not close automatically. Kindly check and fix this issue.
 
 
 5)In the Stationery Coordinator login, the **View** modal has a layout issue. When there are many items in the list, the **Close** and **Print** buttons are not visible. Please fix the modal layout properly by making the content scrollable while keeping the **Close** and **Print** buttons always visible.

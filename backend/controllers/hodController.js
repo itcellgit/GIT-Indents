@@ -7,6 +7,23 @@ const { getPrimaryRoleByUserId, setUserRole: setUserRoleShared } = require('../u
 
 const setUserRole = (tx, userId, roleName) => setUserRoleShared(tx, userId, roleName);
 
+const HOD_DASHBOARD_INCLUDE = {
+  category: { select: { name: true, incharge: { select: { id: true } } } },
+  requester: { select: { name: true, email: true, department: true } },
+  statusHistory: { orderBy: { timestamp: 'asc' } },
+  materialsUsed: true
+};
+
+const DEPT_APPROVAL_STATUSES = ['Indent Created', 'Rejected by Principal'];
+const MAINTENANCE_APPROVAL_STATUSES = [
+  'Indent Created',
+  'Approved by Dept HOD',
+  'Approved by Principal',
+  'Rejected by Maintenance HOD',
+  'Rejected by Principal'
+];
+const ACTIVE_MAINTENANCE_STATUSES = ['Approved by Maintenance HOD', 'In Progress'];
+
 // @desc    Get dashboard indents for HOD
 // @route   GET /api/hod/complaints
 // @access  Private (HOD view)
@@ -20,22 +37,12 @@ const getHODComplaints = async (req, res) => {
       // Principal sees everything
       maintenanceIndents = await prisma.indent.findMany({ 
         where: { status: { notIn: ['Indent Created', 'Rejected by Maintenance HOD', 'Rejected by Dept HOD', 'Rejected by Principal'] } },
-        include: {
-          category: { select: { name: true, incharge: { select: { id: true } } } },
-          requester: { select: { name: true, email: true, department: true } },
-          statusHistory: { orderBy: { timestamp: 'asc' } },
-          materialsUsed: true
-        }
+        include: HOD_DASHBOARD_INCLUDE
       });
 
       approvalRequests = await prisma.indent.findMany({ 
         where: { status: { in: ['Rejected by Maintenance HOD', 'Rejected by Principal'] } },
-        include: {
-          category: { select: { name: true, incharge: { select: { id: true } } } },
-          requester: { select: { name: true, email: true, department: true } },
-          statusHistory: { orderBy: { timestamp: 'asc' } },
-          materialsUsed: true
-        }
+        include: HOD_DASHBOARD_INCLUDE
       });
     } else {
       // 1. Find all categories where the current user is the incharge (Maintenance HOD role)
@@ -46,49 +53,44 @@ const getHODComplaints = async (req, res) => {
       maintenanceIndents = await prisma.indent.findMany({ 
         where: {
           categoryId: { in: categoryIds },
-          status: { notIn: ['Completed', 'Rejected by Dept HOD'] }
+          status: { in: ACTIVE_MAINTENANCE_STATUSES }
         },
-        include: {
-          category: { select: { name: true, incharge: { select: { id: true } } } },
-          requester: { select: { name: true, email: true, department: true } },
-          statusHistory: { orderBy: { timestamp: 'asc' } },
-          materialsUsed: true
-        }
+        include: HOD_DASHBOARD_INCLUDE
       });
 
       // 3. Fetch department approval requests for this HOD's department
-      approvalRequests = await prisma.indent.findMany({ 
+      const departmentApprovalRequests = await prisma.indent.findMany({ 
         where: {
           requester: { department: req.user.department },
-          status: { in: ['Indent Created', 'Rejected by Principal'] }
+          status: { in: DEPT_APPROVAL_STATUSES }
         },
-        include: {
-          category: { select: { name: true, incharge: { select: { id: true } } } },
-          requester: { select: { name: true, email: true, department: true } },
-          statusHistory: { orderBy: { timestamp: 'asc' } },
-          materialsUsed: true
-        }
+        include: HOD_DASHBOARD_INCLUDE
       });
+
+      // 4. Fetch approval items that still need Maintenance HOD review
+      const maintenanceApprovalRequests = await prisma.indent.findMany({
+        where: {
+          categoryId: { in: categoryIds },
+          status: { in: MAINTENANCE_APPROVAL_STATUSES }
+        },
+        include: HOD_DASHBOARD_INCLUDE
+      });
+
+      approvalRequests = Array.from(
+        new Map(
+          [...departmentApprovalRequests, ...maintenanceApprovalRequests].map(indent => [indent.id, indent])
+        ).values()
+      );
         
       deptTrackIndents = await prisma.indent.findMany({
         where: { requester: { department: req.user.department } },
-        include: {
-          category: { select: { name: true, incharge: { select: { id: true } } } },
-          requester: { select: { name: true, email: true, department: true } },
-          statusHistory: { orderBy: { timestamp: 'asc' } },
-          materialsUsed: true
-        }
+        include: HOD_DASHBOARD_INCLUDE
       });
     }
 
     const myRaisedIndents = await prisma.indent.findMany({ 
       where: { requesterId: req.user.id },
-      include: {
-        category: { select: { name: true, incharge: { select: { id: true } } } },
-        requester: { select: { name: true, email: true, department: true } },
-        statusHistory: { orderBy: { timestamp: 'asc' } },
-        materialsUsed: true
-      }
+      include: HOD_DASHBOARD_INCLUDE
     });
 
     const sortFn = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);

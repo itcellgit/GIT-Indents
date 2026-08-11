@@ -10,7 +10,7 @@ const StatsCards = ({ stats, activeFilter, onCardClick }) => {
       color: 'bg-yellow-500',
       bgColor: 'bg-yellow-50',
       textColor: 'text-yellow-700',
-      filterValue: 'Approved by Dept HOD',
+      filterValue: 'Approved by Maintenance HOD',
     },
 
     {

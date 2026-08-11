@@ -84,16 +84,11 @@ const HODDashboard = () => {
 
   const filteredDepartmentIndents = useMemo(() => {
     if (filterStatus === 'All') return departmentIndents;
-    if (filterStatus === 'Approved by Dept HOD') {
-      return departmentIndents.filter(c => c.status === 'Approved by Principal' || c.status === 'Approved by Dept HOD');
-    }
     return departmentIndents.filter(c => c.status === filterStatus);
   }, [departmentIndents, filterStatus]);
 
   const activeMaintenanceCount = useMemo(() => {
     return departmentIndents.filter(c => 
-      c.status === 'Approved by Dept HOD' || 
-      c.status === 'Approved by Principal' || 
       c.status === 'Approved by Maintenance HOD' || 
       c.status === 'In Progress'
     ).length;
@@ -102,7 +97,7 @@ const HODDashboard = () => {
   const stats = useMemo(() => {
     return {
       approvals: approvalRequests.length,
-      pending: departmentIndents.filter(c => c.status === 'Approved by Principal' || c.status === 'Approved by Dept HOD').length,
+      pending: departmentIndents.filter(c => c.status === 'Approved by Maintenance HOD').length,
       inProgress: departmentIndents.filter(c => c.status === 'In Progress').length,
       resolved: departmentIndents.filter(c => c.status === 'Completed').length,
     };

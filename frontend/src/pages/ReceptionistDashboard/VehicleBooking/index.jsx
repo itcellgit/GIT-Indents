@@ -495,6 +495,7 @@ export default function VehicleBookingsPage() {
   const handleApproveBooking = async (booking) => {
     try {
       await api.put(`/vehicle-bookings/${booking.id}/approve`);
+      setIsDayListOpen(false);
       await loadVehicleBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to approve booking');
@@ -504,6 +505,7 @@ export default function VehicleBookingsPage() {
   const handleRejectBooking = async (booking) => {
     try {
       await api.put(`/vehicle-bookings/${booking.id}/reject`, { remarks: booking.remarks || '' });
+      setIsDayListOpen(false);
       await loadVehicleBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to reject booking');

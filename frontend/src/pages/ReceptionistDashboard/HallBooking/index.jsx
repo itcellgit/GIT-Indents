@@ -470,6 +470,7 @@ export default function HallBookingsPage() {
   const handleApproveBooking = async (booking) => {
     try {
       await api.put(`/hall-bookings/${booking.id}/approve`);
+      setIsDayListOpen(false);
       await loadHallBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to approve booking');
@@ -479,6 +480,7 @@ export default function HallBookingsPage() {
   const handleRejectBooking = async (booking) => {
     try {
       await api.put(`/hall-bookings/${booking.id}/reject`, { remarks: booking.remarks || '' });
+      setIsDayListOpen(false);
       await loadHallBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to reject booking');

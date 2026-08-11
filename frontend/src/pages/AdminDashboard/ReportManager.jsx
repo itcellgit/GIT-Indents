@@ -22,7 +22,6 @@ const STATUSES = [
   { value: "In Progress", label: "In Progress" },
   { value: "Resolved", label: "Resolved" },
   { value: "Completed", label: "Completed" },
-  { value: "Rejected by Dept HOD", label: "Rejected by Dept HOD" },
   { value: "Rejected by Maintenance HOD", label: "Rejected by Maintenance HOD" },
   { value: "Rejected by Principal", label: "Rejected by Principal" }
 ];

@@ -170,6 +170,7 @@ export default function OfficeStationaryDashboard() {
       }))
     });
     setSharedGrantDate(existingGrantDate);
+    setRequestError('');
     setIsReviewOpen(true);
   };
 
@@ -188,8 +189,14 @@ export default function OfficeStationaryDashboard() {
   const saveReview = async () => {
     if (!selectedRequest) return;
 
+    if (!sharedGrantDate) {
+      setRequestError('Given Date is required.');
+      return;
+    }
+
     try {
       setReviewSaving(true);
+      setRequestError('');
       const payload = {
         reason: selectedRequest.reason,
         items: selectedRequest.items.map((item) => ({
@@ -585,7 +592,7 @@ export default function OfficeStationaryDashboard() {
 
       {isReviewOpen && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto">
-          <div className="w-full max-w-5xl rounded-2xl bg-white shadow-xl overflow-hidden">
+          <div className="w-full max-w-5xl max-h-[90vh] rounded-2xl bg-white shadow-xl overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-200 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-slate-800">Processing Request</h2>
@@ -598,7 +605,13 @@ export default function OfficeStationaryDashboard() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              {requestError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {requestError}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm items-end">
                 <div className="md:col-span-1">
                   <p className="text-slate-500">Reason</p>
@@ -609,11 +622,12 @@ export default function OfficeStationaryDashboard() {
                   <p className="font-medium text-slate-800">{selectedRequest.requestDate || '-'}</p>
                 </div>
                 <div className="md:col-span-1">
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Given Date</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Given Date <span className="text-red-500">*</span></label>
                   <input
                     type="date"
                     value={sharedGrantDate}
                     onChange={(e) => setSharedGrantDate(e.target.value)}
+                    required
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -656,23 +670,24 @@ export default function OfficeStationaryDashboard() {
                   </tbody>
                 </table>
               </div>
+            </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsReviewOpen(false)}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={saveReview}
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                  {reviewSaving ? 'Saving...' : 'Grant Request'}
-                </button>
-              </div>
+            <div className="flex justify-end gap-3 p-6 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setIsReviewOpen(false)}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveReview}
+                disabled={reviewSaving}
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {reviewSaving ? 'Saving...' : 'Grant Request'}
+              </button>
             </div>
           </div>
         </div>

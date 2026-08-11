@@ -15,8 +15,9 @@ import logo from '../../assets/logo.png';
 
 const SUMMARY_CARDS = [
   { title: "Indent Created", icon: AlertCircle, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-200" },
-  { title: "Approved by Dept HOD", icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+  { title: "Approved", icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
   { title: "In Progress", icon: Clock, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
+  { title: "Completed", icon: CheckCircle, color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
 ];
 
 export default function FacultyDashboard() {
@@ -34,8 +35,9 @@ export default function FacultyDashboard() {
   const statsCounts = React.useMemo(() => {
     return {
       "Indent Created": complaints.filter(c => c.status === 'Indent Created').length,
-      "Approved by Dept HOD": complaints.filter(c => c.status === 'Approved by Dept HOD' || c.status === 'Approved by Principal').length,
-      "In Progress": complaints.filter(c => c.status === 'In Progress').length,
+      "Approved": complaints.filter(c => c.status === 'Approved by Dept HOD' || c.status === 'Approved by Principal').length,
+      "In Progress": complaints.filter(c => c.status === 'Approved by Maintenance HOD' || c.status === 'In Progress').length,
+      "Completed": complaints.filter(c => c.status === 'Completed').length,
     };
   }, [complaints]);
 
@@ -72,7 +74,13 @@ export default function FacultyDashboard() {
     const descMatch = c.description ? c.description.toLowerCase().includes(searchTerm.toLowerCase()) : false;
     
     const matchesSearch = idMatch || locMatch || descMatch;
-    const matchesFilter = filterStatus === 'All' || (filterStatus === 'Approved by Dept HOD' ? (c.status === 'Approved by Dept HOD' || c.status === 'Approved by Principal') : c.status === filterStatus);
+    const matchesFilter = filterStatus === 'All'
+      ? true
+      : filterStatus === 'Approved'
+        ? (c.status === 'Approved by Dept HOD' || c.status === 'Approved by Principal')
+        : filterStatus === 'In Progress'
+          ? (c.status === 'Approved by Maintenance HOD' || c.status === 'In Progress')
+          : c.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
 
@@ -237,10 +245,9 @@ export default function FacultyDashboard() {
                 >
                   <option value="All">All Status</option>
                   <option value="Indent Created">Indent Created</option>
-                  <option value="Approved by Dept HOD">Approved by Dept HOD</option>
+                  <option value="Approved">Approved</option>
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
-                  <option value="Rejected by Dept HOD">Rejected by Dept HOD</option>
                   <option value="Rejected by Maintenance HOD">Rejected by Maintenance HOD</option>
                   <option value="Rejected by Principal">Rejected by Principal</option>
                 </select>

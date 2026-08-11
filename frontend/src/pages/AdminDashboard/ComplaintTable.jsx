@@ -78,12 +78,10 @@ export default function ComplaintTable({ complaints, departments, onOpenDetails 
             <option value="All">All Status</option>
             <option value="Indent Created">Indent Created</option>
             <option value="Approved by Principal">Approved by Principal</option>
-            <option value="Approved by Dept HOD">Approved by Dept HOD</option>
             <option value="Approved by Maintenance HOD">Approved by Maint. HOD</option>
             <option value="In Progress">In Progress</option>
             <option value="Completed">Completed</option>
             <option value="Rejected by Maintenance HOD">Rejected by Maintenance HOD</option>
-            <option value="Rejected by Dept HOD">Rejected by Dept HOD</option>
             <option value="Rejected by Principal">Rejected by Principal</option>
           </select>
         </div>

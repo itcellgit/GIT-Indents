@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Users, Search, Trash2 } from 'lucide-react';
+import { UserPlus, Users, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 
 const ManageMaintainers = () => {
   const [maintainers, setMaintainers] = useState([]);
+  const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -23,21 +24,33 @@ const ManageMaintainers = () => {
     }
   };
 
+  const fetchFaculty = async () => {
+    try {
+      const res = await api.get('/hod/faculty');
+      setFaculty(res.data.faculty || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchMaintainers();
+    fetchFaculty();
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!selectedUserId) return;
     setIsSubmitting(true);
     setError('');
     setSuccess('');
 
     try {
-      await api.post('/hod/maintainers', formData);
+      await api.post('/hod/maintainers', { userId: selectedUserId });
       setSuccess('Maintainer added successfully');
-      setFormData({ name: '', email: '', password: '' });
+      setSelectedUserId('');
       fetchMaintainers();
+      fetchFaculty();
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || 'Failed to add maintainer');
@@ -47,7 +60,7 @@ const ManageMaintainers = () => {
   };
 
   const handleRemove = async (id) => {
-    if (!window.confirm('Are you sure you want to remove this maintainer? They will be downgraded to Faculty role.')) return;
+    if (!window.confirm('Are you sure you want to remove this maintainer? They will be restored to their original role.')) return;
     
     setError('');
     setSuccess('');
@@ -56,6 +69,7 @@ const ManageMaintainers = () => {
       await api.delete(`/hod/maintainers/${id}`);
       setMaintainers(maintainers.filter(m => m.id !== id));
       setSuccess('Maintainer removed successfully');
+      fetchFaculty();
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || 'Failed to remove maintainer');
@@ -79,49 +93,32 @@ const ManageMaintainers = () => {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-              <input
-                type="text"
+              <label className="block text-sm font-medium text-slate-700 mb-1">Staff Member</label>
+              <select
                 required
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="John Doe"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="john@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-              <input
-                type="password"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="••••••••"
-              />
+              >
+                <option value="" disabled>Select a staff member</option>
+                {faculty.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name} ({f.role})</option>
+                ))}
+              </select>
             </div>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !selectedUserId}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
               {isSubmitting ? 'Adding...' : 'Add Maintainer'}
             </button>
           </form>
-          <p className="text-xs text-slate-500 mt-4">
-            If the email already belongs to a user in your department, their role will be updated to Maintainer.
-          </p>
+          {faculty.length === 0 && (
+            <p className="text-xs text-slate-500 mt-4">
+              No Faculty or Non-Teaching staff available in your department to promote.
+            </p>
+          )}
         </div>
 
         {/* List of Maintainers */}

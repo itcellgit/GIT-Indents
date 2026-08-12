@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Building2, Edit2, UserX, UserCheck, Plus, Search, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
-
-const ROLE_BADGE_STYLES = {
-  'Facility Provider': 'bg-emerald-100 text-emerald-800',
-  HOD: 'bg-blue-100 text-blue-800',
-  Faculty: 'bg-slate-100 text-slate-700',
-  'Non-Teaching': 'bg-orange-100 text-orange-800',
-};
+import { getRoleBadgeStyle } from '../../constants/roles';
 
 const RoleBadge = ({ role }) => (
-  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_BADGE_STYLES[role] || 'bg-slate-100 text-slate-700'}`}>
+  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeStyle(role)}`}>
     {role}
   </span>
 );

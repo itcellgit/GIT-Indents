@@ -3,6 +3,7 @@ import { Eye, Plus, Users, X, Trash2, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { getPrimaryRole } from '../../utils/userRoles';
+import { ROLES } from '../../constants/roles';
 
 const emptyAssignmentForm = {
   staff_id: '',
@@ -124,7 +125,7 @@ export default function ManageCoordinatorStaffs() {
   const staffOptions = availableUsers.filter((staff) => {
     const belongsToDepartment = String(staff.department || '').trim() === String(user?.department || '').trim();
     const primaryRole = getPrimaryRole(staff);
-    const isEligibleRole = primaryRole === 'Faculty' || primaryRole === 'Non-Teaching';
+    const isEligibleRole = primaryRole === ROLES.FACULTY || primaryRole === ROLES.NON_TEACHING;
     return belongsToDepartment && isEligibleRole;
   });
 

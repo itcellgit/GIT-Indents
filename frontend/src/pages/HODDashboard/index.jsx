@@ -17,10 +17,11 @@ import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
 import logo from '../../assets/logo.png';
+import { ROLES } from '../../constants/roles';
 
 const HODDashboard = () => {
   const { user, logout } = useAuth();
-  const isLibraryHod = user?.role === 'HOD' && String(user?.email || '').toLowerCase() === LIBRARY_HOD_EMAIL;
+  const isLibraryHod = user?.role === ROLES.HOD && String(user?.email || '').toLowerCase() === LIBRARY_HOD_EMAIL;
   const [departmentIndents, setDepartmentIndents] = useState([]);
   const [approvalRequests, setApprovalRequests] = useState([]);
   const [myRaisedIndents, setMyRaisedIndents] = useState([]);
@@ -305,7 +306,7 @@ const HODDashboard = () => {
               Maintenance Queue ({activeMaintenanceCount})
             </button>
           )}
-          {user?.role === 'HOD' && (
+          {user?.role === ROLES.HOD && (
             <button
               onClick={() => setActiveTab('deptTrack')}
               className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
@@ -327,16 +328,18 @@ const HODDashboard = () => {
           >
             My Raised Indents
           </button>
-          <button
-            onClick={() => setActiveTab('maintainers')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'maintainers' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-            }`}
-          >
-            Manage Maintainers
-          </button>
+          {user?.role === ROLES.FACILITY_PROVIDER && (
+            <button
+              onClick={() => setActiveTab('maintainers')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'maintainers'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Manage Maintainers
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('coordinatorStaffs')}
             className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
@@ -419,7 +422,7 @@ const HODDashboard = () => {
             </div>
           )}
 
-          {activeTab === 'deptTrack' && user?.role === 'HOD' && (
+          {activeTab === 'deptTrack' && user?.role === ROLES.HOD && (
             <div id="deptTrack" className="scroll-mt-32">
               <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Department Tracking</h2>
               <div ref={deptStatsRef}>
@@ -448,7 +451,7 @@ const HODDashboard = () => {
             </div>
           )}
 
-          {activeTab === 'maintainers' && (
+          {activeTab === 'maintainers' && user?.role === ROLES.FACILITY_PROVIDER && (
             <div id="maintainers" className="scroll-mt-32">
               <ManageMaintainers />
             </div>

@@ -105,7 +105,7 @@ const getUserWithPrimaryRoleByEmail = async (email) => {
            ORDER BY r.id ASC
            LIMIT 1
          ),
-         'Faculty'
+         '${ROLES.FACULTY}'
        ) AS role
      FROM "User" u
      WHERE LOWER(u.email) = LOWER($1)
@@ -131,7 +131,7 @@ const getUsersByEmailAndRoles = async (email) => {
            ORDER BY r.id ASC
            LIMIT 1
          ),
-         'Faculty'
+         '${ROLES.FACULTY}'
        ) AS role
      FROM "User" u
      WHERE LOWER(u.email) LIKE LOWER($1)
@@ -140,7 +140,7 @@ const getUsersByEmailAndRoles = async (email) => {
          FROM public.user_roles ur
          INNER JOIN public.roles r ON r.id = ur.role_id
          WHERE ur.user_id = u.id
-           AND r.role_name IN ('Faculty', 'HOD', 'Non-Teaching', 'Facility Provider')
+           AND r.role_name IN ('${ROLES.FACULTY}', '${ROLES.HOD}', '${ROLES.NON_TEACHING}', '${ROLES.FACILITY_PROVIDER}')
        )
      ORDER BY u.name ASC`,
     `%${email}%`
@@ -462,7 +462,7 @@ const updateUser = async (req, res) => {
              ORDER BY r.id ASC
              LIMIT 1
            ),
-           'Faculty'
+           '${ROLES.FACULTY}'
          ) AS role
        FROM "User" u
        WHERE u.id = $1
@@ -796,7 +796,7 @@ const getDepartmentsAdmin = async (req, res) => {
                  ORDER BY r.id ASC
                  LIMIT 1
                ),
-               'Faculty'
+               '${ROLES.FACULTY}'
              )
            )
          END AS incharge

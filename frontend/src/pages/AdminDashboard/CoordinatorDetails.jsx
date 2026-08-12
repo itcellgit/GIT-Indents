@@ -9,6 +9,7 @@ import logo from '../../assets/logo.png';
 import api from '../../api/axios';
 import { departments as departmentList } from '../../utils/departments';
 import { getPrimaryRole } from '../../utils/userRoles';
+import { ROLES } from '../../constants/roles';
 
 const emptyAssignmentForm = {
   staff_id: '',
@@ -373,7 +374,7 @@ export default function CoordinatorDetails() {
                 >
                   <option value="">Select a user...</option>
                   {users
-                    .filter((user) => ['Faculty', 'Non-Teaching'].includes(getPrimaryRole(user)))
+                    .filter((user) => [ROLES.FACULTY, ROLES.NON_TEACHING].includes(getPrimaryRole(user)))
                     .map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.name} - {user.department || 'No Department'} ({getPrimaryRole(user) || 'User'})

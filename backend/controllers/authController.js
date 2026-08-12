@@ -62,7 +62,7 @@ const getNormalizedAuthUser = async (id, activeRole = null) => {
            ORDER BY r.id ASC
            LIMIT 1
          ),
-         'Faculty'
+         '${ROLES.FACULTY}'
        ) AS role
      FROM "User" u
      WHERE u.id = $1

@@ -4,6 +4,7 @@ import Timeline from './Timeline';
 import MaterialForm from './MaterialForm';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
+import { ROLES } from '../../constants/roles';
 const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => {
   const { user } = useAuth();
   const [workerList, setWorkerList] = useState(complaint.assignedWorkerNames || []);
@@ -36,7 +37,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
   // Check if current user is the incharge of the Category (Maintenance HOD / Facility Provider)
   const isIncharge = user &&
-    (user.role === 'HOD' || user.role === 'Facility Provider') &&
+    (user.role === ROLES.HOD || user.role === ROLES.FACILITY_PROVIDER) &&
     complaint.category && (
       (complaint.category.incharge && (
         (complaint.category.incharge.id && user.id === complaint.category.incharge.id) ||
@@ -44,18 +45,18 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       )) ||
       (complaint.category.inchargeId && user.id === complaint.category.inchargeId)
     );
-  
+
   // Check if current user is the HOD of the Requester's Department
-  const isDeptHOD = user && user.role === 'HOD' && (complaint.requester || complaint.requesterId) && (user.department === (complaint.requester?.department || complaint.requesterId?.department));
+  const isDeptHOD = user && user.role === ROLES.HOD && (complaint.requester || complaint.requesterId) && (user.department === (complaint.requester?.department || complaint.requesterId?.department));
 
   // Check if current user is the Principal
-  const isPrincipal = user && user.role === 'Principal';
+  const isPrincipal = user && user.role === ROLES.PRINCIPAL;
 
   // Check if current user is the Maintainer
-  const isMaintainer = user && user.role === 'Maintainer' && complaint.maintainerId === user.id;
+  const isMaintainer = user && user.role === ROLES.MAINTAINER && complaint.maintainerId === user.id;
 
   // Check if current user is any Maintainer acting on the Approval Queue (not necessarily assigned to this indent)
-  const isMaintainerRole = user && user.role === 'Maintainer';
+  const isMaintainerRole = user && user.role === ROLES.MAINTAINER;
   const APPROVAL_QUEUE_STATUSES = ['Indent Created', 'Approved by Dept HOD', 'Rejected by Maintenance HOD', 'Rejected by Dept HOD', 'Approved by Principal', 'Rejected by Principal'];
 
 
@@ -210,7 +211,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
   const handleAssignToMaintainer = async () => {
     if (maintainers.length === 0) {
-      alert("Please add a maintainer first in the Manage Maintainers tab.");
+      alert("No maintainers found. Please ask your Facility Provider to add one first.");
       return;
     }
     if (maintainers.length === 1) {

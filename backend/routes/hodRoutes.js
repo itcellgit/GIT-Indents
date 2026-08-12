@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getHODComplaints, updateComplaintStatus, createHODIndent, getMaintainers, addMaintainer, assignMaintainer, removeMaintainer, getCoordinatorStaffs, addCoordinatorStaff, removeCoordinatorStaff } = require('../controllers/hodController');
+const { getHODComplaints, updateComplaintStatus, createHODIndent, getMaintainers, addMaintainer, getDepartmentFaculty, assignMaintainer, removeMaintainer, getCoordinatorStaffs, addCoordinatorStaff, removeCoordinatorStaff } = require('../controllers/hodController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 const { ROLES } = require('../utils/roles');
@@ -12,8 +12,9 @@ router.put('/complaints/:id/status', protect, authorize(ROLES.HOD, ROLES.FACILIT
 
 // Maintainer Management
 router.get('/maintainers', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER), getMaintainers);
-router.post('/maintainers', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER), addMaintainer);
-router.delete('/maintainers/:id', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER), removeMaintainer);
+router.get('/faculty', protect, authorize(ROLES.FACILITY_PROVIDER), getDepartmentFaculty);
+router.post('/maintainers', protect, authorize(ROLES.FACILITY_PROVIDER), addMaintainer);
+router.delete('/maintainers/:id', protect, authorize(ROLES.FACILITY_PROVIDER), removeMaintainer);
 router.put('/complaints/:id/assign', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER), assignMaintainer);
 
 router.get('/coordinator-staffs', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER), getCoordinatorStaffs);

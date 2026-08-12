@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../prismaClient');
+const { ROLES } = require('../utils/roles');
 
 // Protect routes
 const protect = async (req, res, next) => {
@@ -41,7 +42,7 @@ const protect = async (req, res, next) => {
              ORDER BY r.id ASC
              LIMIT 1
            ),
-           'Faculty'
+           '${ROLES.FACULTY}'
          ) AS role
        FROM "User" u
        WHERE u.id = $1

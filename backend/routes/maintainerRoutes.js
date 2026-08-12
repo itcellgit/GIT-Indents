@@ -3,10 +3,11 @@ const router = express.Router();
 const { getDashboardData, updateComplaint, reviewIndent, completeIndent } = require('../controllers/maintainerController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
+const { ROLES } = require('../utils/roles');
 
-router.get('/dashboard', protect, authorize('Maintainer'), getDashboardData);
-router.put('/complaints/:id', protect, authorize('Maintainer'), updateComplaint);
-router.put('/complaints/:id/review', protect, authorize('Maintainer'), reviewIndent);
-router.put('/complaints/:id/complete', protect, authorize('Maintainer'), upload.single('completionImage'), completeIndent);
+router.get('/dashboard', protect, authorize(ROLES.MAINTAINER), getDashboardData);
+router.put('/complaints/:id', protect, authorize(ROLES.MAINTAINER), updateComplaint);
+router.put('/complaints/:id/review', protect, authorize(ROLES.MAINTAINER), reviewIndent);
+router.put('/complaints/:id/complete', protect, authorize(ROLES.MAINTAINER), upload.single('completionImage'), completeIndent);
 
 module.exports = router;

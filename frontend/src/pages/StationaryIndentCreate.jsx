@@ -6,6 +6,7 @@ import NotificationBell from '../components/NotificationBell';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import logo from '../assets/logo.png';
 import api from '../api/axios';
+import { ROLE_DASHBOARDS } from '../constants/roles';
 
 export default function StationaryIndentCreate() {
   const { user, logout } = useAuth();
@@ -15,7 +16,7 @@ export default function StationaryIndentCreate() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [editingRequestId, setEditingRequestId] = useState(null);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
-  const dashboardPath = user?.role === 'Non-Teaching' ? '/non-teaching-dashboard' : '/dashboard';
+  const dashboardPath = ROLE_DASHBOARDS[user?.role] || '/dashboard';
   const [formData, setFormData] = useState({
     department: user?.department || '',
     reason: ''

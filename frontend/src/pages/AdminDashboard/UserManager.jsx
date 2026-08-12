@@ -4,6 +4,7 @@ import api from '../../api/axios';
 import * as XLSX from 'xlsx';
 
 import { departments } from '../../utils/departments';
+import { getRoleBadgeStyle } from '../../constants/roles';
 
 const getRoleSortOrder = (role) => {
   return role?.sortOrder ?? role?.id ?? Number.MAX_SAFE_INTEGER;
@@ -510,12 +511,7 @@ export default function UserManager({ users, onUserUpdate }) {
                     const roleIds = getUserRoleIds(user);
 
                     return (
-                  <span className={`px-2.5 py-1 text-xs font-medium rounded-full 
-                    ${primaryRole === 'Admin' ? 'bg-purple-100 text-purple-800' : 
-                      primaryRole === 'Principal' ? 'bg-indigo-100 text-indigo-800' :
-                      primaryRole === 'HOD' ? 'bg-blue-100 text-blue-800' : 
-                      primaryRole === 'Non-Teaching' ? 'bg-orange-100 text-orange-800' :
-                      'bg-slate-100 text-slate-800'}`}
+                  <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${getRoleBadgeStyle(primaryRole)}`}
                     title={roleIds.length > 0 ? `Role IDs: ${roleIds.join(', ')}` : undefined}
                   >
                     {displayRole}

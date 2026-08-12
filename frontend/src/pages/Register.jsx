@@ -5,14 +5,14 @@ import api from '../api/axios';
 import logo from '../assets/logo.png';
 
 import { departments } from '../utils/departments';
-import { PUBLIC_REGISTRATION_ROLES } from '../constants/roles';
+import { ROLES, PUBLIC_REGISTRATION_ROLES } from '../constants/roles';
 
 const Register = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', email: '', role: 'Faculty', department: '', password: '', confirmPassword: ''
+    name: '', email: '', role: ROLES.FACULTY, department: '', password: '', confirmPassword: ''
   });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');

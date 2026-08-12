@@ -1,6 +1,7 @@
 const prisma = require('../prismaClient');
 const generateIndentNumber = require('../utils/generateIndentNumber');
 const { sendNotification } = require('../utils/notificationService');
+const { ROLES } = require('../utils/roles');
 
 // @desc    Get dashboard data for a faculty user
 // @route   GET /api/faculty/dashboard
@@ -106,7 +107,7 @@ const createComplaint = async (req, res) => {
          INNER JOIN public.roles r ON r.id = ur.role_id
          WHERE r.role_name = $1 AND u.department = $2
          LIMIT 1`,
-        'HOD',
+        ROLES.HOD,
         req.user.department
       );
       const deptHOD = deptHODRows[0] || null;

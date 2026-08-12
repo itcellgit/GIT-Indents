@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { User, Mail, Briefcase, Building, Save, Edit2, ArrowLeft, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { departments } from '../../utils/departments';
-import { ROLE_DASHBOARDS } from '../../constants/roles';
+import { ROLES, ROLE_DASHBOARDS } from '../../constants/roles';
 
 const Profile = () => {
   const { user, login, switchRole } = useAuth();
@@ -34,15 +34,7 @@ const Profile = () => {
   };
 
   const handleBack = () => {
-    if (user?.role === 'Admin') {
-      navigate('/admin-dashboard');
-    } else if (user?.role === 'HOD' || user?.role === 'Facility Provider') {
-      navigate('/hod-dashboard');
-    } else if (user?.role === 'Principal') {
-      navigate('/principal-dashboard');
-    } else {
-      navigate('/dashboard');
-    }
+    navigate(ROLE_DASHBOARDS[user?.role] || '/dashboard');
   };
 
   const handleRoleSwitch = async (event) => {
@@ -184,11 +176,11 @@ const Profile = () => {
                   type="text" 
                   list="profile-departments-list"
                   name="department"
-                  readOnly={!isEditing || user?.role === 'Admin' || user?.role === 'Principal'}
+                  readOnly={!isEditing || user?.role === ROLES.ADMIN || user?.role === ROLES.PRINCIPAL}
                   value={formData.department}
                   onChange={handleChange}
                   className={`w-full pl-11 pr-4 py-3 border rounded-xl text-sm outline-none transition-all ${
-                    isEditing && user?.role !== 'Admin' && user?.role !== 'Principal'
+                    isEditing && user?.role !== ROLES.ADMIN && user?.role !== ROLES.PRINCIPAL
                       ? 'border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white font-medium text-slate-800' 
                       : 'border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed font-semibold'
                   }`}
@@ -200,7 +192,7 @@ const Profile = () => {
                   ))}
                 </datalist>
               </div>
-              {isEditing && (user?.role === 'Admin' || user?.role === 'Principal') && (
+              {isEditing && (user?.role === ROLES.ADMIN || user?.role === ROLES.PRINCIPAL) && (
                 <p className="text-xs text-slate-400 mt-1 italic">Department cannot be changed for administrative roles.</p>
               )}
             </div>

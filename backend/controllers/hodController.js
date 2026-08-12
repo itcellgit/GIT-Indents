@@ -3,7 +3,7 @@ const prisma = require('../prismaClient');
 const generateIndentNumber = require('../utils/generateIndentNumber');
 const { sendNotification } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
-const { getPrimaryRoleByUserId, setUserRole: setUserRoleShared } = require('../utils/userRoles');
+const { getPrimaryRoleByUserId, getRoleIdByName, setUserRole: setUserRoleShared } = require('../utils/userRoles');
 
 const setUserRole = (tx, userId, roleName) => setUserRoleShared(tx, userId, roleName);
 
@@ -353,6 +353,35 @@ const getMaintainers = async (req, res) => {
   }
 };
 
+// @desc    Get Faculty/Non-Teaching staff in HOD's department (eligible for Maintainer role)
+// @route   GET /api/hod/faculty
+// @access  Private (HOD view)
+const getDepartmentFaculty = async (req, res) => {
+  try {
+    const faculty = await prisma.$queryRawUnsafe(
+      `SELECT u.id, u.name, u.email, r.role_name AS role
+       FROM "User" u
+       INNER JOIN public.user_roles ur ON ur.user_id = u.id
+       INNER JOIN public.roles r ON r.id = ur.role_id
+       WHERE r.role_name IN ($1, $2)
+         AND u.department = $3
+         AND NOT EXISTS (
+           SELECT 1 FROM public.user_roles ur2
+           INNER JOIN public.roles r2 ON r2.id = ur2.role_id
+           WHERE ur2.user_id = u.id AND r2.role_name = $4
+         )
+       ORDER BY u.name ASC`,
+      ROLES.FACULTY,
+      ROLES.NON_TEACHING,
+      req.user.department,
+      ROLES.MAINTAINER
+    );
+    res.status(200).json({ success: true, faculty });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 // @desc    Get Stationary Coordinator in HOD's department
 // @route   GET /api/hod/coordinator-staffs
 // @access  Private (HOD view)
@@ -370,7 +399,7 @@ const getCoordinatorStaffs = async (req, res) => {
                   ORDER BY r.id ASC
                   LIMIT 1
                 ),
-                'Faculty'
+                '${ROLES.FACULTY}'
               ) AS role
        FROM public.coordinator_staffs cs
        LEFT JOIN public."User" u ON u.id = cs.staff_id
@@ -533,40 +562,35 @@ const removeCoordinatorStaff = async (req, res) => {
   }
 };
 
-// @desc    Add a new maintainer (or promote existing user to Maintainer in dept)
+// @desc    Promote an existing Faculty member in HOD's department to Maintainer
 // @route   POST /api/hod/maintainers
 // @access  Private (HOD view)
 const addMaintainer = async (req, res) => {
   try {
-    const { email, name, password } = req.body;
-    if (!email || !name || !password) {
-      return res.status(400).json({ message: 'Email, name, and password are required' });
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ message: 'Please select a staff member' });
     }
 
-    // Check if user exists
-    let user = await prisma.user.findUnique({ where: { email } });
-    if (user) {
-      await prisma.user.update({
-        where: { email },
-        data: { department: req.user.department }
-      });
-    } else {
-      // Import bcrypt dynamically here or use plain text if testing (best to use bcrypt like authController)
-      const bcrypt = require('bcryptjs');
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          department: req.user.department
-        }
-      });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.department !== req.user.department) {
+      return res.status(404).json({ message: 'Staff member not found in your department' });
     }
 
-    await setUserRole(prisma, user.id, ROLES.MAINTAINER);
+    // Add the Maintainer role alongside the user's existing role (Faculty/Non-Teaching)
+    // instead of replacing it, so removing them later can restore their original role.
+    const maintainerRoleId = await getRoleIdByName(prisma, ROLES.MAINTAINER);
+    if (!maintainerRoleId) {
+      return res.status(500).json({ message: 'Maintainer role is not configured' });
+    }
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.user_roles (user_id, role_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, role_id) DO NOTHING`,
+      user.id,
+      maintainerRoleId
+    );
 
     res.status(201).json({ success: true, maintainer: { id: user.id, name: user.name, email: user.email } });
   } catch (err) {
@@ -633,7 +657,19 @@ const removeMaintainer = async (req, res) => {
       return res.status(404).json({ message: 'Maintainer not found or unauthorized' });
     }
 
-    await setUserRole(prisma, user.id, ROLES.FACULTY);
+    // Drop only the Maintainer role so the user's original role (Faculty/Non-Teaching)
+    // resurfaces as primary. Legacy maintainers with no underlying role fall back to Faculty.
+    const maintainerRoleId = await getRoleIdByName(prisma, ROLES.MAINTAINER);
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM public.user_roles WHERE user_id = $1 AND role_id = $2`,
+      user.id,
+      maintainerRoleId
+    );
+
+    const remainingRole = await getPrimaryRoleByUserId(prisma, user.id);
+    if (!remainingRole) {
+      await setUserRole(prisma, user.id, ROLES.FACULTY);
+    }
 
     res.status(200).json({ success: true, message: 'Maintainer removed successfully' });
   } catch (err) {
@@ -647,6 +683,7 @@ module.exports = {
   createHODIndent,
   getMaintainers,
   addMaintainer,
+  getDepartmentFaculty,
   getCoordinatorStaffs,
   addCoordinatorStaff,
   removeCoordinatorStaff,

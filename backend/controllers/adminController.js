@@ -680,6 +680,10 @@ const createDepartment = async (req, res) => {
       department: category
     });
   } catch (err) {
+    console.error('createDepartment error:', err);
+    if (err.code === 'P2002') {
+      return res.status(400).json({ message: 'Department already exists' });
+    }
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -698,7 +702,13 @@ const updateDepartment = async (req, res) => {
     }
 
     const updateData = {};
-    if (name) updateData.name = name;
+    if (name) {
+      const duplicate = await prisma.category.findUnique({ where: { name } });
+      if (duplicate && duplicate.id !== id) {
+        return res.status(400).json({ message: 'Department already exists' });
+      }
+      updateData.name = name;
+    }
     if (description !== undefined) updateData.description = description;
 
     // Handle incharge update
@@ -746,6 +756,10 @@ const updateDepartment = async (req, res) => {
       department: updatedCategory
     });
   } catch (err) {
+    console.error('updateDepartment error:', err);
+    if (err.code === 'P2002') {
+      return res.status(400).json({ message: 'Department already exists' });
+    }
     res.status(500).json({ message: 'Server Error' });
   }
 };

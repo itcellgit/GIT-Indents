@@ -28,7 +28,7 @@ const HODDashboard = () => {
   const [deptTrackIndents, setDeptTrackIndents] = useState([]);
   const [isCategoryIncharge, setIsCategoryIncharge] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('deptTrack');
+  const [activeTab, setActiveTab] = useState(() => (user?.role === ROLES.HOD ? 'deptTrack' : 'myRaised'));
 
   const [filterStatus, setFilterStatus] = useState('All');
   const [deptFilterStatus, setDeptFilterStatus] = useState('All');
@@ -75,7 +75,11 @@ const HODDashboard = () => {
         setApprovalRequests(res.data.approvalRequests || []);
         setMyRaisedIndents(res.data.myRaisedIndents || []);
         setDeptTrackIndents(res.data.deptTrackIndents || []);
-        setIsCategoryIncharge(Boolean(res.data.isCategoryIncharge));
+        const categoryIncharge = Boolean(res.data.isCategoryIncharge);
+        setIsCategoryIncharge(categoryIncharge);
+        if (user?.role !== ROLES.HOD) {
+          setActiveTab(categoryIncharge ? 'approvals' : 'myRaised');
+        }
       } catch (err) {
         console.error("Failed to fetch complaints:", err);
       } finally {

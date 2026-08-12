@@ -2,23 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BookOpen, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../api/axios';
 
-const STATUS_OPTIONS = ['Pending', 'Approved', 'Ordered', 'Received', 'Rejected'];
-
-const statusConfig = {
-  Pending: 'text-amber-600 bg-amber-50 border border-amber-200',
-  Approved: 'text-blue-600 bg-blue-50 border border-blue-200',
-  Ordered: 'text-indigo-600 bg-indigo-50 border border-indigo-200',
-  Received: 'text-green-600 bg-green-50 border border-green-200',
-  Rejected: 'text-red-600 bg-red-50 border border-red-200',
-};
-
 const ITEMS_PER_PAGE = 10;
 
 export default function BookIndentManager() {
   const [bookIndents, setBookIndents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [updatingId, setUpdatingId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [branchFilter, setBranchFilter] = useState('All');
   const [branches, setBranches] = useState([]);
@@ -63,19 +52,6 @@ export default function BookIndentManager() {
     setCurrentPage(1);
   }, [branchFilter]);
 
-  const handleStatusChange = async (item, status) => {
-    if (status === item.status) return;
-    try {
-      setUpdatingId(item.id);
-      await api.put(`/faculty-book-indents/${item.id}/status`, { status });
-      setBookIndents((prev) => prev.map((b) => (b.id === item.id ? { ...b, status } : b)));
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update status');
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
   const totalPages = Math.max(1, Math.ceil(filteredBookIndents.length / ITEMS_PER_PAGE));
   const currentSafePage = Math.min(currentPage, totalPages);
   const paginatedIndents = useMemo(
@@ -90,7 +66,7 @@ export default function BookIndentManager() {
           <h2 className="text-xl font-bold text-slate-800 flex items-center">
             <BookOpen className="w-5 h-5 mr-2 text-indigo-600" /> Faculty Book Indents
           </h2>
-          <p className="text-sm text-slate-500 mt-1">Review and update the status of faculty book requests.</p>
+          <p className="text-sm text-slate-500 mt-1">Review faculty book requests.</p>
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500">Filter by Branch</label>
@@ -123,13 +99,12 @@ export default function BookIndentManager() {
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">For</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Qty</th>
-              <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
               <tr>
-                <td colSpan="7" className="px-6 py-10 text-center text-slate-500">
+                <td colSpan="6" className="px-6 py-10 text-center text-slate-500">
                   <div className="inline-flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" /> Loading book indents...
                   </div>
@@ -153,22 +128,10 @@ export default function BookIndentManager() {
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-700">{item.bookType}</td>
                 <td className="px-6 py-4 text-sm text-slate-700">{item.requiredQuantity}</td>
-                <td className="px-6 py-4">
-                  <select
-                    value={item.status}
-                    disabled={updatingId === item.id}
-                    onChange={(e) => handleStatusChange(item, e.target.value)}
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold outline-none disabled:opacity-50 ${statusConfig[item.status] || statusConfig.Pending}`}
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </td>
               </tr>
             )) : (
               <tr>
-                <td colSpan="7" className="px-6 py-10 text-center text-slate-500">
+                <td colSpan="6" className="px-6 py-10 text-center text-slate-500">
                   No book indents found.
                 </td>
               </tr>

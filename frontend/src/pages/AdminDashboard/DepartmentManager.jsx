@@ -81,12 +81,16 @@ export default function DepartmentManager({ departments, fetchDepartments }) {
 
   const handleSubmit = async () => {
     if (!formData.name) return alert('Department name is required');
+    // The search box is the source of truth for who the user typed/selected —
+    // formData.inchargeEmail only updates on an explicit dropdown click, so a
+    // typed-but-not-clicked email would otherwise be silently dropped here.
+    const payload = { ...formData, inchargeEmail: searchQuery.trim() };
     try {
       setIsSubmitting(true);
       if (isEditing) {
-        await api.put(`/admin/departments/${editingId}`, formData);
+        await api.put(`/admin/departments/${editingId}`, payload);
       } else {
-        await api.post('/admin/departments', formData);
+        await api.post('/admin/departments', payload);
       }
       resetForm();
       if (fetchDepartments) fetchDepartments(); // trigger reload in parent

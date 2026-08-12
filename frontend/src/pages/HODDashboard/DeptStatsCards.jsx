@@ -13,7 +13,7 @@ const DeptStatsCards = ({ stats, activeFilter, onCardClick }) => {
       filterValue: 'All',
     },
     {
-      title: 'Pending HOD Approval',
+      title: 'Pending Facility Providers Approval',
       value: stats.pendingApproval,
       icon: Clock,
       color: 'bg-amber-500',

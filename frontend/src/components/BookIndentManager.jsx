@@ -20,6 +20,8 @@ export default function BookIndentManager() {
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [branchFilter, setBranchFilter] = useState('All');
+  const [branches, setBranches] = useState([]);
 
   const loadBookIndents = async () => {
     try {
@@ -33,9 +35,33 @@ export default function BookIndentManager() {
     }
   };
 
+  const loadBranches = async () => {
+    try {
+      const res = await api.get('/branches');
+      setBranches(res.data.branches || []);
+    } catch (err) {
+      // Branch list is only used to populate the filter; ignore failures silently.
+    }
+  };
+
   useEffect(() => {
     loadBookIndents();
+    loadBranches();
   }, []);
+
+  const branchOptions = useMemo(
+    () => Array.from(new Set(branches.map((branch) => branch.branch_name).filter(Boolean))).sort(),
+    [branches]
+  );
+
+  const filteredBookIndents = useMemo(
+    () => (branchFilter === 'All' ? bookIndents : bookIndents.filter((item) => item.branchName === branchFilter)),
+    [bookIndents, branchFilter]
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [branchFilter]);
 
   const handleStatusChange = async (item, status) => {
     if (status === item.status) return;
@@ -50,20 +76,35 @@ export default function BookIndentManager() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(bookIndents.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredBookIndents.length / ITEMS_PER_PAGE));
   const currentSafePage = Math.min(currentPage, totalPages);
   const paginatedIndents = useMemo(
-    () => bookIndents.slice((currentSafePage - 1) * ITEMS_PER_PAGE, currentSafePage * ITEMS_PER_PAGE),
-    [bookIndents, currentSafePage]
+    () => filteredBookIndents.slice((currentSafePage - 1) * ITEMS_PER_PAGE, currentSafePage * ITEMS_PER_PAGE),
+    [filteredBookIndents, currentSafePage]
   );
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-200">
-        <h2 className="text-xl font-bold text-slate-800 flex items-center">
-          <BookOpen className="w-5 h-5 mr-2 text-indigo-600" /> Faculty Book Indents
-        </h2>
-        <p className="text-sm text-slate-500 mt-1">Review and update the status of faculty book requests.</p>
+      <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800 flex items-center">
+            <BookOpen className="w-5 h-5 mr-2 text-indigo-600" /> Faculty Book Indents
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">Review and update the status of faculty book requests.</p>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500">Filter by Branch</label>
+          <select
+            value={branchFilter}
+            onChange={(e) => setBranchFilter(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white"
+          >
+            <option value="All">All Branches</option>
+            {branchOptions.map((branch) => (
+              <option key={branch} value={branch}>{branch}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && (
@@ -136,14 +177,14 @@ export default function BookIndentManager() {
         </table>
       </div>
 
-      {bookIndents.length > 0 && (
+      {filteredBookIndents.length > 0 && (
         <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-slate-500">
             Showing <span className="font-medium text-slate-700">{(currentSafePage - 1) * ITEMS_PER_PAGE + 1}</span>
             {' '}-{' '}
-            <span className="font-medium text-slate-700">{Math.min(currentSafePage * ITEMS_PER_PAGE, bookIndents.length)}</span>
+            <span className="font-medium text-slate-700">{Math.min(currentSafePage * ITEMS_PER_PAGE, filteredBookIndents.length)}</span>
             {' '}of{' '}
-            <span className="font-medium text-slate-700">{bookIndents.length}</span> indents
+            <span className="font-medium text-slate-700">{filteredBookIndents.length}</span> indents
           </p>
           <div className="flex items-center space-x-1">
             <button

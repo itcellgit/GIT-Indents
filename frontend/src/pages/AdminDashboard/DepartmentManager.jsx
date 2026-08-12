@@ -2,6 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Building2, Edit2, UserX, UserCheck, Plus, Search, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
 
+const ROLE_BADGE_STYLES = {
+  'Facility Provider': 'bg-emerald-100 text-emerald-800',
+  HOD: 'bg-blue-100 text-blue-800',
+  Faculty: 'bg-slate-100 text-slate-700',
+  'Non-Teaching': 'bg-orange-100 text-orange-800',
+};
+
+const RoleBadge = ({ role }) => (
+  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_BADGE_STYLES[role] || 'bg-slate-100 text-slate-700'}`}>
+    {role}
+  </span>
+);
+
 export default function DepartmentManager({ departments, fetchDepartments }) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,9 +111,9 @@ export default function DepartmentManager({ departments, fetchDepartments }) {
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center">
             <Building2 className="w-5 h-5 mr-2 text-indigo-600" />
-            Manage Maintenance Departments
+            Manage Facility Provider Departments
           </h2>
-          <p className="text-sm text-slate-500 mt-1">Create operational departments and assign Heads.</p>
+          <p className="text-sm text-slate-500 mt-1">Create operational departments and assign Facility Providers.</p>
         </div>
         <button
           onClick={handleAddNew}
@@ -117,7 +130,7 @@ export default function DepartmentManager({ departments, fetchDepartments }) {
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Department Name</th>
-              <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned Incharge</th>
+              <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Facility Provider</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
@@ -131,7 +144,10 @@ export default function DepartmentManager({ departments, fetchDepartments }) {
                 <td className="px-6 py-4">
                   {dept.incharge ? (
                     <div>
-                      <p className="text-sm font-medium text-slate-800">{dept.incharge.name} ({dept.incharge.role})</p>
+                      <p className="text-sm font-medium text-slate-800 flex items-center gap-2">
+                        {dept.incharge.name}
+                        <RoleBadge role={dept.incharge.role} />
+                      </p>
                       <p className="text-xs text-slate-500">{dept.incharge.email}</p>
                     </div>
                   ) : (
@@ -190,7 +206,7 @@ export default function DepartmentManager({ departments, fetchDepartments }) {
               </div>
 
               <div className="relative">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Assign Incharge (Search by Email)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Assign Facility Provider (Search by Email)</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
@@ -212,7 +228,10 @@ export default function DepartmentManager({ departments, fetchDepartments }) {
                         onClick={() => handleSelectUser(user.email)}
                         className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 focus:bg-slate-50 focus:outline-none border-b border-slate-100 last:border-0"
                       >
-                        <div className="font-medium text-slate-800">{user.name} ({user.role})</div>
+                        <div className="font-medium text-slate-800 flex items-center gap-2">
+                          {user.name}
+                          <RoleBadge role={user.role} />
+                        </div>
                         <div className="text-xs text-slate-500">{user.email}</div>
                       </button>
                     ))}

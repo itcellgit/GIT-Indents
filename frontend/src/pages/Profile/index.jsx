@@ -36,7 +36,7 @@ const Profile = () => {
   const handleBack = () => {
     if (user?.role === 'Admin') {
       navigate('/admin-dashboard');
-    } else if (user?.role === 'HOD') {
+    } else if (user?.role === 'HOD' || user?.role === 'Facility Provider') {
       navigate('/hod-dashboard');
     } else if (user?.role === 'Principal') {
       navigate('/principal-dashboard');

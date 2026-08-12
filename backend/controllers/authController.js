@@ -333,12 +333,13 @@ const loginUser = async (req, res) => {
 
     if (user && user.password && (await bcrypt.compare(password, user.password))) {
       let effectiveRole = user.role;
-      
-      // Check if Faculty or Non-Teaching is an incharge of any department
-      if (user.role === ROLES.FACULTY || user.role === ROLES.NON_TEACHING) {
+
+      // Category incharges (Faculty/Non-Teaching/HOD assigned to manage a maintenance
+      // category) are shown as 'Facility Provider', distinct from an academic Dept HOD.
+      if (user.role === ROLES.FACULTY || user.role === ROLES.NON_TEACHING || user.role === ROLES.HOD) {
         const category = await prisma.category.findFirst({ where: { inchargeId: user.id } });
         if (category) {
-          effectiveRole = ROLES.HOD;
+          effectiveRole = ROLES.FACILITY_PROVIDER;
         }
       }
 

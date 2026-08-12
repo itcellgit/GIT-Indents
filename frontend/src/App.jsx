@@ -66,7 +66,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/hod-dashboard" element={
-            <ProtectedRoute allowedRoles={[ROLES.HOD]}>
+            <ProtectedRoute allowedRoles={[ROLES.HOD, ROLES.FACILITY_PROVIDER]}>
               <HODDashboard />
             </ProtectedRoute>
           } />
@@ -111,7 +111,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/profile" element={
-            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.HOD, ROLES.ADMIN, ROLES.PRINCIPAL, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY, ROLES.RECEPTIONIST, ROLES.TRANSPORT]}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.ADMIN, ROLES.PRINCIPAL, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY, ROLES.RECEPTIONIST, ROLES.TRANSPORT]}>
               <Profile />
             </ProtectedRoute>
           } />

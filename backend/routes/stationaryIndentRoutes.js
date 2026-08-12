@@ -7,10 +7,13 @@ const {
   updateStationaryIndent,
   deleteStationaryIndent
 } = require('../controllers/stationaryIndentController');
+const { ROLES } = require('../utils/roles');
 
-router.get('/', protect, authorize('Admin', 'Faculty', 'HOD', 'Non-Teaching', 'Office_Stationary'), getStationaryIndents);
-router.post('/', protect, authorize('Admin', 'Faculty', 'HOD', 'Non-Teaching', 'Office_Stationary'), createStationaryIndent);
-router.put('/:id', protect, authorize('Admin', 'Faculty', 'HOD', 'Non-Teaching', 'Office_Stationary'), updateStationaryIndent);
-router.delete('/:id', protect, authorize('Admin', 'Faculty', 'HOD', 'Non-Teaching', 'Office_Stationary'), deleteStationaryIndent);
+const STATIONARY_ROLES = [ROLES.ADMIN, ROLES.FACULTY, ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY];
+
+router.get('/', protect, authorize(...STATIONARY_ROLES), getStationaryIndents);
+router.post('/', protect, authorize(...STATIONARY_ROLES), createStationaryIndent);
+router.put('/:id', protect, authorize(...STATIONARY_ROLES), updateStationaryIndent);
+router.delete('/:id', protect, authorize(...STATIONARY_ROLES), deleteStationaryIndent);
 
 module.exports = router;

@@ -64,13 +64,13 @@ const getPrimaryRoleFromRoleIds = async (roleIds) => {
   return selectedRoleNames[0] || ROLES.FACULTY;
 };
 
-const getHodRoleId = async () => {
-  const hodRole = await prisma.$queryRawUnsafe(
+const getFacilityProviderRoleId = async () => {
+  const role = await prisma.$queryRawUnsafe(
     `SELECT id FROM public.roles WHERE role_name = $1 LIMIT 1`,
-    ROLES.HOD
+    ROLES.FACILITY_PROVIDER
   );
 
-  return hodRole[0]?.id || null;
+  return role[0]?.id || null;
 };
 
 const getUserRolesByUserId = async (userId) => {
@@ -140,7 +140,7 @@ const getUsersByEmailAndRoles = async (email) => {
          FROM public.user_roles ur
          INNER JOIN public.roles r ON r.id = ur.role_id
          WHERE ur.user_id = u.id
-           AND r.role_name IN ('Faculty', 'HOD', 'Non-Teaching')
+           AND r.role_name IN ('Faculty', 'HOD', 'Non-Teaching', 'Facility Provider')
        )
      ORDER BY u.name ASC`,
     `%${email}%`
@@ -628,15 +628,21 @@ const createDepartment = async (req, res) => {
       if (!user) {
         return res.status(404).json({ message: 'User with this email not found' });
       }
-      if (user.role !== ROLES.FACULTY && user.role !== ROLES.HOD && user.role !== ROLES.NON_TEACHING) {
+      if (
+        user.role !== ROLES.FACULTY &&
+        user.role !== ROLES.HOD &&
+        user.role !== ROLES.NON_TEACHING &&
+        user.role !== ROLES.FACILITY_PROVIDER
+      ) {
         return res.status(400).json({ message: 'Assigned incharge must be Faculty, Non-Teaching, or HOD' });
       }
 
-      // Upgrade Faculty/Non-Teaching to HOD role if they are made an incharge
-      if (user.role === ROLES.FACULTY || user.role === ROLES.NON_TEACHING) {
-        const hodRoleId = await getHodRoleId();
+      // Category incharges are their own role ('Facility Provider'), distinct from
+      // an academic Dept HOD, so upgrade Faculty/Non-Teaching/HOD to it here.
+      if (user.role !== ROLES.FACILITY_PROVIDER) {
+        const facilityProviderRoleId = await getFacilityProviderRoleId();
 
-        if (hodRoleId) {
+        if (facilityProviderRoleId) {
           await prisma.$executeRawUnsafe(
             `DELETE FROM public.user_roles WHERE user_id = $1`,
             user.id
@@ -644,7 +650,7 @@ const createDepartment = async (req, res) => {
           await prisma.$executeRawUnsafe(
             `INSERT INTO public.user_roles (user_id, role_id) VALUES ($1, $2)`,
             user.id,
-            hodRoleId
+            facilityProviderRoleId
           );
         }
       }
@@ -704,16 +710,22 @@ const updateDepartment = async (req, res) => {
         if (!user) {
           return res.status(404).json({ message: 'User with this email not found' });
         }
-        if (user.role !== ROLES.FACULTY && user.role !== ROLES.HOD && user.role !== ROLES.NON_TEACHING) {
+        if (
+          user.role !== ROLES.FACULTY &&
+          user.role !== ROLES.HOD &&
+          user.role !== ROLES.NON_TEACHING &&
+          user.role !== ROLES.FACILITY_PROVIDER
+        ) {
           return res.status(400).json({ message: 'Assigned incharge must be Faculty, Non-Teaching, or HOD' });
         }
 
-        // Upgrade Faculty/Non-Teaching to HOD role if they are made an incharge
-        if (user.role === ROLES.FACULTY || user.role === ROLES.NON_TEACHING) {
-          const hodRoleId = await getHodRoleId();
-          if (hodRoleId) {
+        // Category incharges are their own role ('Facility Provider'), distinct from
+        // an academic Dept HOD, so upgrade Faculty/Non-Teaching/HOD to it here.
+        if (user.role !== ROLES.FACILITY_PROVIDER) {
+          const facilityProviderRoleId = await getFacilityProviderRoleId();
+          if (facilityProviderRoleId) {
             await prisma.$executeRawUnsafe(`DELETE FROM public.user_roles WHERE user_id = $1`, user.id);
-            await prisma.$executeRawUnsafe(`INSERT INTO public.user_roles (user_id, role_id) VALUES ($1, $2)`, user.id, hodRoleId);
+            await prisma.$executeRawUnsafe(`INSERT INTO public.user_roles (user_id, role_id) VALUES ($1, $2)`, user.id, facilityProviderRoleId);
           }
         }
 

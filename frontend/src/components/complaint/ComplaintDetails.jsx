@@ -34,9 +34,9 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
   const [completionImageFile, setCompletionImageFile] = useState(null);
   const [completionImagePreview, setCompletionImagePreview] = useState(complaint.completionImagePath || '');
 
-  // Check if current user is the incharge of the Category (Maintenance HOD)
+  // Check if current user is the incharge of the Category (Maintenance HOD / Facility Provider)
   const isIncharge = user &&
-    user.role === 'HOD' &&
+    (user.role === 'HOD' || user.role === 'Facility Provider') &&
     complaint.category && (
       (complaint.category.incharge && (
         (complaint.category.incharge.id && user.id === complaint.category.incharge.id) ||

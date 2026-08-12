@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
@@ -18,6 +18,7 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
+  const passwordInputRef = useRef(null);
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
@@ -26,6 +27,13 @@ const Login = () => {
     setFormData({ ...formData, [name]: value });
     if (errors[name]) setErrors({ ...errors, [name]: null });
     if (serverError) setServerError('');
+  };
+
+  const handleEmailKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      passwordInputRef.current?.focus();
+    }
   };
 
   const handleLogin = async (e) => {
@@ -119,6 +127,7 @@ const Login = () => {
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
+                  onKeyDown={handleEmailKeyDown}
                   className={`pl-12 block w-full rounded-xl border ${errors.email ? 'border-red-500' : 'border-gray-300'} bg-gray-50 py-4 px-4 text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition duration-150`}
                   placeholder="john.doe@git.edu"
                 />
@@ -139,6 +148,7 @@ const Login = () => {
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
+                  ref={passwordInputRef}
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}

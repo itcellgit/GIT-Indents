@@ -219,7 +219,9 @@ export default function CoordinatorDetails() {
               <button onClick={() => navigate('/admin-dashboard?tab=complaints')} className="whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600">Indents</button>
               <button onClick={() => navigate('/admin-dashboard?tab=reports')} className="whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600">Reports</button>
               <button onClick={() => navigate('/admin-dashboard?tab=users')} className="whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600">Users</button>
-              <button className="whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors border-indigo-400 text-indigo-300">Coordinator MGT</button>
+              <button className="whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors border-indigo-400 text-indigo-300">Stationary Coordinator</button>
+              <button onClick={() => navigate('/admin-dashboard?tab=roles')} className="whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600">Role MGT</button>
+              <button onClick={() => navigate('/admin-dashboard?tab=branches')} className="whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600">Branch MGT</button>
             </div>
           </div>
         </div>
@@ -247,7 +249,7 @@ export default function CoordinatorDetails() {
             <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
               <div>
                 <h2 className="text-xl font-bold text-slate-800 flex items-center">
-                  <Users className="w-5 h-5 mr-2 text-indigo-600" /> Coordinator MGT
+                  <Users className="w-5 h-5 mr-2 text-indigo-600" />Stationary Coordinator
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">Assignment details and staff mapping.</p>
               </div>

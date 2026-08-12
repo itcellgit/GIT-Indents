@@ -254,7 +254,7 @@ export default function StationaryIndentCreate() {
             <div className="flex items-center space-x-4">
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity" title="My Profile">
-                <span className="text-sm font-medium text-slate-600">Welcome, {user?.name || 'Coordinator Staff'}</span>
+                <span className="text-sm font-medium text-slate-600">Welcome, {user?.name || 'Stationary Coordinator'}</span>
                 <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200 shadow-sm cursor-pointer">
                   <User className="h-5 w-5 text-indigo-600" />
                 </div>

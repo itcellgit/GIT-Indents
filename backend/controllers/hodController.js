@@ -353,7 +353,7 @@ const getMaintainers = async (req, res) => {
   }
 };
 
-// @desc    Get coordinator staff in HOD's department
+// @desc    Get Stationary Coordinator in HOD's department
 // @route   GET /api/hod/coordinator-staffs
 // @access  Private (HOD view)
 const getCoordinatorStaffs = async (req, res) => {
@@ -400,7 +400,7 @@ const getCoordinatorStaffs = async (req, res) => {
   }
 };
 
-// @desc    Add coordinator staff for HOD's department
+// @desc    Add Stationary Coordinator for HOD's department
 // @route   POST /api/hod/coordinator-staffs
 // @access  Private (HOD view)
 const addCoordinatorStaff = async (req, res) => {
@@ -506,7 +506,7 @@ const addCoordinatorStaff = async (req, res) => {
   }
 };
 
-// @desc    Remove coordinator staff from HOD's department
+// @desc    Remove Stationary Coordinator from HOD's department
 // @route   DELETE /api/hod/coordinator-staffs/:id
 // @access  Private (HOD view)
 const removeCoordinatorStaff = async (req, res) => {
@@ -519,7 +519,7 @@ const removeCoordinatorStaff = async (req, res) => {
     );
 
     if (!rows.length) {
-      return res.status(404).json({ message: 'Coordinator staff not found or unauthorized' });
+      return res.status(404).json({ message: 'Stationary Coordinator not found or unauthorized' });
     }
 
     await prisma.$executeRawUnsafe(
@@ -527,7 +527,7 @@ const removeCoordinatorStaff = async (req, res) => {
       Number(id)
     );
 
-    res.status(200).json({ success: true, message: 'Coordinator staff removed successfully' });
+    res.status(200).json({ success: true, message: 'Stationary Coordinator removed successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
   }

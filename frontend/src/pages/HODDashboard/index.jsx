@@ -27,7 +27,7 @@ const HODDashboard = () => {
   const [deptTrackIndents, setDeptTrackIndents] = useState([]);
   const [isCategoryIncharge, setIsCategoryIncharge] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('approvals');
+  const [activeTab, setActiveTab] = useState('deptTrack');
 
   const [filterStatus, setFilterStatus] = useState('All');
   const [deptFilterStatus, setDeptFilterStatus] = useState('All');
@@ -215,9 +215,7 @@ const HODDashboard = () => {
         if (target) {
           setSelectedComplaint(target);
           
-          if (approvalRequests.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
-            setActiveTab('approvals');
-          } else if (departmentIndents.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
+          if (departmentIndents.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
             setActiveTab('department');
           } else if (deptTrackIndents.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
             setActiveTab('deptTrack');
@@ -283,16 +281,18 @@ const HODDashboard = () => {
         {/* Statistics and Action Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl mb-8 w-full sm:w-fit sticky top-20 z-30">
-          <button
-            onClick={() => setActiveTab('approvals')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'approvals' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-            }`}
-          >
-            Approval Queue ({approvalRequests.length})
-          </button>
+          {isCategoryIncharge && (
+            <button
+              onClick={() => setActiveTab('approvals')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'approvals' 
+                  ? 'bg-white text-indigo-600 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Approval Queue ({approvalRequests.length})
+            </button>
+          )}
           {isCategoryIncharge && (
             <button
               onClick={() => setActiveTab('department')}
@@ -314,7 +314,7 @@ const HODDashboard = () => {
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
               }`}
             >
-              Dept Track
+              Dept Indents
             </button>
           )}
           <button
@@ -345,7 +345,7 @@ const HODDashboard = () => {
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
             }`}
           >
-            Coordinator Staff
+            Stationary Coordinator
           </button>
           {isLibraryHod && (
             <button
@@ -387,7 +387,7 @@ const HODDashboard = () => {
         {/* Dynamic Content Area */}
         <div className="pb-32">
           
-          {activeTab === 'approvals' && (
+          {activeTab === 'approvals' && isCategoryIncharge && (
             <div id="approvals" className="scroll-mt-32">
               <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Approval Queue</h2>
               <ComplaintTable 

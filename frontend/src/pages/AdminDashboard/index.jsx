@@ -196,7 +196,7 @@ export default function AdminDashboard() {
                     : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
                 }`}
               >
-                Coordinator MGT
+               Stationary Coordinator
               </button>
               <button
                 onClick={() => setActiveTab('roles')}

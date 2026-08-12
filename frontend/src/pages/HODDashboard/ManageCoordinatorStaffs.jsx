@@ -104,20 +104,20 @@ export default function ManageCoordinatorStaffs() {
       setAssignments(filterAssignmentsForDepartment(res.data.assignments || []));
       setAssignmentForm({ ...emptyAssignmentForm, start_date: new Date().toISOString().slice(0, 10) });
     } catch (err) {
-      setDetailsError(err.response?.data?.message || 'Failed to add coordinator staff');
+      setDetailsError(err.response?.data?.message || 'Failed to add Stationary Coordinator');
     } finally {
       setIsAssigning(false);
     }
   };
 
   const handleRemoveAssignment = async (assignmentId) => {
-    if (!window.confirm('Remove this coordinator staff?')) return;
+    if (!window.confirm('Remove this Stationary Coordinator?')) return;
 
     try {
       await api.delete(`/admin/coordinators/assignments/${assignmentId}`);
       setAssignments((prev) => prev.filter((item) => item.id !== assignmentId && isSameDepartment(item.department_name || item.departmentName || item.department_id || item.departmentId)));
     } catch (err) {
-      setDetailsError(err.response?.data?.message || 'Failed to remove coordinator staff');
+      setDetailsError(err.response?.data?.message || 'Failed to remove Stationary Coordinator');
     }
   };
 
@@ -131,7 +131,7 @@ export default function ManageCoordinatorStaffs() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-        <h2 className="text-xl font-bold text-slate-800">Coordinator Staff</h2>
+        <h2 className="text-xl font-bold text-slate-800">Stationary Coordinator</h2>
         <span className="text-sm text-slate-500">Select a coordinator to manage staff</span>
       </div>
 
@@ -209,7 +209,7 @@ export default function ManageCoordinatorStaffs() {
               <div className="lg:col-span-1 border-r border-slate-200 p-6 overflow-y-auto">
                 <h4 className="text-base font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <Plus className="w-4 h-4 text-indigo-600" />
-                  Add Coordinator Staff
+                  Add Stationary Coordinator
                 </h4>
 
                 {detailsError && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{detailsError}</div>}
@@ -270,7 +270,7 @@ export default function ManageCoordinatorStaffs() {
                     className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                   >
                     {isAssigning && <Loader2 className="w-4 h-4 animate-spin" />}
-                    Add Coordinator Staff
+                    Add Stationary Coordinator
                   </button>
                 </form>
               </div>
@@ -315,7 +315,7 @@ export default function ManageCoordinatorStaffs() {
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={5} className="px-4 py-10 text-center text-slate-500">No coordinator staff added yet.</td>
+                          <td colSpan={5} className="px-4 py-10 text-center text-slate-500">No Stationary Coordinator added yet.</td>
                         </tr>
                       )}
                     </tbody>

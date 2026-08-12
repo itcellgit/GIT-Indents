@@ -66,9 +66,9 @@ Self-registration is only available for **Faculty**, **Non-Teaching**, and **HOD
 
 | Role | Typical Use |
 |---|---|
-| **Faculty** | Raises maintenance indents, books halls/vehicles/buses, requests library books, may create stationery requests if designated Coordinator Staff |
+| **Faculty** | Raises maintenance indents, books halls/vehicles/buses, requests library books, may create stationery requests if designated Stationary Coordinator |
 | **Non-Teaching** | Same as Faculty (indents, bookings), minus library Book Indent |
-| **HOD** | Approves department indents, manages the maintenance queue for departments they're in charge of, manages maintainers and coordinator staff; the designated "Library HOD" also manages library branches and book indent status |
+| **HOD** | Approves department indents, manages the maintenance queue for departments they're in charge of, manages maintainers and Stationary Coordinator; the designated "Library HOD" also manages library branches and book indent status |
 | **Admin** | Manages departments, users, roles, coordinators, branches; views system-wide indents and reports (read-only on indents) |
 | **Principal** | Oversight approvals, system-wide indent visibility, reports, and user management |
 | **Maintainer** | Executes assigned maintenance work, logs materials/duration, marks work complete |
@@ -207,7 +207,7 @@ The designated **Library HOD** (the HOD account for `librarian@git.edu`) sees an
 
 Full details are in [STATIONARY_MODULE.md](STATIONARY_MODULE.md). In short:
 
-- Faculty/Non-Teaching users designated as **Coordinator Staff**, plus HOD and Office_Stationary, can open **Stationary Indent** to create a request: enter a reason, add one or more items with quantities, and submit.
+- Faculty/Non-Teaching users designated as **Stationary Coordinator**, plus HOD and Office_Stationary, can open **Stationary Indent** to create a request: enter a reason, add one or more items with quantities, and submit.
 - Requests can be edited or deleted while still pending, and tracked by status (Pending / Received) from the same page.
 - The **Office_Stationary** role processes these requests: reviewing each one, entering a Given Date and Grant Quantity per item, and clicking **Grant Request**. They also maintain the stationery item catalog under **Stationery Master** (Add/Edit/Delete items).
 
@@ -219,7 +219,7 @@ Full details are in [STATIONARY_MODULE.md](STATIONARY_MODULE.md). In short:
 
 - Summary cards: Indent Created, Approved by Dept HOD, In Progress (click to filter)
 - **Your Indents** table with search and status filter
-- Quick links: Hall Booking, Vehicle Booking, Bus Booking, Book Indent (Faculty only), Stationary Indent (if Coordinator Staff)
+- Quick links: Hall Booking, Vehicle Booking, Bus Booking, Book Indent (Faculty only), Stationary Indent (if Stationary Coordinator)
 - **Raise New Indent** button
 
 ### HOD
@@ -228,10 +228,10 @@ Tabs on the dashboard:
 
 - **Approval Queue** — indents awaiting your decision as department HOD or maintenance incharge
 - **Maintenance Queue** — indents assigned to your maintenance department, with Pending Assignment / In Progress / Completed stats
-- **Dept Track** — tracking for indents raised by your own department
+- **Dept Indents** — tracking for indents raised by your own department
 - **My Raised Indents** — requests you personally raised
 - **Manage Maintainers** — add a maintainer (Name/Email/Password) or remove one (they revert to Faculty)
-- **Coordinator Staff** — assign Faculty/Non-Teaching staff in your department as coordinator staff (with Start/End Date and Level: Departmental/Central)
+- **Stationary Coordinator** — assign Faculty/Non-Teaching staff in your department as Stationary Coordinator (with Start/End Date and Level: Departmental/Central)
 - **Branches** and **Book Indents** — Library HOD only, as described above
 
 ### Admin
@@ -242,7 +242,7 @@ Dark-themed "System Control Panel" with tabs:
 - **Indents** — system-wide Analytics (charts) and indent table; view-only, no approve/reject actions here
 - **Reports** — generate and export indent reports (see [Reports and Exports](#reports-and-exports))
 - **Users** — add/edit/enable/disable users, bulk-upload users from Excel/CSV
-- **Coordinator MGT** — manage coordinators and their staff assignments
+- **Stationary Coordinator** — manage coordinators and their staff assignments
 - **Role MGT** — manage the list of role names available in the system
 - **Branch MGT** — manage library branches
 

@@ -3,6 +3,7 @@ const prisma = require('../prismaClient');
 const mapBranchRow = (row) => ({
   id: Number(row.id),
   branch_name: row.branch_name || '',
+  degree: row.degree || '',
   createdAt: row.created_at,
   updatedAt: row.Updated_at,
 });
@@ -10,7 +11,7 @@ const mapBranchRow = (row) => ({
 const getBranches = async (req, res) => {
   try {
     const branches = await prisma.$queryRawUnsafe(
-      `SELECT id, branch_name, created_at, "Updated_at"
+      `SELECT id, branch_name, degree, created_at, "Updated_at"
        FROM public.branches
        ORDER BY branch_name ASC NULLS LAST, id ASC`
     );
@@ -23,7 +24,7 @@ const getBranches = async (req, res) => {
 
 const createBranch = async (req, res) => {
   try {
-    const { branch_name } = req.body;
+    const { branch_name, degree } = req.body;
 
     if (!branch_name || !String(branch_name).trim()) {
       return res.status(400).json({ message: 'Branch name is required' });
@@ -40,10 +41,11 @@ const createBranch = async (req, res) => {
     }
 
     const branchRows = await prisma.$queryRawUnsafe(
-      `INSERT INTO public.branches (branch_name, created_at, "Updated_at")
-       VALUES ($1, NOW(), NOW())
-       RETURNING id, branch_name, created_at, "Updated_at"`,
-      name
+      `INSERT INTO public.branches (branch_name, degree, created_at, "Updated_at")
+       VALUES ($1, $2, NOW(), NOW())
+       RETURNING id, branch_name, degree, created_at, "Updated_at"`,
+      name,
+      degree ? String(degree).trim() : ''
     );
 
     res.status(201).json({ success: true, branch: mapBranchRow(branchRows[0]) });
@@ -56,7 +58,7 @@ const updateBranch = async (req, res) => {
   try {
     const { id } = req.params;
     const branchId = Number(id);
-    const { branch_name } = req.body;
+    const { branch_name, degree } = req.body;
 
     if (!branch_name || !String(branch_name).trim()) {
       return res.status(400).json({ message: 'Branch name is required' });
@@ -85,11 +87,13 @@ const updateBranch = async (req, res) => {
     const branchRows = await prisma.$queryRawUnsafe(
       `UPDATE public.branches
        SET branch_name = $2,
+           degree = $3,
            "Updated_at" = NOW()
        WHERE id = $1
-       RETURNING id, branch_name, created_at, "Updated_at"`,
+       RETURNING id, branch_name, degree, created_at, "Updated_at"`,
       branchId,
-      name
+      name,
+      degree ? String(degree).trim() : ''
     );
 
     res.json({ success: true, branch: mapBranchRow(branchRows[0]) });

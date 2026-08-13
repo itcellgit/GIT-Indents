@@ -1,11 +1,12 @@
 import axios from 'axios';
 
-const getApiBaseUrl = () => {
-  return 'http://10.22.0.151:5000/api';
-};
+// VITE_API_URL is baked in at build time (see frontend/.env / .env.production).
+// Falls back to the internal-network IP that's the current known-working default
+// so builds that don't set it keep behaving exactly as before.
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://10.22.0.151:5000/api';
 
 const api = axios.create({
-  baseURL: getApiBaseUrl(), // Backend base URL
+  baseURL: API_BASE_URL, // Backend base URL
   withCredentials: true, // Necessary to send and receive HttpOnly cookies securely
   timeout: 30000, // Fail loudly instead of letting a stalled request hang forever
   headers: {

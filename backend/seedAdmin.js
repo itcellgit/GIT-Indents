@@ -20,7 +20,7 @@ async function main() {
       where: { email },
     });
 
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(plainPassword, salt);
 
     let user;

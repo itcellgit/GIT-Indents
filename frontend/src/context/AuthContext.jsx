@@ -1,14 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import api from '../api/axios';
+import api, { API_BASE_URL } from '../api/axios';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
-
-const getApiBaseUrl = () => {
-  return 'http://10.22.0.151:5000/api';
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
@@ -22,7 +18,7 @@ export const AuthProvider = ({ children }) => {
   // Setup Axios defaults
   useEffect(() => {
     // Set axios default base URL
-    axios.defaults.baseURL = getApiBaseUrl();
+    axios.defaults.baseURL = API_BASE_URL;
     axios.defaults.withCredentials = true; // Ensure cookies are sent with requests
   }, []);
 

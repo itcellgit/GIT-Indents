@@ -134,7 +134,10 @@ const createHallBooking = async (req, res) => {
       } = req.body;
 
       const beforeRows = await prisma.$queryRawUnsafe(
-        `SELECT status FROM public.hall_bookings WHERE id = $1 LIMIT 1`,
+        `SELECT hb.status, hb.booked_by, u.department AS booked_by_department
+         FROM public.hall_bookings hb
+         LEFT JOIN public."User" u ON u.id = hb.booked_by
+         WHERE hb.id = $1 LIMIT 1`,
         bookingId
       );
 
@@ -148,6 +151,18 @@ const createHallBooking = async (req, res) => {
 
       const userRole = req.user?.role;
       const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+
+      if (!isManagementRole) {
+        const isOwnBooking = beforeRows[0].booked_by === req.user?.id;
+        const sameDepartment = Boolean(req.user?.department) &&
+          Boolean(beforeRows[0].booked_by_department) &&
+          req.user.department === beforeRows[0].booked_by_department;
+
+        if (!isOwnBooking && !sameDepartment) {
+          return res.status(403).json({ message: 'You are not authorized to modify this booking.' });
+        }
+      }
+
       const allowedStatusesForUser = isManagementRole
         ? ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']
         : ['PENDING', 'CANCELLED'];
@@ -206,7 +221,7 @@ const deleteHallBooking = async (req, res) => {
 
     const existingRows = await prisma.$queryRawUnsafe(
       `SELECT hb.id, hb.hall_id, h.name AS hall_name, hb.booked_by, u.name AS booked_by_name, hb.booked_by_email, hb.purpose,
-              hb.start_datetime, hb.end_datetime, hb.remarks, hb.status, hb.approved_by, hb.created_at, hb.updated_at
+              hb.start_datetime, hb.end_datetime, hb.remarks, hb.status, hb.approved_by, hb.created_at, hb.updated_at, u.department AS booked_by_department
        FROM public.hall_bookings hb
        LEFT JOIN public.halls h ON h.id = hb.hall_id
        LEFT JOIN public."User" u ON u.id = hb.booked_by
@@ -217,6 +232,19 @@ const deleteHallBooking = async (req, res) => {
 
     if (!existingRows.length) {
       return res.status(404).json({ message: 'Hall booking not found' });
+    }
+
+    const userRole = req.user?.role;
+    const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+    if (!isManagementRole) {
+      const isOwnBooking = existingRows[0].booked_by === req.user?.id;
+      const sameDepartment = Boolean(req.user?.department) &&
+        Boolean(existingRows[0].booked_by_department) &&
+        req.user.department === existingRows[0].booked_by_department;
+
+      if (!isOwnBooking && !sameDepartment) {
+        return res.status(403).json({ message: 'You are not authorized to delete this booking.' });
+      }
     }
 
     const bookingToDelete = mapHallBookingRow(existingRows[0]);

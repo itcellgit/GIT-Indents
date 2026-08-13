@@ -228,7 +228,7 @@ Tabs on the dashboard:
 
 - **Approval Queue** — indents awaiting your decision as department HOD or maintenance incharge
 - **Maintenance Queue** — indents assigned to your maintenance department, with Pending Assignment / In Progress / Completed stats
-- **Dept Indents** — tracking for indents raised by your own department
+- **Raised Indents** — tracking for indents raised by your own department
 - **My Raised Indents** — requests you personally raised
 - **Manage Maintainers** — add a maintainer (Name/Email/Password) or remove one (they revert to Faculty)
 - **Stationary Coordinator** — assign Faculty/Non-Teaching staff in your department as Stationary Coordinator (with Start/End Date and Level: Departmental/Central)

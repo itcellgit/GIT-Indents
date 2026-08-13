@@ -36,7 +36,7 @@ const fetchBusBookingById = async (bookingId) => {
     `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
             bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
             bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks,
-            bb.created_at, bb.updated_at
+            bb.created_at, bb.updated_at, u.department AS booked_by_department
      FROM public.bus_bookings bb
      LEFT JOIN public.buses b ON b.id = bb.bus_id
      LEFT JOIN public."User" u ON u.id = bb.booked_by
@@ -140,7 +140,10 @@ const updateBusBooking = async (req, res) => {
     } = req.body;
 
     const beforeRows = await prisma.$queryRawUnsafe(
-      `SELECT status FROM public.bus_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT bb.status, bb.booked_by, u.department AS booked_by_department
+       FROM public.bus_bookings bb
+       LEFT JOIN public."User" u ON u.id = bb.booked_by
+       WHERE bb.id = $1 LIMIT 1`,
       bookingId
     );
 
@@ -154,6 +157,18 @@ const updateBusBooking = async (req, res) => {
 
     const userRole = req.user?.role;
     const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.TRANSPORT;
+
+    if (!isManagementRole) {
+      const isOwnBooking = beforeRows[0].booked_by === req.user?.id;
+      const sameDepartment = Boolean(req.user?.department) &&
+        Boolean(beforeRows[0].booked_by_department) &&
+        req.user.department === beforeRows[0].booked_by_department;
+
+      if (!isOwnBooking && !sameDepartment) {
+        return res.status(403).json({ message: 'You are not authorized to modify this booking.' });
+      }
+    }
+
     const allowedStatusesForUser = isManagementRole
       ? ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']
       : ['PENDING', 'CANCELLED'];
@@ -224,6 +239,19 @@ const deleteBusBooking = async (req, res) => {
 
     if (!existingRows.length) {
       return res.status(404).json({ message: 'Bus booking not found' });
+    }
+
+    const userRole = req.user?.role;
+    const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.TRANSPORT;
+    if (!isManagementRole) {
+      const isOwnBooking = existingRows[0].booked_by === req.user?.id;
+      const sameDepartment = Boolean(req.user?.department) &&
+        Boolean(existingRows[0].booked_by_department) &&
+        req.user.department === existingRows[0].booked_by_department;
+
+      if (!isOwnBooking && !sameDepartment) {
+        return res.status(403).json({ message: 'You are not authorized to delete this booking.' });
+      }
     }
 
     const bookingToDelete = mapBusBookingRow(existingRows[0]);

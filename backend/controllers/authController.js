@@ -2,9 +2,32 @@
 const prisma = require('../prismaClient');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const nodemailer = require('nodemailer');
 const { ROLES, normalizeRole } = require('../utils/roles');
+
+// Cryptographically strong 6-digit OTP (Math.random() is predictable and unsuitable for security codes).
+const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
+
+// Per-email OTP verification attempt limiting, backed by DB columns (PendingRegistration
+// .otpAttempts/.otpLockedUntil, User.resetPasswordAttempts/.resetPasswordLockedUntil) so
+// the lockout survives a server restart. A lock is intentionally NOT cleared by requesting
+// a new OTP (register/resend/forgot-password all leave attempts/lockedUntil untouched), or
+// an attacker could reset their guess budget indefinitely by spamming those endpoints.
+const MAX_OTP_ATTEMPTS = 5;
+const OTP_LOCKOUT_MS = 15 * 60 * 1000;
+
+const isOtpLocked = (lockedUntil) => Boolean(lockedUntil && lockedUntil > new Date());
+
+// Returns the {attempts, lockedUntil} to persist after a failed OTP check.
+const nextOtpFailureState = (currentAttempts, currentLockedUntil) => {
+  const attempts = currentAttempts + 1;
+  return {
+    attempts,
+    lockedUntil: attempts >= MAX_OTP_ATTEMPTS ? new Date(Date.now() + OTP_LOCKOUT_MS) : currentLockedUntil
+  };
+};
 
 const checkCoordinatorStaff = async (user) => {
   if (!user || (user.role !== ROLES.FACULTY && user.role !== ROLES.NON_TEACHING)) {
@@ -37,9 +60,10 @@ const getUserRolesById = async (userId) => {
 };
 
 // Helper function to generate a JWT token
+// No fallback secret here on purpose — server.js refuses to start if JWT_SECRET
+// isn't set, so a token forged with a guessable default is never possible.
 const generateToken = (id, role) => {
-  const jwtSecret = process.env.JWT_SECRET || 'dev_jwt_secret';
-  return jwt.sign({ id, role }, jwtSecret, {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '30d',
   });
 };
@@ -106,16 +130,21 @@ const getRoleIdByName = async (roleName) => {
 };
 
 // Helper function to send token response
-const sendTokenResponse = (user, statusCode, res, effectiveRole = null, extraData = {}) => {
+// `secure`/`sameSite` are derived from the actual request (req.secure), not NODE_ENV,
+// because this backend is reachable both over plain-HTTP internal IP and over the
+// HTTPS domain at the same time — a NODE_ENV-only check would mark cookies Secure
+// even for the plain-HTTP path and silently break login there. req.secure reflects
+// X-Forwarded-Proto from the reverse proxy once 'trust proxy' is enabled in server.js.
+const sendTokenResponse = (req, user, statusCode, res, effectiveRole = null, extraData = {}) => {
   const roleToShow = effectiveRole || user.role;
   const token = generateToken(user.id, roleToShow);
 
-  const isLocalNetwork = process.env.NODE_ENV !== 'production';
+  const isSecureRequest = req.secure;
   const options = {
     expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
     httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
+    secure: isSecureRequest,
+    sameSite: isSecureRequest ? 'none' : 'lax',
     path: '/',
     domain: undefined
   };
@@ -131,8 +160,6 @@ const sendTokenResponse = (user, statusCode, res, effectiveRole = null, extraDat
     ...extraData
   });
 };
-
-const pendingRegistrations = new Map(); // Store registration details and OTP temporarily
 
 // @desc    Register a new user (sends OTP)
 // @route   POST /api/auth/register
@@ -151,20 +178,39 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' }); // Generic message
     }
 
-    let finalRole = normalizeRole(role);
+    const finalRole = normalizeRole(role);
 
     // Generate a 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = generateOtp();
 
-    // Store in pendingRegistrations
-    pendingRegistrations.set(email, {
-      name,
-      email,
-      password,
-      department: department || '',
-      role: finalRole,
-      otp,
-      expiresAt: Date.now() + 15 * 60 * 1000 // 15 mins
+    // Hash the password now, at registration time — never keep a plaintext
+    // password around, even temporarily, while OTP verification is pending.
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Persisted (not an in-memory Map) so a server restart mid-signup doesn't
+    // force the user to start over. Re-registering with the same email deliberately
+    // leaves otpAttempts/otpLockedUntil untouched (only set on create, omitted from
+    // update) — same reasoning as resend below.
+    await prisma.pendingRegistration.upsert({
+      where: { email },
+      create: {
+        email,
+        name,
+        password: hashedPassword,
+        department: department || '',
+        role: finalRole,
+        otp,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      },
+      update: {
+        name,
+        password: hashedPassword,
+        department: department || '',
+        role: finalRole,
+        otp,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      }
     });
 
     const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
@@ -178,7 +224,7 @@ const registerUser = async (req, res) => {
 
     // Send email using nodemailer
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: process.env.SMTP_SERVICE || 'gmail',
       auth: {
         user: smtpUser,
         pass: smtpPass
@@ -210,32 +256,43 @@ const verifyRegistration = async (req, res) => {
       return res.status(400).json({ message: 'Email and OTP are required' });
     }
 
-    const pendingUser = pendingRegistrations.get(email);
-    
+    const pendingUser = await prisma.pendingRegistration.findUnique({ where: { email } });
+
     if (!pendingUser) {
       return res.status(400).json({ message: 'Registration session expired or not found' });
     }
-    
-    if (pendingUser.otp !== otp || pendingUser.expiresAt < Date.now()) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
+
+    if (isOtpLocked(pendingUser.otpLockedUntil)) {
+      return res.status(429).json({ message: 'Too many incorrect attempts. Please try again later.' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(pendingUser.password, salt);
+    if (pendingUser.otp !== otp || pendingUser.expiresAt < new Date()) {
+      const { attempts, lockedUntil } = nextOtpFailureState(pendingUser.otpAttempts, pendingUser.otpLockedUntil);
+      await prisma.pendingRegistration.update({
+        where: { email },
+        data: { otpAttempts: attempts, otpLockedUntil: lockedUntil }
+      });
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
 
     const roleId = await getRoleIdByName(pendingUser.role);
     if (!roleId) {
       return res.status(400).json({ message: 'Invalid role selected' });
     }
 
+    // Built from what we already have rather than re-querying via getAuthUserById()
+    // inside the transaction — that helper reads through the outer (non-tx) prisma
+    // client, so it can't see this transaction's own uncommitted insert and would
+    // always return null here, wrongly failing an otherwise-successful registration.
     const user = await prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
           name: pendingUser.name,
           email: pendingUser.email,
-          password: hashedPassword,
+          password: pendingUser.password, // already bcrypt-hashed at registration time
           department: pendingUser.department
-        }
+        },
+        select: { id: true, name: true, email: true, department: true }
       });
 
       await tx.$executeRawUnsafe(
@@ -245,13 +302,13 @@ const verifyRegistration = async (req, res) => {
         roleId
       );
 
-      return getAuthUserById(createdUser.id);
+      await tx.pendingRegistration.delete({ where: { email } });
+
+      return { ...createdUser, role: pendingUser.role, roles: [pendingUser.role] };
     });
 
-    pendingRegistrations.delete(email);
-
     if (user) {
-      sendTokenResponse(user, 201, res);
+      sendTokenResponse(req, user, 201, res);
     } else {
       res.status(400).json({ message: 'Invalid user data received' });
     }
@@ -270,19 +327,17 @@ const resendRegistrationOtp = async (req, res) => {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    const pendingUser = pendingRegistrations.get(email);
+    const pendingUser = await prisma.pendingRegistration.findUnique({ where: { email } });
     if (!pendingUser) {
       return res.status(400).json({ message: 'No pending registration found for this email. Please register again.' });
     }
 
-    // Generate a new 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Update in pendingRegistrations
-    pendingRegistrations.set(email, {
-      ...pendingUser,
-      otp,
-      expiresAt: Date.now() + 15 * 60 * 1000 // Reset to 15 mins
+    // Generate a new 6-digit numeric OTP. otpAttempts/otpLockedUntil deliberately
+    // untouched — see comment on registerUser's upsert.
+    const otp = generateOtp();
+    await prisma.pendingRegistration.update({
+      where: { email },
+      data: { otp, expiresAt: new Date(Date.now() + 15 * 60 * 1000) }
     });
 
     const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
@@ -295,7 +350,7 @@ const resendRegistrationOtp = async (req, res) => {
 
     // Send email using nodemailer
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: process.env.SMTP_SERVICE || 'gmail',
       auth: {
         user: smtpUser,
         pass: smtpPass
@@ -344,7 +399,7 @@ const loginUser = async (req, res) => {
       }
 
       const isCoordinatorStaff = await checkCoordinatorStaff(user);
-      sendTokenResponse(user, 200, res, effectiveRole, { isCoordinatorStaff });
+      sendTokenResponse(req, user, 200, res, effectiveRole, { isCoordinatorStaff });
     } else {
       res.status(401).json({ message: 'Invalid credentials' }); // Generic error message
     }
@@ -360,8 +415,8 @@ const loginUser = async (req, res) => {
 const logoutUser = (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: req.secure,
+    sameSite: req.secure ? 'none' : 'lax',
     path: '/'
   });
   res.status(200).json({ success: true, message: 'Logged out successfully' });
@@ -394,7 +449,7 @@ const forgotPassword = async (req, res) => {
     }
 
     // Generate a 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = generateOtp();
 
     // Set OTP and expiration (15 minutes)
     await prisma.user.update({
@@ -416,7 +471,7 @@ const forgotPassword = async (req, res) => {
 
     // Send email using nodemailer
     const transporter = nodemailer.createTransport({
-      service: 'gmail', // You can change this or configure it via env
+      service: process.env.SMTP_SERVICE || 'gmail',
       auth: {
         user: smtpUser,
         pass: smtpPass
@@ -445,20 +500,34 @@ const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
 
-    const user = await prisma.user.findFirst({ 
-      where: {
-        email, 
-        resetPasswordOTP: otp,
-        resetPasswordExpires: { gt: new Date() } // Ensure OTP hasn't expired
-      }
-    });
+    // Look up by email alone first (not combined with the OTP in one query,
+    // like before) so we can read this user's own attempt/lock state.
+    const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user) {
+    if (!user || !user.resetPasswordOTP) {
+      // Same generic message as a wrong OTP — don't reveal whether the email exists.
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    if (isOtpLocked(user.resetPasswordLockedUntil)) {
+      return res.status(429).json({ message: 'Too many incorrect attempts. Please try again later.' });
+    }
+
+    const isValidOtp = user.resetPasswordOTP === otp
+      && user.resetPasswordExpires
+      && user.resetPasswordExpires > new Date();
+
+    if (!isValidOtp) {
+      const { attempts, lockedUntil } = nextOtpFailureState(user.resetPasswordAttempts, user.resetPasswordLockedUntil);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetPasswordAttempts: attempts, resetPasswordLockedUntil: lockedUntil }
+      });
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
     // Hash the new password
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     await prisma.user.update({
@@ -466,7 +535,9 @@ const resetPassword = async (req, res) => {
       data: {
         password: hashedPassword,
         resetPasswordOTP: null,
-        resetPasswordExpires: null
+        resetPasswordExpires: null,
+        resetPasswordAttempts: 0,
+        resetPasswordLockedUntil: null
       }
     });
 
@@ -499,7 +570,7 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ message: 'Current password is incorrect' });
     }
 
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     await prisma.user.update({
@@ -567,7 +638,7 @@ const switchUserRole = async (req, res) => {
     }
 
     const isCoordinatorStaff = await checkCoordinatorStaff(user);
-    sendTokenResponse(user, 200, res, role, { isCoordinatorStaff });
+    sendTokenResponse(req, user, 200, res, role, { isCoordinatorStaff });
   } catch (error) {
     res.status(500).json({ message: 'Server error while switching role' });
   }

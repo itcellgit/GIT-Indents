@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, User as UserIcon, Plus, KeyRound } from 'lucide-react';
+import { LogOut, User as UserIcon, Plus, KeyRound, Building2, Car, Bus, ChevronDown } from 'lucide-react';
 import StatsCards from './StatsCards';
 import DeptStatsCards from './DeptStatsCards';
 import ComplaintTable from './ComplaintTable';
@@ -22,10 +22,13 @@ import { ROLES } from '../../constants/roles';
 const HODDashboard = () => {
   const { user, logout } = useAuth();
   const isLibraryHod = user?.role === ROLES.HOD && String(user?.email || '').toLowerCase() === LIBRARY_HOD_EMAIL;
+  const isFacilityProvider = user?.role === ROLES.FACILITY_PROVIDER;
   const [departmentIndents, setDepartmentIndents] = useState([]);
   const [approvalRequests, setApprovalRequests] = useState([]);
   const [myRaisedIndents, setMyRaisedIndents] = useState([]);
   const [deptTrackIndents, setDeptTrackIndents] = useState([]);
+  const [deptFacilityProviderIndents, setDeptFacilityProviderIndents] = useState([]);
+  const [hasDeptFacilityProvider, setHasDeptFacilityProvider] = useState(false);
   const [isCategoryIncharge, setIsCategoryIncharge] = useState(false);
 
   const [activeTab, setActiveTab] = useState(() => (user?.role === ROLES.HOD ? 'deptTrack' : 'myRaised'));
@@ -33,6 +36,8 @@ const HODDashboard = () => {
   const [filterStatus, setFilterStatus] = useState('All');
   const [deptFilterStatus, setDeptFilterStatus] = useState('All');
   const deptStatsRef = useRef(null);
+  const [isBookingMenuOpen, setIsBookingMenuOpen] = useState(false);
+  const bookingMenuRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -41,6 +46,9 @@ const HODDashboard = () => {
       }
       if (deptStatsRef.current && !deptStatsRef.current.contains(event.target)) {
         setDeptFilterStatus('All');
+      }
+      if (bookingMenuRef.current && !bookingMenuRef.current.contains(event.target)) {
+        setIsBookingMenuOpen(false);
       }
     };
 
@@ -75,6 +83,8 @@ const HODDashboard = () => {
         setApprovalRequests(res.data.approvalRequests || []);
         setMyRaisedIndents(res.data.myRaisedIndents || []);
         setDeptTrackIndents(res.data.deptTrackIndents || []);
+        setDeptFacilityProviderIndents(res.data.deptFacilityProviderIndents || []);
+        setHasDeptFacilityProvider(Boolean(res.data.hasDeptFacilityProvider));
         const categoryIncharge = Boolean(res.data.isCategoryIncharge);
         setIsCategoryIncharge(categoryIncharge);
         if (user?.role !== ROLES.HOD) {
@@ -140,6 +150,7 @@ const HODDashboard = () => {
     setApprovalRequests(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? updatedComplaint : c));
     setMyRaisedIndents(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? updatedComplaint : c));
     setDeptTrackIndents(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? updatedComplaint : c));
+    setDeptFacilityProviderIndents(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? updatedComplaint : c));
     if (selectedComplaint && (selectedComplaint.id === targetId || selectedComplaint._id === targetId)) {
       setSelectedComplaint(updatedComplaint);
     }
@@ -214,16 +225,18 @@ const HODDashboard = () => {
     const params = new URLSearchParams(window.location.search);
     const indentIdParam = params.get('indentId');
     if (indentIdParam) {
-      const allComplaints = [...departmentIndents, ...approvalRequests, ...myRaisedIndents, ...deptTrackIndents];
+      const allComplaints = [...departmentIndents, ...approvalRequests, ...myRaisedIndents, ...deptTrackIndents, ...deptFacilityProviderIndents];
       if (allComplaints.length > 0) {
         const target = allComplaints.find(c => c._id === indentIdParam || c.id === indentIdParam);
         if (target) {
           setSelectedComplaint(target);
-          
+
           if (departmentIndents.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
             setActiveTab('department');
           } else if (deptTrackIndents.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
             setActiveTab('deptTrack');
+          } else if (deptFacilityProviderIndents.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
+            setActiveTab('deptFacilityProviders');
           } else {
             setActiveTab('myRaised');
           }
@@ -232,7 +245,7 @@ const HODDashboard = () => {
         }
       }
     }
-  }, [departmentIndents, approvalRequests, myRaisedIndents, deptTrackIndents]);
+  }, [departmentIndents, approvalRequests, myRaisedIndents, deptTrackIndents, deptFacilityProviderIndents]);
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -319,7 +332,19 @@ const HODDashboard = () => {
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
               }`}
             >
-              Dept Indents
+              Raised Indents
+            </button>
+          )}
+          {user?.role === ROLES.HOD && hasDeptFacilityProvider && (
+            <button
+              onClick={() => setActiveTab('deptFacilityProviders')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'deptFacilityProviders'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Indents Raised for Dept({deptFacilityProviderIndents.length})
             </button>
           )}
           <button
@@ -344,16 +369,18 @@ const HODDashboard = () => {
               Manage Maintainers
             </button>
           )}
-          <button
-            onClick={() => setActiveTab('coordinatorStaffs')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'coordinatorStaffs' 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-            }`}
-          >
-            Stationary Coordinator
-          </button>
+          {!isFacilityProvider && (
+            <button
+              onClick={() => setActiveTab('coordinatorStaffs')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'coordinatorStaffs' 
+                  ? 'bg-white text-indigo-600 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Stationary Coordinator
+            </button>
+          )}
           {isLibraryHod && (
             <button
               onClick={() => setActiveTab('branches')}
@@ -379,13 +406,54 @@ const HODDashboard = () => {
             </button>
           )}
         </div>
-          <button 
-            onClick={() => setIsRaiseModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md active:scale-95"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Raise New Indent</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {!isFacilityProvider && (
+              <div className="relative" ref={bookingMenuRef}>
+                <button
+                  onClick={() => setIsBookingMenuOpen(prev => !prev)}
+                  className="flex items-center gap-2 px-4 py-2 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
+                >
+                  <span>Bookings</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isBookingMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isBookingMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                    <Link
+                      to="/hall-bookings"
+                      onClick={() => setIsBookingMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                    >
+                      <Building2 className="w-4 h-4" />
+                      Hall Booking
+                    </Link>
+                    <Link
+                      to="/vehicle-bookings"
+                      onClick={() => setIsBookingMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                    >
+                      <Car className="w-4 h-4" />
+                      Vehicle Booking
+                    </Link>
+                    <Link
+                      to="/bus-bookings"
+                      onClick={() => setIsBookingMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                    >
+                      <Bus className="w-4 h-4" />
+                      Bus Booking
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              onClick={() => setIsRaiseModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md active:scale-95"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Raise New Indent</span>
+            </button>
+          </div>
         </div>
 
         {/* Tab Switcher (Sticky) */}
@@ -438,6 +506,17 @@ const HODDashboard = () => {
               </div>
               <ComplaintTable 
                 complaints={filteredDeptTrackIndents}
+                onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
+                showStatusFilter={true}
+              />
+            </div>
+          )}
+
+          {activeTab === 'deptFacilityProviders' && user?.role === ROLES.HOD && hasDeptFacilityProvider && (
+            <div id="deptFacilityProviders" className="scroll-mt-32">
+              <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Department Facility Providers</h2>
+              <ComplaintTable
+                complaints={deptFacilityProviderIndents}
                 onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
                 showStatusFilter={true}
               />

@@ -4,6 +4,7 @@ const generateIndentNumber = require('../utils/generateIndentNumber');
 const { sendNotification } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 const { getPrimaryRoleByUserId, getRoleIdByName, setUserRole: setUserRoleShared } = require('../utils/userRoles');
+const { PASSWORD_POLICY_MESSAGE, isPasswordValid } = require('../utils/passwordPolicy');
 
 const setUserRole = (tx, userId, roleName) => setUserRoleShared(tx, userId, roleName);
 
@@ -32,6 +33,8 @@ const getHODComplaints = async (req, res) => {
     let maintenanceIndents = [];
     let approvalRequests = [];
     let deptTrackIndents = [];
+    let deptFacilityProviderIndents = [];
+    let hasDeptFacilityProvider = false;
     let isCategoryIncharge = false;
 
     if (req.user.role === ROLES.PRINCIPAL) {
@@ -62,13 +65,19 @@ const getHODComplaints = async (req, res) => {
       });
 
       // 3. Fetch department approval requests for this HOD's department
-      const departmentApprovalRequests = await prisma.indent.findMany({ 
-        where: {
-          requester: { department: req.user.department },
-          status: { in: DEPT_APPROVAL_STATUSES }
-        },
-        include: HOD_DASHBOARD_INCLUDE
-      });
+      // Guard against req.user.department being blank/null: without this, Prisma
+      // would translate department: null/'' into an IS NULL/= '' match that pulls
+      // in every OTHER requester whose department is also unset, leaking indents
+      // across departments instead of scoping to just this HOD's own department.
+      const departmentApprovalRequests = req.user.department
+        ? await prisma.indent.findMany({
+            where: {
+              requester: { department: req.user.department },
+              status: { in: DEPT_APPROVAL_STATUSES }
+            },
+            include: HOD_DASHBOARD_INCLUDE
+          })
+        : [];
 
       // 4. Fetch approval items that still need Maintenance HOD review
       const maintenanceApprovalRequests = await prisma.indent.findMany({
@@ -85,10 +94,41 @@ const getHODComplaints = async (req, res) => {
         ).values()
       );
         
-      deptTrackIndents = await prisma.indent.findMany({
-        where: { requester: { department: req.user.department } },
-        include: HOD_DASHBOARD_INCLUDE
-      });
+      deptTrackIndents = req.user.department
+        ? await prisma.indent.findMany({
+            where: { requester: { department: req.user.department } },
+            include: HOD_DASHBOARD_INCLUDE
+          })
+        : [];
+
+      // 5. For a Dept HOD, also surface everything handled by the Facility
+      // Providers assigned to this same department (their category-incharge work),
+      // regardless of who raised it.
+      if (req.user.role === ROLES.HOD && req.user.department) {
+        const facilityProvidersInDept = await prisma.$queryRawUnsafe(
+          `SELECT u.id
+           FROM "User" u
+           INNER JOIN public.user_roles ur ON ur.user_id = u.id
+           INNER JOIN public.roles r ON r.id = ur.role_id
+           WHERE r.role_name = $1 AND u.department = $2`,
+          ROLES.FACILITY_PROVIDER,
+          req.user.department
+        );
+        const facilityProviderIds = facilityProvidersInDept.map((u) => u.id);
+        hasDeptFacilityProvider = facilityProviderIds.length > 0;
+
+        if (hasDeptFacilityProvider) {
+          const facilityCategories = await prisma.category.findMany({
+            where: { inchargeId: { in: facilityProviderIds } }
+          });
+          const facilityCategoryIds = facilityCategories.map((cat) => cat.id);
+
+          deptFacilityProviderIndents = await prisma.indent.findMany({
+            where: { categoryId: { in: facilityCategoryIds } },
+            include: HOD_DASHBOARD_INCLUDE
+          });
+        }
+      }
     }
 
     const myRaisedIndents = await prisma.indent.findMany({ 
@@ -101,6 +141,7 @@ const getHODComplaints = async (req, res) => {
     maintenanceIndents.sort(sortFn);
     approvalRequests.sort(sortFn);
     myRaisedIndents.sort(sortFn);
+    deptFacilityProviderIndents.sort(sortFn);
 
     res.status(200).json({
       success: true,
@@ -108,6 +149,8 @@ const getHODComplaints = async (req, res) => {
       approvalRequests,
       myRaisedIndents,
       deptTrackIndents,
+      deptFacilityProviderIndents,
+      hasDeptFacilityProvider,
       isCategoryIncharge
     });
   } catch (err) {
@@ -451,8 +494,12 @@ const addCoordinatorStaff = async (req, res) => {
       });
       await setUserRole(prisma, user.id, (await getPrimaryRoleByUserId(prisma, user.id)) === ROLES.NON_TEACHING ? ROLES.NON_TEACHING : ROLES.FACULTY);
     } else {
+      if (!isPasswordValid(password)) {
+        return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
+      }
+
       const bcrypt = require('bcryptjs');
-      const salt = await bcrypt.genSalt(10);
+      const salt = await bcrypt.genSalt(12);
       const hashedPassword = await bcrypt.hash(password, salt);
 
       user = await prisma.user.create({
@@ -608,8 +655,21 @@ const assignMaintainer = async (req, res) => {
       return res.status(400).json({ message: 'Maintainer ID is required' });
     }
 
-    const indent = await prisma.indent.findUnique({ where: { id: req.params.id } });
+    const indent = await prisma.indent.findUnique({
+      where: { id: req.params.id },
+      include: { requester: { select: { department: true } } }
+    });
     if (!indent) return res.status(404).json({ message: 'Indent not found' });
+
+    // Same scoping as updateComplaintStatus above: only the category's maintenance
+    // incharge or the requester's own Dept HOD may act on this indent — without this,
+    // any HOD/Facility Provider could reassign the maintainer on any indent by ID.
+    const isMaintenanceIncharge = await prisma.category.findFirst({ where: { id: indent.categoryId, inchargeId: req.user.id } });
+    const isDeptHOD = req.user.role === ROLES.HOD && indent.requester?.department && req.user.department === indent.requester.department;
+
+    if (!isMaintenanceIncharge && !isDeptHOD) {
+      return res.status(403).json({ message: 'Forbidden: You are not authorized to assign a maintainer for this indent.' });
+    }
 
     // Validate if the maintainer exists
     const maintainer = await prisma.user.findUnique({ where: { id: maintainerId } });

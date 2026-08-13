@@ -5,7 +5,7 @@ const { ROLES } = require('./roles');
 // Setup Nodemailer transporter
 // It uses environment variables that the user will configure in .env
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: process.env.SMTP_SERVICE || 'gmail',
   auth: {
     user: process.env.SMTP_USER, // e.g. your_email@gmail.com
     pass: process.env.SMTP_PASS, // e.g. your_app_password

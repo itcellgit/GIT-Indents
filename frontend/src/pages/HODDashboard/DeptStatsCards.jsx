@@ -4,7 +4,7 @@ import { ClipboardList, Clock, Wrench, CheckCircle } from 'lucide-react';
 const DeptStatsCards = ({ stats, activeFilter, onCardClick }) => {
   const cards = [
     {
-      title: 'Total Dept Indents',
+      title: 'Total Raised Indents',
       value: stats.total,
       icon: ClipboardList,
       color: 'bg-indigo-500',

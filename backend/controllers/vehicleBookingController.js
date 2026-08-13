@@ -160,7 +160,10 @@ const updateVehicleBooking = async (req, res) => {
     } = req.body;
 
     const beforeRows = await prisma.$queryRawUnsafe(
-      `SELECT status FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT vb.status, vb.booked_by, u.department AS booked_by_department
+       FROM public.vehicle_bookings vb
+       LEFT JOIN public."User" u ON u.id = vb.booked_by
+       WHERE vb.id = $1 LIMIT 1`,
       bookingId
     );
 
@@ -174,6 +177,18 @@ const updateVehicleBooking = async (req, res) => {
 
     const userRole = req.user?.role;
     const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+
+    if (!isManagementRole) {
+      const isOwnBooking = beforeRows[0].booked_by === req.user?.id;
+      const sameDepartment = Boolean(req.user?.department) &&
+        Boolean(beforeRows[0].booked_by_department) &&
+        req.user.department === beforeRows[0].booked_by_department;
+
+      if (!isOwnBooking && !sameDepartment) {
+        return res.status(403).json({ message: 'You are not authorized to modify this booking.' });
+      }
+    }
+
     const allowedStatusesForUser = isManagementRole
       ? ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']
       : ['PENDING', 'CANCELLED'];
@@ -243,7 +258,7 @@ const deleteVehicleBooking = async (req, res) => {
     const existingRows = await prisma.$queryRawUnsafe(
       `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
               vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time, vb.passenger_count, vb.remarks,
-              vb.status, vb.approved_by, vb.created_at, vb.updated_at
+              vb.status, vb.approved_by, vb.created_at, vb.updated_at, u.department AS booked_by_department
          FROM public.vehicle_bookings vb
          LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
          LEFT JOIN public."User" u ON u.id = vb.booked_by
@@ -254,6 +269,19 @@ const deleteVehicleBooking = async (req, res) => {
 
     if (!existingRows.length) {
       return res.status(404).json({ message: 'Vehicle booking not found' });
+    }
+
+    const userRole = req.user?.role;
+    const isManagementRole = userRole === ROLES.ADMIN || userRole === ROLES.RECEPTIONIST;
+    if (!isManagementRole) {
+      const isOwnBooking = existingRows[0].booked_by === req.user?.id;
+      const sameDepartment = Boolean(req.user?.department) &&
+        Boolean(existingRows[0].booked_by_department) &&
+        req.user.department === existingRows[0].booked_by_department;
+
+      if (!isOwnBooking && !sameDepartment) {
+        return res.status(403).json({ message: 'You are not authorized to delete this booking.' });
+      }
     }
 
     const bookingToDelete = mapVehicleBookingRow(existingRows[0]);

@@ -559,7 +559,7 @@ export default function BusBookingsPage() {
               {backLabel}
             </button>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">{sectionLabel}</p>
-            <h2 className="mt-2 text-3xl font-bold text-slate-900">Bus Booking</h2>
+            {/* <h2 className="mt-2 text-3xl font-bold text-slate-900">Bus Booking</h2> */}
           </div>
         </div>
 

@@ -3,6 +3,8 @@ const prisma = require('../prismaClient');
 const bcrypt = require('bcryptjs');
 const { departments: departmentList } = require('../utils/departments');
 const { ROLES, ROLE_VALUES, normalizeRole } = require('../utils/roles');
+const { PASSWORD_POLICY_MESSAGE, isPasswordValid } = require('../utils/passwordPolicy');
+const { sendNotification } = require('../utils/notificationService');
 
 const resolveDepartmentName = (value) => {
   if (!value) return null;
@@ -87,6 +89,29 @@ const getUserRolesByUserId = async (userId) => {
     roleId: role.role_id,
     roleName: role.role_name
   }));
+};
+
+// Category-incharge assignment replaces a user's entire role set with Facility
+// Provider (behavior intentionally left as-is — see TECHNICAL_AUDIT_REPORT.md 3.1).
+// This just makes that change visible: logged server-side with who/whom/before-after,
+// and the affected user gets an in-app notification so it's no longer silent.
+const logAndNotifyRoleReplacement = async ({ adminUser, targetUser, previousRoles, newRoleName }) => {
+  const previousRoleNames = previousRoles.map((role) => role.roleName);
+  console.warn(
+    `[ROLE CHANGE] Admin ${adminUser?.email || adminUser?.id} set ${targetUser.email} (${targetUser.id}) ` +
+    `as a category incharge, replacing role(s) [${previousRoleNames.join(', ') || 'none'}] with [${newRoleName}].`
+  );
+
+  try {
+    await sendNotification(
+      targetUser.id,
+      `An administrator assigned you as a maintenance department incharge. Your access role has been changed to "${newRoleName}"` +
+      (previousRoleNames.length ? ` (previously: ${previousRoleNames.join(', ')}).` : '.'),
+      adminUser?.id || null
+    );
+  } catch (notifyErr) {
+    console.error('Failed to notify user about role change:', notifyErr.message);
+  }
 };
 
 const getUserWithPrimaryRoleByEmail = async (email) => {
@@ -395,12 +420,16 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: 'Name, email and password are required' });
     }
 
+    if (!isPasswordValid(password)) {
+      return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
+    }
+
     const userExists = await getUserWithPrimaryRoleByEmail(email);
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
     const selectedRoles = normalizeRoleList(roles || role);
     if (selectedRoles.length === 0) {
@@ -496,7 +525,10 @@ const updateUser = async (req, res) => {
     };
 
     if (password && String(password).trim()) {
-      const salt = await bcrypt.genSalt(10);
+      if (!isPasswordValid(password)) {
+        return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
+      }
+      const salt = await bcrypt.genSalt(12);
       updateData.password = await bcrypt.hash(password, salt);
     }
 
@@ -537,7 +569,7 @@ const bulkCreateUsers = async (req, res) => {
     }
 
     const defaultPassword = 'password@123';
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(defaultPassword, salt);
 
     const formattedUsers = users.map(user => ({
@@ -643,6 +675,8 @@ const createDepartment = async (req, res) => {
         const facilityProviderRoleId = await getFacilityProviderRoleId();
 
         if (facilityProviderRoleId) {
+          const previousRoles = await getUserRolesByUserId(user.id);
+
           await prisma.$executeRawUnsafe(
             `DELETE FROM public.user_roles WHERE user_id = $1`,
             user.id
@@ -652,6 +686,13 @@ const createDepartment = async (req, res) => {
             user.id,
             facilityProviderRoleId
           );
+
+          await logAndNotifyRoleReplacement({
+            adminUser: req.user,
+            targetUser: user,
+            previousRoles,
+            newRoleName: ROLES.FACILITY_PROVIDER
+          });
         }
       }
 
@@ -734,8 +775,17 @@ const updateDepartment = async (req, res) => {
         if (user.role !== ROLES.FACILITY_PROVIDER) {
           const facilityProviderRoleId = await getFacilityProviderRoleId();
           if (facilityProviderRoleId) {
+            const previousRoles = await getUserRolesByUserId(user.id);
+
             await prisma.$executeRawUnsafe(`DELETE FROM public.user_roles WHERE user_id = $1`, user.id);
             await prisma.$executeRawUnsafe(`INSERT INTO public.user_roles (user_id, role_id) VALUES ($1, $2)`, user.id, facilityProviderRoleId);
+
+            await logAndNotifyRoleReplacement({
+              adminUser: req.user,
+              targetUser: user,
+              previousRoles,
+              newRoleName: ROLES.FACILITY_PROVIDER
+            });
           }
         }
 

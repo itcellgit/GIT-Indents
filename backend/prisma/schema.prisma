@@ -15,6 +15,8 @@ model User {
   isActive             Boolean        @default(true)
   resetPasswordOTP     String?
   resetPasswordExpires DateTime?
+  resetPasswordAttempts    Int        @default(0)
+  resetPasswordLockedUntil DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   
@@ -24,6 +26,24 @@ model User {
   notificationsReceived Notification[] @relation("NotificationRecipient")
   notificationsSent    Notification[] @relation("NotificationSender")
   indentsAssigned      Indent[]       @relation("IndentMaintainer")
+}
+
+// Holds signups awaiting OTP confirmation. Persisted (rather than an in-memory
+// Map) so a server restart mid-registration doesn't force the user to start over,
+// and so the OTP-attempt lockout survives restarts too. `password` is stored
+// already bcrypt-hashed at registration time, never in plaintext.
+model PendingRegistration {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  name           String
+  password       String
+  department     String?
+  role           String
+  otp            String
+  otpAttempts    Int       @default(0)
+  otpLockedUntil DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
 }
 
 model Category {

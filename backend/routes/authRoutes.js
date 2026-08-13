@@ -4,6 +4,9 @@ const router = express.Router();
 const { check } = require('express-validator');
 const { registerUser, verifyRegistration, resendRegistrationOtp, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, changePassword, updateProfile, switchUserRole } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
+const { PASSWORD_POLICY_MESSAGE, isPasswordValid } = require('../utils/passwordPolicy');
+
+const passwordCheck = (field) => check(field, PASSWORD_POLICY_MESSAGE).custom(isPasswordValid);
 
 // --- GET ROUTES (For testing/info) ---
 router.get('/register', getRegister);
@@ -15,7 +18,7 @@ router.post('/logout', logoutUser); // Secure logout removing cookie
 router.post('/register', [
   check('name', 'Name is required').not().isEmpty().trim().escape(),
   check('email', 'Please include a valid email').isEmail().normalizeEmail(),
-  check('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
+  passwordCheck('password')
 ], registerUser);
 
 // Verify Registration OTP
@@ -44,13 +47,13 @@ router.post('/forgot-password', [
 router.post('/reset-password', [
   check('email', 'Please include a valid email').isEmail().normalizeEmail(),
   check('otp', 'OTP is required').exists(),
-  check('newPassword', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
+  passwordCheck('newPassword')
 ], resetPassword);
 
 // Change password (while logged in)
 router.put('/change-password', protect, [
   check('currentPassword', 'Current password is required').exists(),
-  check('newPassword', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
+  passwordCheck('newPassword')
 ], changePassword);
 
 // Profile page update

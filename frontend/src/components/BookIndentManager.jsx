@@ -10,6 +10,7 @@ export default function BookIndentManager() {
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [branchFilter, setBranchFilter] = useState('All');
+  const [degreeFilter, setDegreeFilter] = useState('All');
   const [branches, setBranches] = useState([]);
 
   const loadBookIndents = async () => {
@@ -43,14 +44,24 @@ export default function BookIndentManager() {
     [branches]
   );
 
+  const degreeOptions = useMemo(
+    () => Array.from(new Set(branches.map((branch) => branch.degree).filter(Boolean))).sort(),
+    [branches]
+  );
+
   const filteredBookIndents = useMemo(
-    () => (branchFilter === 'All' ? bookIndents : bookIndents.filter((item) => item.branchName === branchFilter)),
-    [bookIndents, branchFilter]
+    () => bookIndents.filter((item) => {
+      const matchesBranch = branchFilter === 'All' || item.branchName === branchFilter;
+      const branchDegree = branches.find((branch) => branch.branch_name === item.branchName)?.degree || '';
+      const matchesDegree = degreeFilter === 'All' || branchDegree === degreeFilter;
+      return matchesBranch && matchesDegree;
+    }),
+    [bookIndents, branchFilter, degreeFilter, branches]
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [branchFilter]);
+  }, [branchFilter, degreeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBookIndents.length / ITEMS_PER_PAGE));
   const currentSafePage = Math.min(currentPage, totalPages);
@@ -68,18 +79,34 @@ export default function BookIndentManager() {
           </h2>
           <p className="text-sm text-slate-500 mt-1">Review faculty book requests.</p>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Filter by Branch</label>
-          <select
-            value={branchFilter}
-            onChange={(e) => setBranchFilter(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white"
-          >
-            <option value="All">All Branches</option>
-            {branchOptions.map((branch) => (
-              <option key={branch} value={branch}>{branch}</option>
-            ))}
-          </select>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Filter by Branch</label>
+            <select
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white"
+            >
+              <option value="All">All Branches</option>
+              {branchOptions.map((branch) => (
+                <option key={branch} value={branch}>{branch}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Filter by Degree</label>
+            <select
+              value={degreeFilter}
+              onChange={(e) => setDegreeFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white"
+            >
+              <option value="All">All Degrees</option>
+              {degreeOptions.map((degree) => (
+                <option key={degree} value={degree}>{degree}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

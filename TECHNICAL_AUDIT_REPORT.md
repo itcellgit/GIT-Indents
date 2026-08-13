@@ -261,7 +261,7 @@ const pendingRegistrations = new Map();
 3. Clean up expired registrations periodically
 
 ---
-
+///Continue tomorrow
 ### 2.4 JWT Secret Fallback
 **Severity:** High  
 **CWE:** CWE-798  

@@ -9,6 +9,7 @@ const ALL_AUTHENTICATED_ROLES = [
   ROLES.RECEPTIONIST,
   ROLES.FACULTY,
   ROLES.NON_TEACHING,
+  ROLES.HOD,
 ];
 
 router.get('/', protect, authorize(...ALL_AUTHENTICATED_ROLES), getHallBookings);

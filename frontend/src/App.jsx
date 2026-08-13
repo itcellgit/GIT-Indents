@@ -86,12 +86,12 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/hall-bookings" element={
-            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.RECEPTIONIST]}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.RECEPTIONIST, ROLES.HOD]}>
               <HallBookingsPage />
             </ProtectedRoute>
           } />
           <Route path="/vehicle-bookings" element={
-            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.RECEPTIONIST]}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.RECEPTIONIST, ROLES.HOD]}>
               <VehicleBookingsPage />
             </ProtectedRoute>
           } />
@@ -101,7 +101,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/bus-bookings" element={
-            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.TRANSPORT]}>
+            <ProtectedRoute allowedRoles={[ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.TRANSPORT, ROLES.HOD]}>
               <BusBookingsPage />
             </ProtectedRoute>
           } />

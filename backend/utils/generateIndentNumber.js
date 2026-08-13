@@ -24,19 +24,22 @@ const generateIndentNumber = async (requesterId, categoryId) => {
   const yy = String(now.getFullYear()).slice(-2);
   const dateStr = `${dd}-${mm}-${yy}`;
   
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  
-  const todayCount = await prisma.indent.count({
-    where: {
-      createdAt: {
-        gte: startOfDay,
-        lte: endOfDay
-      }
-    }
-  });
-  
-  const slNo = String(todayCount + 1).padStart(2, '0');
+  // Atomic upsert-and-increment: a single INSERT .. ON CONFLICT DO UPDATE .. RETURNING
+  // is serialized by Postgres's row-level locking, so two concurrent requests can never
+  // read the same count and generate the same indentNumber (unlike the previous
+  // COUNT(*)-then-add-one approach, which had exactly that race). Passed as an explicit
+  // 'YYYY-MM-DD' string (not a JS Date) so the counter's day bucket always matches the
+  // same local day used in dateStr above, regardless of the DB session's timezone.
+  const isoDateStr = `${now.getFullYear()}-${mm}-${dd}`;
+  const counterRows = await prisma.$queryRawUnsafe(
+    `INSERT INTO "indent_number_counters" (counter_date, count)
+     VALUES ($1::date, 1)
+     ON CONFLICT (counter_date) DO UPDATE SET count = "indent_number_counters".count + 1
+     RETURNING count`,
+    isoDateStr
+  );
+
+  const slNo = String(counterRows[0].count).padStart(2, '0');
   
   return `${creatorDept}/${dateStr}-${slNo}/${maintDept}`;
 };

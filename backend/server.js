@@ -6,8 +6,23 @@ const cors = require('cors');
 // Load environment variables from your .env file
 dotenv.config();
 
+// Fail fast rather than silently signing tokens with a guessable secret.
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start — set JWT_SECRET in the environment/.env file.');
+  process.exit(1);
+}
+if (process.env.JWT_SECRET.length < 32) {
+  console.warn('WARNING: JWT_SECRET is shorter than 32 characters. Consider using a longer, randomly generated secret.');
+}
+
 // Initialize the Express application
 const app = express();
+
+// Trust the first hop (reverse proxy / load balancer) so req.secure and
+// req.protocol reflect the original client connection via X-Forwarded-Proto.
+// Needed because this server is reached both directly over plain HTTP (internal
+// IP) and via a TLS-terminating proxy (indents.git.edu) at the same time.
+app.set('trust proxy', 1);
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
@@ -141,3 +156,6 @@ app.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`🌐 Network access enabled at http://${HOST}:${PORT}`);
 });
+
+const { startPendingRegistrationCleanup } = require('./utils/cleanupPendingRegistrations');
+startPendingRegistrationCleanup();

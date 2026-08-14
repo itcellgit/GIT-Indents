@@ -38,6 +38,35 @@ const toLocalDateTime = (value) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+// A vehicle booking "holds" its slot while PENDING or APPROVED; REJECTED/CANCELLED
+// bookings never block a new request for the same slot. No vehicle assigned yet
+// (vehicleId null) means nothing to conflict against.
+const findVehicleBookingConflict = async (vehicleId, startDate, endDate, startTime, endTime, excludeId = null) => {
+  if (!vehicleId) return null;
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT vb.id, vb.purpose, vb.start_date, vb.end_date, u.name AS booked_by_name
+     FROM public.vehicle_bookings vb
+     LEFT JOIN public."User" u ON u.id = vb.booked_by
+     WHERE vb.vehicle_id = $1
+       AND vb.status IN ('PENDING', 'APPROVED')
+       AND ($6::bigint IS NULL OR vb.id <> $6)
+       AND (vb.start_date + vb.start_time) < ($3::date + $5::time)
+       AND (vb.end_date + vb.end_time) > ($2::date + $4::time)
+     ORDER BY vb.start_date ASC, vb.start_time ASC
+     LIMIT 1`,
+    vehicleId,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    excludeId
+  );
+  return rows[0] || null;
+};
+
+const conflictMessage = (conflict, resourceLabel) =>
+  `${resourceLabel} is already booked for the requested time (conflicts with a booking by ${conflict.booked_by_name || 'another user'}).`;
+
 const fetchVehicleBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
     `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
@@ -93,8 +122,23 @@ const createVehicleBooking = async (req, res) => {
       return res.status(400).json({ message: 'Booked by is required' });
     }
 
+    if (!isValidEmail(req.body.booked_by_email)) {
+      return res.status(400).json({ message: 'A valid booked-by email is required' });
+    }
+
     if (!start_date) {
       return res.status(400).json({ message: 'Start date is required' });
+    }
+
+    const conflict = await findVehicleBookingConflict(
+      vehicle_id ? Number(vehicle_id) : null,
+      start_date,
+      end_date || start_date,
+      start_time || '00:00',
+      end_time || '23:59:59',
+    );
+    if (conflict) {
+      return res.status(409).json({ message: conflictMessage(conflict, 'This vehicle') });
     }
 
     const bookingRows = await prisma.$queryRawUnsafe(
@@ -104,7 +148,7 @@ const createVehicleBooking = async (req, res) => {
        RETURNING id, vehicle_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at`,
       vehicle_id ? Number(vehicle_id) : null,
       String(booked_by).trim(),
-      req.body.booked_by_email ? String(req.body.booked_by_email).trim() : null,
+      String(req.body.booked_by_email).trim().toLowerCase(),
       purpose ? String(purpose).trim() : null,
       destination ? String(destination).trim() : null,
       start_date,
@@ -160,7 +204,7 @@ const updateVehicleBooking = async (req, res) => {
     } = req.body;
 
     const beforeRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.status, vb.booked_by, u.department AS booked_by_department
+      `SELECT vb.status, vb.booked_by, vb.vehicle_id, vb.start_date, vb.end_date, vb.start_time, vb.end_time, u.department AS booked_by_department
        FROM public.vehicle_bookings vb
        LEFT JOIN public."User" u ON u.id = vb.booked_by
        WHERE vb.id = $1 LIMIT 1`,
@@ -197,6 +241,31 @@ const updateVehicleBooking = async (req, res) => {
       return res.status(403).json({ message: `Your role cannot set status to ${normalizedStatus}` });
     }
 
+    const effectiveStatus = normalizedStatus || previousStatus;
+    if (['PENDING', 'APPROVED'].includes(effectiveStatus)) {
+      const effectiveVehicleId = vehicle_id ? Number(vehicle_id) : beforeRows[0].vehicle_id;
+      const effectiveStartDate = start_date || beforeRows[0].start_date;
+      const effectiveEndDate = end_date || beforeRows[0].end_date;
+      const effectiveStartTime = start_time || beforeRows[0].start_time;
+      const effectiveEndTime = end_time || beforeRows[0].end_time;
+
+      const conflict = await findVehicleBookingConflict(
+        effectiveVehicleId,
+        effectiveStartDate,
+        effectiveEndDate,
+        effectiveStartTime,
+        effectiveEndTime,
+        bookingId
+      );
+      if (conflict) {
+        return res.status(409).json({ message: conflictMessage(conflict, 'This vehicle') });
+      }
+    }
+
+    if (booked_by_email && !isValidEmail(booked_by_email)) {
+      return res.status(400).json({ message: 'Invalid booked-by email format' });
+    }
+
     await prisma.$queryRawUnsafe(
       `UPDATE public.vehicle_bookings
          SET vehicle_id = COALESCE($2, vehicle_id),
@@ -222,7 +291,7 @@ const updateVehicleBooking = async (req, res) => {
       bookingId,
       vehicle_id ? Number(vehicle_id) : null,
       booked_by ? String(booked_by).trim() : null,
-      booked_by_email ? String(booked_by_email).trim() : null,
+      booked_by_email ? String(booked_by_email).trim().toLowerCase() : null,
       purpose ? String(purpose).trim() : null,
       destination ? String(destination).trim() : null,
       start_date || null,
@@ -337,12 +406,24 @@ const approveVehicleBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT id, vehicle_id, start_date, end_date, start_time, end_time FROM public.vehicle_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
     if (!existingRows.length) {
       return res.status(404).json({ message: 'Vehicle booking not found' });
+    }
+
+    const conflict = await findVehicleBookingConflict(
+      existingRows[0].vehicle_id,
+      existingRows[0].start_date,
+      existingRows[0].end_date,
+      existingRows[0].start_time,
+      existingRows[0].end_time,
+      bookingId
+    );
+    if (conflict) {
+      return res.status(409).json({ message: conflictMessage(conflict, 'This vehicle') });
     }
 
     const approverId = String(req.user?.id || '').trim();

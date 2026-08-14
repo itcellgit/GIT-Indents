@@ -31,6 +31,35 @@ const mapBusBookingRow = (row) => ({
   updatedAt: row.updated_at,
 });
 
+// A bus booking "holds" its slot while PENDING or APPROVED; REJECTED/CANCELLED
+// bookings never block a new request for the same slot. No bus assigned yet
+// (busId null) means nothing to conflict against.
+const findBusBookingConflict = async (busId, startDate, endDate, startTime, endTime, excludeId = null) => {
+  if (!busId) return null;
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT bb.id, bb.purpose, bb.start_date, bb.end_date, u.name AS booked_by_name
+     FROM public.bus_bookings bb
+     LEFT JOIN public."User" u ON u.id = bb.booked_by
+     WHERE bb.bus_id = $1
+       AND bb.status IN ('PENDING', 'APPROVED')
+       AND ($6::bigint IS NULL OR bb.id <> $6)
+       AND (bb.start_date + bb.start_time) < ($3::date + $5::time)
+       AND (bb.end_date + bb.end_time) > ($2::date + $4::time)
+     ORDER BY bb.start_date ASC, bb.start_time ASC
+     LIMIT 1`,
+    busId,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    excludeId
+  );
+  return rows[0] || null;
+};
+
+const conflictMessage = (conflict, resourceLabel) =>
+  `${resourceLabel} is already booked for the requested time (conflicts with a booking by ${conflict.booked_by_name || 'another user'}).`;
+
 const fetchBusBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
     `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
@@ -86,8 +115,23 @@ const createBusBooking = async (req, res) => {
       return res.status(400).json({ message: 'Booked by is required' });
     }
 
+    if (!isValidEmail(req.body.booked_by_email)) {
+      return res.status(400).json({ message: 'A valid booked-by email is required' });
+    }
+
     if (!start_date) {
       return res.status(400).json({ message: 'Start date is required' });
+    }
+
+    const conflict = await findBusBookingConflict(
+      bus_id ? Number(bus_id) : null,
+      start_date,
+      end_date || start_date,
+      start_time || '00:00',
+      end_time || '23:59:59',
+    );
+    if (conflict) {
+      return res.status(409).json({ message: conflictMessage(conflict, 'This bus') });
     }
 
     const bookingRows = await prisma.$queryRawUnsafe(
@@ -97,7 +141,7 @@ const createBusBooking = async (req, res) => {
        RETURNING id`,
       bus_id ? Number(bus_id) : null,
       String(booked_by).trim(),
-      req.body.booked_by_email ? String(req.body.booked_by_email).trim() : null,
+      String(req.body.booked_by_email).trim().toLowerCase(),
       purpose ? String(purpose).trim() : null,
       destination ? String(destination).trim() : null,
       start_date,
@@ -140,7 +184,7 @@ const updateBusBooking = async (req, res) => {
     } = req.body;
 
     const beforeRows = await prisma.$queryRawUnsafe(
-      `SELECT bb.status, bb.booked_by, u.department AS booked_by_department
+      `SELECT bb.status, bb.booked_by, bb.bus_id, bb.start_date, bb.end_date, bb.start_time, bb.end_time, u.department AS booked_by_department
        FROM public.bus_bookings bb
        LEFT JOIN public."User" u ON u.id = bb.booked_by
        WHERE bb.id = $1 LIMIT 1`,
@@ -177,6 +221,31 @@ const updateBusBooking = async (req, res) => {
       return res.status(403).json({ message: `Your role cannot set status to ${normalizedStatus}` });
     }
 
+    const effectiveStatus = normalizedStatus || previousStatus;
+    if (['PENDING', 'APPROVED'].includes(effectiveStatus)) {
+      const effectiveBusId = bus_id ? Number(bus_id) : beforeRows[0].bus_id;
+      const effectiveStartDate = start_date || beforeRows[0].start_date;
+      const effectiveEndDate = end_date || beforeRows[0].end_date;
+      const effectiveStartTime = start_time || beforeRows[0].start_time;
+      const effectiveEndTime = end_time || beforeRows[0].end_time;
+
+      const conflict = await findBusBookingConflict(
+        effectiveBusId,
+        effectiveStartDate,
+        effectiveEndDate,
+        effectiveStartTime,
+        effectiveEndTime,
+        bookingId
+      );
+      if (conflict) {
+        return res.status(409).json({ message: conflictMessage(conflict, 'This bus') });
+      }
+    }
+
+    if (booked_by_email && !isValidEmail(booked_by_email)) {
+      return res.status(400).json({ message: 'Invalid booked-by email format' });
+    }
+
     await prisma.$queryRawUnsafe(
       `UPDATE public.bus_bookings
          SET bus_id = COALESCE($2, bus_id),
@@ -202,7 +271,7 @@ const updateBusBooking = async (req, res) => {
       bookingId,
       bus_id ? Number(bus_id) : null,
       booked_by ? String(booked_by).trim() : null,
-      booked_by_email ? String(booked_by_email).trim() : null,
+      booked_by_email ? String(booked_by_email).trim().toLowerCase() : null,
       purpose ? String(purpose).trim() : null,
       destination ? String(destination).trim() : null,
       start_date || null,
@@ -307,12 +376,24 @@ const approveBusBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.bus_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT id, bus_id, start_date, end_date, start_time, end_time FROM public.bus_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
     if (!existingRows.length) {
       return res.status(404).json({ message: 'Bus booking not found' });
+    }
+
+    const conflict = await findBusBookingConflict(
+      existingRows[0].bus_id,
+      existingRows[0].start_date,
+      existingRows[0].end_date,
+      existingRows[0].start_time,
+      existingRows[0].end_time,
+      bookingId
+    );
+    if (conflict) {
+      return res.status(409).json({ message: conflictMessage(conflict, 'This bus') });
     }
 
     const approverId = String(req.user?.id || '').trim();

@@ -47,6 +47,18 @@ const getRoleIdsByName = async (roleNames) => {
     .filter(({ roleId }) => roleId !== undefined && roleId !== null);
 };
 
+// Roles are admin-extensible (see createRole/updateRole below), so this checks
+// against the live roles table rather than the fixed ROLES constant. Without this,
+// an unrecognized role name silently passes normalizeRoleList (which only trims/dedupes)
+// and then gets silently dropped by syncUserRoles's DB lookup — the API would report
+// success with the requested role while the user is actually persisted with no role
+// assigned at all.
+const getInvalidRoleNames = async (roleNames) => {
+  const resolved = await getRoleIdsByName(roleNames);
+  const resolvedNames = new Set(resolved.map((r) => r.roleName));
+  return roleNames.filter((name) => !resolvedNames.has(name));
+};
+
 const getRoleNamesByIds = async (roleIds) => {
   const inputRoleIds = Array.isArray(roleIds) ? roleIds : roleIds ? [roleIds] : [];
   if (inputRoleIds.length === 0) {
@@ -436,6 +448,11 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: 'At least one role is required' });
     }
 
+    const invalidRoles = await getInvalidRoleNames(selectedRoles);
+    if (invalidRoles.length > 0) {
+      return res.status(400).json({ message: `Invalid role(s): ${invalidRoles.join(', ')}` });
+    }
+
     const user = await prisma.$transaction(async (tx) => {
       const createdUser = await tx.user.create({
         data: {
@@ -509,6 +526,11 @@ const updateUser = async (req, res) => {
     const selectedRoles = normalizeRoleList(roleNamesFromIds.length > 0 ? roleNamesFromIds : roles || role || existingRoleNames);
     if (selectedRoles.length === 0) {
       return res.status(400).json({ message: 'At least one role is required' });
+    }
+
+    const invalidRoles = await getInvalidRoleNames(selectedRoles);
+    if (invalidRoles.length > 0) {
+      return res.status(400).json({ message: `Invalid role(s): ${invalidRoles.join(', ')}` });
     }
 
     const duplicateEmailUser = email

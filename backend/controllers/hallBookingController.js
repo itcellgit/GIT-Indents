@@ -38,6 +38,31 @@ const toLocalDateTime = (value) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+// A hall booking "holds" its slot while PENDING or APPROVED; REJECTED/CANCELLED
+// bookings never block a new request for the same slot.
+const findHallBookingConflict = async (hallId, startDatetime, endDatetime, excludeId = null) => {
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT hb.id, hb.purpose, hb.start_datetime, hb.end_datetime, u.name AS booked_by_name
+     FROM public.hall_bookings hb
+     LEFT JOIN public."User" u ON u.id = hb.booked_by
+     WHERE hb.hall_id = $1
+       AND hb.status IN ('PENDING', 'APPROVED')
+       AND ($4::bigint IS NULL OR hb.id <> $4)
+       AND hb.start_datetime < $3
+       AND hb.end_datetime > $2
+     ORDER BY hb.start_datetime ASC
+     LIMIT 1`,
+    hallId,
+    startDatetime,
+    endDatetime,
+    excludeId
+  );
+  return rows[0] || null;
+};
+
+const conflictMessage = (conflict, resourceLabel) =>
+  `${resourceLabel} is already booked for the requested time (conflicts with "${conflict.purpose || 'a booking'}" by ${conflict.booked_by_name || 'another user'}).`;
+
 const getHallBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
@@ -76,12 +101,17 @@ const createHallBooking = async (req, res) => {
       return res.status(400).json({ message: 'Booked by is required' });
     }
 
-    if (!booked_by_email || !String(booked_by_email).trim()) {
-      return res.status(400).json({ message: 'Booked by email is required' });
+    if (!isValidEmail(booked_by_email)) {
+      return res.status(400).json({ message: 'A valid booked-by email is required' });
     }
 
     if (!start_datetime || !end_datetime) {
       return res.status(400).json({ message: 'Start and end time are required' });
+    }
+
+    const conflict = await findHallBookingConflict(Number(hall_id), new Date(start_datetime), new Date(end_datetime));
+    if (conflict) {
+      return res.status(409).json({ message: conflictMessage(conflict, 'This hall') });
     }
 
     const bookingRows = await prisma.$queryRawUnsafe(
@@ -90,7 +120,7 @@ const createHallBooking = async (req, res) => {
        RETURNING id, hall_id, booked_by, booked_by_email, purpose, start_datetime, end_datetime, remarks, status, approved_by, created_at, updated_at`,
       Number(hall_id),
       String(booked_by).trim(),
-      String(booked_by_email).trim(),
+      String(booked_by_email).trim().toLowerCase(),
       purpose ? String(purpose).trim() : null,
       new Date(start_datetime),
       new Date(end_datetime),
@@ -134,7 +164,7 @@ const createHallBooking = async (req, res) => {
       } = req.body;
 
       const beforeRows = await prisma.$queryRawUnsafe(
-        `SELECT hb.status, hb.booked_by, u.department AS booked_by_department
+        `SELECT hb.status, hb.booked_by, hb.hall_id, hb.start_datetime, hb.end_datetime, u.department AS booked_by_department
          FROM public.hall_bookings hb
          LEFT JOIN public."User" u ON u.id = hb.booked_by
          WHERE hb.id = $1 LIMIT 1`,
@@ -171,6 +201,22 @@ const createHallBooking = async (req, res) => {
         return res.status(403).json({ message: `Your role cannot set status to ${normalizedStatus}` });
       }
 
+      const effectiveStatus = normalizedStatus || previousStatus;
+      if (['PENDING', 'APPROVED'].includes(effectiveStatus)) {
+        const effectiveHallId = hall_id ? Number(hall_id) : Number(beforeRows[0].hall_id);
+        const effectiveStart = start_datetime ? new Date(start_datetime) : beforeRows[0].start_datetime;
+        const effectiveEnd = end_datetime ? new Date(end_datetime) : beforeRows[0].end_datetime;
+
+        const conflict = await findHallBookingConflict(effectiveHallId, effectiveStart, effectiveEnd, bookingId);
+        if (conflict) {
+          return res.status(409).json({ message: conflictMessage(conflict, 'This hall') });
+        }
+      }
+
+      if (booked_by_email && !isValidEmail(booked_by_email)) {
+        return res.status(400).json({ message: 'Invalid booked-by email format' });
+      }
+
       await prisma.$queryRawUnsafe(
         `UPDATE public.hall_bookings
          SET hall_id = COALESCE($2, hall_id),
@@ -192,7 +238,7 @@ const createHallBooking = async (req, res) => {
         bookingId,
         hall_id ? Number(hall_id) : null,
         booked_by ? String(booked_by).trim() : null,
-        booked_by_email ? String(booked_by_email).trim() : null,
+        booked_by_email ? String(booked_by_email).trim().toLowerCase() : null,
         purpose ? String(purpose).trim() : null,
         start_datetime ? new Date(start_datetime) : null,
         end_datetime ? new Date(end_datetime) : null,
@@ -347,12 +393,22 @@ const approveHallBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.hall_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT id, hall_id, start_datetime, end_datetime FROM public.hall_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
     if (!existingRows.length) {
       return res.status(404).json({ message: 'Hall booking not found' });
+    }
+
+    const conflict = await findHallBookingConflict(
+      Number(existingRows[0].hall_id),
+      existingRows[0].start_datetime,
+      existingRows[0].end_datetime,
+      bookingId
+    );
+    if (conflict) {
+      return res.status(409).json({ message: conflictMessage(conflict, 'This hall') });
     }
 
     const approverId = String(req.user?.id || '').trim();

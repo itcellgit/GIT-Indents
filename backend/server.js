@@ -79,6 +79,14 @@ app.use(cors({
   exposedHeaders: ['Set-Cookie'],
 }));
 
+// CSRF defense (see TECHNICAL_AUDIT_REPORT.md 6.4): the auth cookie is
+// SameSite=None over HTTPS (required for the cross-origin frontend/API setup
+// here), so it alone can't block cross-site form/fetch submissions. Reject
+// state-changing requests whose Origin/Referer isn't in the same allowlist
+// used above for CORS.
+const csrfOriginCheck = require('./middleware/csrfOriginCheck');
+app.use(csrfOriginCheck(isAllowedOrigin));
+
 // Configure Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -147,6 +155,14 @@ app.use('/api/faculty-book-indents', facultyBookIndentRoutes);
 app.get('/', (req, res) => {
   res.send('GIT Maintenance System Backend is up and running!');
 });
+
+// --- ERROR HANDLING (safety net; see TECHNICAL_AUDIT_REPORT.md 5.1) ---
+// Must be registered after all routes. Controllers keep handling their own
+// errors/responses as before — this only catches what escapes them (unmatched
+// routes, errors thrown in middleware, unhandled async rejections).
+const { notFound, errorHandler } = require('./middleware/errorHandler');
+app.use(notFound);
+app.use(errorHandler);
 
 // --- START SERVER ---
 const PORT = process.env.PORT || 5000;

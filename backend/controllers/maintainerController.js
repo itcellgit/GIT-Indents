@@ -1,5 +1,5 @@
 const prisma = require('../prismaClient');
-const { sendNotification } = require('../utils/notificationService');
+const { sendNotification, escapeHtml } = require('../utils/notificationService');
 
 const parseJsonField = (value, fallback) => {
   if (value === undefined || value === null || value === '') return fallback;
@@ -114,7 +114,7 @@ const updateComplaint = async (req, res) => {
       if (indent.category && indent.category.inchargeId) {
         sendNotification(
           indent.category.inchargeId,
-          `Maintainer ${req.user.name} has completed work on Indent ${indent.indentNumber}. Please review and finalize.`,
+          `Maintainer ${escapeHtml(req.user.name)} has completed work on Indent ${indent.indentNumber}. Please review and finalize.`,
           req.user.id,
           indent.id,
           indent.indentNumber
@@ -175,7 +175,7 @@ const reviewIndent = async (req, res) => {
     sendNotification(
       indent.requesterId,
       isRejection
-        ? `Your indent ${indent.indentNumber} was rejected by a Maintainer. Reason: ${rejectionReason || 'No reason provided'}`
+        ? `Your indent ${indent.indentNumber} was rejected by a Maintainer. Reason: ${escapeHtml(rejectionReason || 'No reason provided')}`
         : `Your indent ${indent.indentNumber} was approved by a Maintainer and is progressing.`,
       req.user.id,
       indent.id,
@@ -259,7 +259,7 @@ const completeIndent = async (req, res) => {
 
     sendNotification(
       indent.requesterId,
-      `Your indent ${indent.indentNumber} has been marked as Completed by Maintainer ${req.user.name}.`,
+      `Your indent ${indent.indentNumber} has been marked as Completed by Maintainer ${escapeHtml(req.user.name)}.`,
       req.user.id,
       indent.id,
       indent.indentNumber
@@ -268,7 +268,7 @@ const completeIndent = async (req, res) => {
     if (indent.category && indent.category.inchargeId) {
       sendNotification(
         indent.category.inchargeId,
-        `Indent ${indent.indentNumber} has been completed by Maintainer ${req.user.name}.`,
+        `Indent ${indent.indentNumber} has been completed by Maintainer ${escapeHtml(req.user.name)}.`,
         req.user.id,
         indent.id,
         indent.indentNumber

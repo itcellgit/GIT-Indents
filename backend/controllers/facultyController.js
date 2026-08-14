@@ -1,6 +1,6 @@
 const prisma = require('../prismaClient');
 const generateIndentNumber = require('../utils/generateIndentNumber');
-const { sendNotification } = require('../utils/notificationService');
+const { sendNotification, escapeHtml } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
 // @desc    Get dashboard data for a faculty user
@@ -89,7 +89,7 @@ const createComplaint = async (req, res) => {
       if (categoryRecord.inchargeId) {
         sendNotification(
           categoryRecord.inchargeId,
-          `New indent ${newIndent.indentNumber} raised by ${req.user.name} requires your approval.`,
+          `New indent ${newIndent.indentNumber} raised by ${escapeHtml(req.user.name)} requires your approval.`,
           req.user.id,
           newIndent.id,
           newIndent.indentNumber
@@ -115,7 +115,7 @@ const createComplaint = async (req, res) => {
       if (deptHOD) {
         sendNotification(
           deptHOD.id,
-          `New indent ${newIndent.indentNumber} was raised by ${req.user.name} in your department.`,
+          `New indent ${newIndent.indentNumber} was raised by ${escapeHtml(req.user.name)} in your department.`,
           req.user.id,
           newIndent.id,
           newIndent.indentNumber

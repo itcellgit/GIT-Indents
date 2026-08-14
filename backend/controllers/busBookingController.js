@@ -1,5 +1,5 @@
 const prisma = require('../prismaClient');
-const { sendEmailNotificationToRecipients } = require('../utils/notificationService');
+const { sendEmailNotificationToRecipients, escapeHtml } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
 const BUS_BOOKING_EMAILS = [];
@@ -336,17 +336,17 @@ const deleteBusBooking = async (req, res) => {
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
-      `Bus: ${bookingToDelete.bus_number || bookingToDelete.bus_name || `ID ${bookingToDelete.bus_id}`}`,
-      `Booked by: ${bookingToDelete.booked_by_name || bookingToDelete.booked_by || 'N/A'}`,
-      `Purpose: ${bookingToDelete.purpose || 'N/A'}`,
-      `Destination: ${bookingToDelete.destination || 'N/A'}`,
+      `Bus: ${escapeHtml(bookingToDelete.bus_number || bookingToDelete.bus_name || `ID ${bookingToDelete.bus_id}`)}`,
+      `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || bookingToDelete.booked_by || 'N/A')}`,
+      `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
+      `Destination: ${escapeHtml(bookingToDelete.destination || 'N/A')}`,
       `Start Date: ${bookingToDelete.start_date || 'N/A'}`,
       `End Date: ${bookingToDelete.end_date || 'N/A'}`,
       `Period: ${bookingToDelete.booking_period || 'N/A'}`,
       `Start Time: ${bookingToDelete.start_time || 'N/A'}`,
       `End Time: ${bookingToDelete.end_time || 'N/A'}`,
       `Passengers: ${bookingToDelete.passenger_count || 'N/A'}`,
-      `Remarks: ${bookingToDelete.remarks || 'N/A'}`,
+      `Remarks: ${escapeHtml(bookingToDelete.remarks || 'N/A')}`,
     ].join('<br>');
 
     const emailResult = await sendEmailNotificationToRecipients({
@@ -481,17 +481,17 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     : upperAction === 'CANCELLED' ? 'Cancelled'
     : 'Updated';
   const details = [
-    `Bus: ${booking.bus_number || booking.bus_name || `ID ${booking.bus_id}`}`,
-    `Booked by: ${booking.booked_by_name || booking.booked_by || 'N/A'}`,
-    `Purpose: ${booking.purpose || 'N/A'}`,
-    `Destination: ${booking.destination || 'N/A'}`,
+    `Bus: ${escapeHtml(booking.bus_number || booking.bus_name || `ID ${booking.bus_id}`)}`,
+    `Booked by: ${escapeHtml(booking.booked_by_name || booking.booked_by || 'N/A')}`,
+    `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
+    `Destination: ${escapeHtml(booking.destination || 'N/A')}`,
     `Start Date: ${booking.start_date || 'N/A'}`,
     `End Date: ${booking.end_date || 'N/A'}`,
     `Period: ${booking.booking_period || 'N/A'}`,
     `Start Time: ${booking.start_time || 'N/A'}`,
     `End Time: ${booking.end_time || 'N/A'}`,
     `Passengers: ${booking.passenger_count || 'N/A'}`,
-    `Remarks: ${booking.remarks || 'N/A'}`,
+    `Remarks: ${escapeHtml(booking.remarks || 'N/A')}`,
   ].join('<br>');
 
   void sendEmailNotificationToRecipients({

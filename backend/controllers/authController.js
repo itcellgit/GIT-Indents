@@ -68,13 +68,17 @@ const generateToken = (id, role) => {
   });
 };
 
-const getNormalizedAuthUser = async (id, activeRole = null) => {
+// Password hash is only ever selected when a caller explicitly opts in via
+// includePassword (only bcrypt.compare call sites need it — see 7.1 in
+// TECHNICAL_AUDIT_REPORT.md). Every other caller gets a user object that
+// structurally cannot leak the hash, even if it's later spread into a response.
+const getNormalizedAuthUser = async (id, activeRole = null, includePassword = false) => {
   const rows = await prisma.$queryRawUnsafe(
     `SELECT
        u.id,
        u.name,
        u.email,
-       u.password,
+       ${includePassword ? 'u.password,' : ''}
        u.department,
        u."isActive" AS "isActive",
        COALESCE(
@@ -103,7 +107,7 @@ const getNormalizedAuthUser = async (id, activeRole = null) => {
   return { ...user, roles, role };
 };
 
-const getAuthUserByEmail = async (email) => {
+const getAuthUserByEmail = async (email, { includePassword = false } = {}) => {
   const rows = await prisma.$queryRawUnsafe(
     `SELECT u.id
      FROM "User" u
@@ -112,10 +116,10 @@ const getAuthUserByEmail = async (email) => {
     email
   );
 
-  return rows[0] ? getNormalizedAuthUser(rows[0].id) : null;
+  return rows[0] ? getNormalizedAuthUser(rows[0].id, null, includePassword) : null;
 };
 
-const getAuthUserById = async (id) => getNormalizedAuthUser(id);
+const getAuthUserById = async (id, { includePassword = false } = {}) => getNormalizedAuthUser(id, null, includePassword);
 
 const getRoleIdByName = async (roleName) => {
   const rows = await prisma.$queryRawUnsafe(
@@ -383,8 +387,7 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Use .select('+password') if password selection is false by default in schema (though it's true currently)
-    const user = await getAuthUserByEmail(email);
+    const user = await getAuthUserByEmail(email, { includePassword: true });
 
     if (user && user.password && (await bcrypt.compare(password, user.password))) {
       let effectiveRole = user.role;
@@ -501,8 +504,18 @@ const resetPassword = async (req, res) => {
     const { email, otp, newPassword } = req.body;
 
     // Look up by email alone first (not combined with the OTP in one query,
-    // like before) so we can read this user's own attempt/lock state.
-    const user = await prisma.user.findUnique({ where: { email } });
+    // like before) so we can read this user's own attempt/lock state. Password
+    // hash isn't needed here (a new one gets set below) — excluded from select.
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        resetPasswordOTP: true,
+        resetPasswordExpires: true,
+        resetPasswordAttempts: true,
+        resetPasswordLockedUntil: true
+      }
+    });
 
     if (!user || !user.resetPasswordOTP) {
       // Same generic message as a wrong OTP — don't reveal whether the email exists.
@@ -560,7 +573,7 @@ const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    const user = await getAuthUserById(req.user.id);
+    const user = await getAuthUserById(req.user.id, { includePassword: true });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

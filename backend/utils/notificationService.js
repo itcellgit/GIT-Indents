@@ -12,23 +12,38 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Email bodies interpolate user-controlled data (registered names, booking
+// purposes/remarks, rejection reasons, ...). Without escaping, a malicious
+// value (e.g. a registration name containing an <img onerror=...> tag) would
+// render as live HTML in every recipient's inbox — see TECHNICAL_AUDIT_REPORT.md 6.3.
+const escapeHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+// `message` is intentionally exempt from escaping here: every caller builds it
+// as pre-formatted HTML (<br>, <strong> for layout). Callers are responsible for
+// escaping any user-controlled substring *before* splicing it into `message` —
+// use the exported `escapeHtml` above at that point, not here.
 const buildMailTemplate = ({ title, recipientName, message, actionUrl, label, footerNote, portalName }) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
     <div style="background-color: #4f46e5; padding: 24px; text-align: center;">
-      <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">${portalName || 'Indents Management Portal'}</h1>
+      <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">${escapeHtml(portalName || 'Indents Management Portal')}</h1>
       <h2 style="color: #ffffff; margin: 8px 0 0; font-size: 16px; font-weight: normal;">Kindly Ignore this email, As the software application is under testing</h2>
     </div>
     <div style="padding: 32px;">
-      <h2 style="color: #1e293b; margin-top: 0; font-size: 20px;">${title}</h2>
-      ${label ? `<p style="display: inline-block; background-color: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 9999px; font-size: 14px; font-weight: bold; margin-bottom: 16px;">${label}</p>` : ''}
+      <h2 style="color: #1e293b; margin-top: 0; font-size: 20px;">${escapeHtml(title)}</h2>
+      ${label ? `<p style="display: inline-block; background-color: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 9999px; font-size: 14px; font-weight: bold; margin-bottom: 16px;">${escapeHtml(label)}</p>` : ''}
       <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
-        Hello ${recipientName},
+        Hello ${escapeHtml(recipientName)},
         <br><br>
         ${message}
       </p>
     </div>
     <div style="background-color: #f8fafc; padding: 16px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="color: #94a3b8; font-size: 12px; margin: 0;">${footerNote || 'This is an automated notification. Please do not reply to this email.'}</p>
+      <p style="color: #94a3b8; font-size: 12px; margin: 0;">${escapeHtml(footerNote || 'This is an automated notification. Please do not reply to this email.')}</p>
     </div>
   </div>
 `;
@@ -248,5 +263,6 @@ module.exports = {
   sendNotification,
   sendRoleNotification,
   sendEmailNotificationToRecipients,
+  escapeHtml,
   ROLES,
 };

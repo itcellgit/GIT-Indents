@@ -1,5 +1,5 @@
 const prisma = require('../prismaClient');
-const { sendEmailNotificationToRecipients } = require('../utils/notificationService');
+const { sendEmailNotificationToRecipients, escapeHtml } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
 const HALL_BOOKING_EMAILS = [
@@ -306,13 +306,13 @@ const deleteHallBooking = async (req, res) => {
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
-      `Hall: ${bookingToDelete.hall_name || `ID ${bookingToDelete.hall_id}`}`,
-      `Booked by: ${bookingToDelete.booked_by || 'N/A'}`,
-      `Booked by email: ${bookingToDelete.booked_by_email || 'N/A'}`,
-      `Purpose: ${bookingToDelete.purpose || 'N/A'}`,
+      `Hall: ${escapeHtml(bookingToDelete.hall_name || `ID ${bookingToDelete.hall_id}`)}`,
+      `Booked by: ${escapeHtml(bookingToDelete.booked_by || 'N/A')}`,
+      `Booked by email: ${escapeHtml(bookingToDelete.booked_by_email || 'N/A')}`,
+      `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
       `Start: ${bookingToDelete.start_datetime ? new Date(bookingToDelete.start_datetime).toLocaleString() : 'N/A'}`,
       `End: ${bookingToDelete.end_datetime ? new Date(bookingToDelete.end_datetime).toLocaleString() : 'N/A'}`,
-      `Remarks: ${bookingToDelete.remarks || 'N/A'}`,
+      `Remarks: ${escapeHtml(bookingToDelete.remarks || 'N/A')}`,
     ].join('<br>');
 
     const emailResult = await sendEmailNotificationToRecipients({
@@ -367,13 +367,13 @@ const sendBookingStatusNotification = async (booking, action) => {
     : upperAction === 'CANCELLED' ? 'Cancelled'
     : 'Updated';
   const details = [
-    `Hall: ${booking.hall_name || `ID ${booking.hall_id}`}`,
-    `Booked by: ${booking.booked_by || 'N/A'}`,
-    `Booked by email: ${booking.booked_by_email || 'N/A'}`,
-    `Purpose: ${booking.purpose || 'N/A'}`,
+    `Hall: ${escapeHtml(booking.hall_name || `ID ${booking.hall_id}`)}`,
+    `Booked by: ${escapeHtml(booking.booked_by || 'N/A')}`,
+    `Booked by email: ${escapeHtml(booking.booked_by_email || 'N/A')}`,
+    `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Start: ${booking.start_datetime ? new Date(booking.start_datetime).toLocaleString() : 'N/A'}`,
     `End: ${booking.end_datetime ? new Date(booking.end_datetime).toLocaleString() : 'N/A'}`,
-    `Remarks: ${booking.remarks || 'N/A'}`,
+    `Remarks: ${escapeHtml(booking.remarks || 'N/A')}`,
   ].join('<br>');
 
   void sendEmailNotificationToRecipients({

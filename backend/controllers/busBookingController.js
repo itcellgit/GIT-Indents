@@ -287,6 +287,7 @@ const deleteBusBooking = async (req, res) => {
       subject: `Bus Booking Cancelled${bookingToDelete.bus_number ? ` - ${bookingToDelete.bus_number}` : ''}`,
       actionUrl: `${frontendUrl}/bus-bookings`,
       label: 'Bus Booking',
+      portalName: 'Bus Booking Portal',
     });
 
     if (!emailResult?.success) {
@@ -419,6 +420,7 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     subject: `Bus Booking ${actionLabel}${booking.bus_number ? ` - ${booking.bus_number}` : ''}`,
     actionUrl: `${frontendUrl}/bus-bookings`,
     label: 'Bus Booking',
+    portalName: 'Bus Booking Portal',
   });
 };
 

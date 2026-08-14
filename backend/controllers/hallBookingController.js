@@ -3,11 +3,11 @@ const { sendEmailNotificationToRecipients } = require('../utils/notificationServ
 const { ROLES } = require('../utils/roles');
 
 const HALL_BOOKING_EMAILS = [
-  // 'dean_infra@git.edu',
-  // 'hodmech@git.edu',
-  // 'hodee@git.edu',
-  // 'cc@git.edu',
-  // 'hodec@git.edu',
+  //  'maintenance@git.edu',
+  //  'productioncenter@git.edu',
+  //  'epmc@git.edu',
+  //  'itmaintenance@git.edu',
+  //  'energycell@git.edu',
   'rypatil@git.edu',
   // 'itcell@git.edu',
 ];
@@ -276,6 +276,7 @@ const deleteHallBooking = async (req, res) => {
       subject: `Hall Booking Cancelled${bookingToDelete.hall_name ? ` - ${bookingToDelete.hall_name}` : ''}`,
       actionUrl: `${frontendUrl}/hall-bookings`,
       label: 'Hall Booking',
+      portalName: 'Hall Booking Portal',
     });
 
     if (!emailResult?.success) {
@@ -336,6 +337,7 @@ const sendBookingStatusNotification = async (booking, action) => {
     subject: `Hall Booking ${actionLabel}${booking.hall_name ? ` - ${booking.hall_name}` : ''}`,
     actionUrl: `${frontendUrl}/hall-bookings`,
     label: 'Hall Booking',
+    portalName: 'Hall Booking Portal',
   });
 };
 

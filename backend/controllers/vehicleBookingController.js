@@ -317,6 +317,7 @@ const deleteVehicleBooking = async (req, res) => {
       subject: `Vehicle Booking Cancelled${bookingToDelete.vehicle_number ? ` - ${bookingToDelete.vehicle_number}` : ''}`,
       actionUrl: `${frontendUrl}/vehicle-bookings`,
       label: 'Vehicle Booking',
+      portalName: 'Vehicle Booking Portal',
     });
 
     if (!emailResult?.success) {
@@ -449,6 +450,7 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
     subject: `Vehicle Booking ${actionLabel}${booking.vehicle_number ? ` - ${booking.vehicle_number}` : ''}`,
     actionUrl: `${frontendUrl}/vehicle-bookings`,
     label: 'Vehicle Booking',
+    portalName: 'Vehicle Booking Portal',
   });
 };
 

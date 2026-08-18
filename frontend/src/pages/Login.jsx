@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -88,6 +88,14 @@ const Login = () => {
           className="absolute inset-0 object-cover w-full h-full mix-blend-overlay opacity-40 z-0"
         />
       </div>
+
+      {/* Help / User Guide */}
+      <Link
+        to="/user-guide"
+        className="absolute top-6 right-6 z-30 inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-4 py-2 backdrop-blur-sm transition-colors"
+      >
+        <HelpCircle className="w-4 h-4" /> Help
+      </Link>
 
       {/* Branding - Slightly larger logo */}
       <div className="absolute top-10 left-10 z-20 hidden lg:flex flex-col items-start text-white">

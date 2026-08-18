@@ -164,8 +164,6 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
     let newStatus = 'Approved by Dept HOD';
     if (isMaintainerRole) {
       newStatus = 'Approved by Maintenance HOD';
-    } else if (isPrincipal) {
-      newStatus = 'Approved by Principal';
     } else if (isIncharge) {
       newStatus = 'Approved by Maintenance HOD';
     } else if (isDeptHOD) {
@@ -192,8 +190,6 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
     let newStatus = 'Rejected by Maintenance HOD';
     if (isMaintainerRole) {
       newStatus = 'Rejected by Maintenance HOD';
-    } else if (isPrincipal) {
-      newStatus = 'Rejected by Principal';
     } else if (isDeptHOD && !isIncharge) {
       newStatus = 'Rejected by Dept HOD';
     } else {
@@ -754,12 +750,11 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
           <div className="flex gap-3">
             {((isDeptHOD && (complaint.status === 'Indent Created' || complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Dept HOD')) ||
-              (isIncharge && (complaint.status === 'Indent Created' || complaint.status === 'Approved by Dept HOD' || complaint.status === 'Approved by Principal' || complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal')) ||
-               (isPrincipal && (complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal' || complaint.status === 'Indent Created'))) && (
+              (isIncharge && (complaint.status === 'Indent Created' || complaint.status === 'Approved by Dept HOD' || complaint.status === 'Approved by Principal' || complaint.status === 'Rejected by Maintenance HOD' || complaint.status === 'Rejected by Principal'))) && (
               <>
                 {!isEditing ? (
                   <>
-                    {(isDeptHOD || isPrincipal) && (
+                    {isDeptHOD && (
                       <button
                         onClick={() => setIsEditing(true)}
                         className="px-5 py-2 text-sm font-semibold text-indigo-600 bg-white border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm"
@@ -767,7 +762,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                         Edit Indent
                       </button>
                     )}
-                    {(isPrincipal || isIncharge) && (
+                    {isIncharge && (
                       <>
                         {!complaint.status.includes('Rejected') && (
                           !showRejectionInput ? (

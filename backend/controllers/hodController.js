@@ -39,14 +39,10 @@ const getHODComplaints = async (req, res) => {
 
     if (req.user.role === ROLES.PRINCIPAL) {
       isCategoryIncharge = true;
-      // Principal sees everything
-      maintenanceIndents = await prisma.indent.findMany({ 
-        where: { status: { notIn: ['Indent Created', 'Rejected by Maintenance HOD', 'Rejected by Dept HOD', 'Rejected by Principal'] } },
-        include: HOD_DASHBOARD_INCLUDE
-      });
-
-      approvalRequests = await prisma.indent.findMany({ 
-        where: { status: { in: ['Rejected by Maintenance HOD', 'Rejected by Principal'] } },
+      // Principal's Global Queue is a read-only view of every indent in the
+      // system, with no status filter — approval/rejection is handled by the
+      // Facility Provider for each category, not the Principal.
+      maintenanceIndents = await prisma.indent.findMany({
         include: HOD_DASHBOARD_INCLUDE
       });
     } else {
@@ -193,13 +189,15 @@ const updateComplaintStatus = async (req, res) => {
     }
 
     // PERMISSION CHECK for maintenance review flow
+    // Principal is deliberately excluded: approval/rejection of maintenance
+    // indents is the Facility Provider's responsibility only. Principal's
+    // Global Queue is read-only.
     const isMaintenanceIncharge = await prisma.category.findFirst({ where: { id: indent.categoryId, inchargeId: req.user.id } });
     const isDeptHOD = req.user.role === ROLES.HOD && indent.requester?.department && req.user.department === indent.requester.department;
-    const isPrincipal = req.user.role === ROLES.PRINCIPAL;
 
-    if (!isMaintenanceIncharge && !isDeptHOD && !isPrincipal) {
-      return res.status(403).json({ 
-        message: 'Forbidden: You are not authorized to update this indent.' 
+    if (!isMaintenanceIncharge && !isDeptHOD) {
+      return res.status(403).json({
+        message: 'Forbidden: You are not authorized to update this indent.'
       });
     }
 
@@ -254,13 +252,13 @@ const updateComplaintStatus = async (req, res) => {
     });
 
     // -- NOTIFICATIONS --
-    // 1. Dept HOD or Principal -> Maintenance HOD
-    if ((status === 'Approved by Dept HOD' || status === 'Approved by Principal') && !isMaintenanceIncharge) {
+    // 1. Dept HOD -> Maintenance HOD
+    if (status === 'Approved by Dept HOD' && !isMaintenanceIncharge) {
       const categoryInfo = await prisma.category.findUnique({ where: { id: indent.categoryId } });
       if (categoryInfo && categoryInfo.inchargeId) {
         sendNotification(
           categoryInfo.inchargeId,
-          `Indent ${indent.indentNumber} was approved by ${isPrincipal ? 'Principal' : 'Department HOD'} and requires maintenance assessment.`,
+          `Indent ${indent.indentNumber} was approved by Department HOD and requires maintenance assessment.`,
           req.user.id,
           indent.id,
           indent.indentNumber

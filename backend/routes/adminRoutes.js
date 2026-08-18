@@ -49,19 +49,25 @@ const STATIONARY_CATALOG_ROLES = [ROLES.ADMIN, ROLES.FACULTY, ROLES.NON_TEACHING
 
 router.get('/stats', protect, authorize(ROLES.ADMIN), getSystemStats);
 router.get('/users', protect, authorize(...USER_DIRECTORY_ROLES), getAllUsers);
-router.get('/roles', protect, authorize(ROLES.ADMIN), getAllRoles);
+// GET is also used by UserManager.jsx (shared with PrincipalDashboard) to populate
+// the role dropdown when assigning a role to a user; role CRUD itself stays Admin-only.
+router.get('/roles', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), getAllRoles);
 router.post('/roles', protect, authorize(ROLES.ADMIN), createRole);
 router.put('/roles/:id', protect, authorize(ROLES.ADMIN), updateRole);
 router.delete('/roles/:id', protect, authorize(ROLES.ADMIN), deleteRole);
-router.post('/users', protect, authorize(ROLES.ADMIN), createUser);
-router.put('/users/:id', protect, authorize(ROLES.ADMIN), updateUser);
-router.post('/users/bulk', protect, authorize(ROLES.ADMIN), bulkCreateUsers);
-router.put('/users/:id/status', protect, authorize(ROLES.ADMIN), toggleUserStatus);
+// UserManager.jsx (create/edit/bulk-upload/status-toggle) is rendered identically for
+// Principal's "User Management" tab, so these need the same authorization as Admin.
+router.post('/users', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), createUser);
+router.put('/users/:id', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), updateUser);
+router.post('/users/bulk', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), bulkCreateUsers);
+router.put('/users/:id/status', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), toggleUserStatus);
 router.get('/complaints', protect, authorize(ROLES.ADMIN), getAllComplaints);
 router.get('/users/search', protect, authorize(ROLES.ADMIN), searchUsers);
 router.post('/departments', protect, authorize(ROLES.ADMIN), createDepartment);
 router.put('/departments/:id', protect, authorize(ROLES.ADMIN), updateDepartment);
-router.get('/departments', protect, authorize(ROLES.ADMIN), getDepartmentsAdmin);
+// Principal also reads this to populate the department filter on System Reports
+// (ReportManager.jsx is shared between AdminDashboard and PrincipalDashboard).
+router.get('/departments', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), getDepartmentsAdmin);
 router.get('/stationaries', protect, authorize(...STATIONARY_CATALOG_ROLES), getAllStationaries);
 router.post('/stationaries', protect, authorize(...STATIONARY_CATALOG_ROLES), createStationary);
 router.put('/stationaries/:id', protect, authorize(...STATIONARY_CATALOG_ROLES), updateStationary);
@@ -74,6 +80,7 @@ router.put('/coordinators/assignments/:assignmentId', protect, authorize(ROLES.A
 router.post('/coordinators', protect, authorize(ROLES.ADMIN), createCoordinator);
 router.put('/coordinators/:id', protect, authorize(ROLES.ADMIN), updateCoordinator);
 router.delete('/coordinators/:id', protect, authorize(ROLES.ADMIN), deleteCoordinator);
-router.get('/reports', protect, authorize(ROLES.ADMIN), getMonthlyReport);
+// Principal also generates System Reports from this same shared ReportManager.jsx.
+router.get('/reports', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), getMonthlyReport);
 
 module.exports = router;

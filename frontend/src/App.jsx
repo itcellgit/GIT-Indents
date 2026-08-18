@@ -18,6 +18,7 @@ import CoordinatorDetails from './pages/AdminDashboard/CoordinatorDetails';
 import OfficeStationaryDashboard from './pages/OfficeStationaryDashboard';
 import StationaryIndentCreate from './pages/StationaryIndentCreate';
 import Profile from './pages/Profile';
+import UserGuide from './pages/UserGuide';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import GlobalLoader from './components/GlobalLoader';
@@ -35,6 +36,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/user-guide" element={<UserGuide />} />
           <Route path="/dashboard" element={
             <ProtectedRoute allowedRoles={[ROLES.FACULTY]}>
               <FacultyDashboard />

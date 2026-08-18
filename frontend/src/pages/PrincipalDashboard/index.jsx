@@ -17,11 +17,10 @@ import logo from '../../assets/logo.png';
 const PrincipalDashboard = () => {
   const { user, logout } = useAuth();
   const [departmentIndents, setDepartmentIndents] = useState([]);
-  const [approvalRequests, setApprovalRequests] = useState([]);
   const [myRaisedIndents, setMyRaisedIndents] = useState([]);
   const [usersList, setUsersList] = useState([]);
-  
-  const [activeTab, setActiveTab] = useState('approvals');
+
+  const [activeTab, setActiveTab] = useState('department');
   
   const [filterStatus, setFilterStatus] = useState('All');
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +54,6 @@ const PrincipalDashboard = () => {
         // Fetch complaints from backend endpoint (same as HOD but backend handles Principal role)
         const res = await api.get('/hod/complaints');
         setDepartmentIndents(res.data.departmentIndents || []);
-        setApprovalRequests(res.data.approvalRequests || []);
         setMyRaisedIndents(res.data.myRaisedIndents || []);
       } catch (err) {
         console.error("Failed to fetch complaints:", err);
@@ -77,18 +75,16 @@ const PrincipalDashboard = () => {
 
   const stats = useMemo(() => {
     return {
-      approvals: approvalRequests.length,
       pending: departmentIndents.filter(c => c.status === 'Approved by Principal' || c.status === 'Approved by Dept HOD').length,
       inProgress: departmentIndents.filter(c => c.status === 'In Progress').length,
       resolved: departmentIndents.filter(c => c.status === 'Completed').length,
     };
-  }, [departmentIndents, approvalRequests]);
+  }, [departmentIndents]);
 
   const updateIndentList = (updatedComplaint) => {
     const targetId = updatedComplaint.id || updatedComplaint._id;
     if (!targetId) return;
     setDepartmentIndents(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? updatedComplaint : c));
-    setApprovalRequests(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? updatedComplaint : c));
     setMyRaisedIndents(prev => prev.map(c => (c.id === targetId || c._id === targetId) ? updatedComplaint : c));
     if (selectedComplaint && (selectedComplaint.id === targetId || selectedComplaint._id === targetId)) {
       setSelectedComplaint(updatedComplaint);
@@ -164,15 +160,13 @@ const PrincipalDashboard = () => {
     const params = new URLSearchParams(window.location.search);
     const indentIdParam = params.get('indentId');
     if (indentIdParam) {
-      const allComplaints = [...departmentIndents, ...approvalRequests, ...myRaisedIndents];
+      const allComplaints = [...departmentIndents, ...myRaisedIndents];
       if (allComplaints.length > 0) {
         const target = allComplaints.find(c => c._id === indentIdParam || c.id === indentIdParam);
         if (target) {
           setSelectedComplaint(target);
-          
-          if (approvalRequests.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
-            setActiveTab('approvals');
-          } else if (departmentIndents.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
+
+          if (departmentIndents.some(c => c._id === indentIdParam || c.id === indentIdParam)) {
             setActiveTab('department');
           } else {
             setActiveTab('myRaised');
@@ -182,7 +176,7 @@ const PrincipalDashboard = () => {
         }
       }
     }
-  }, [departmentIndents, approvalRequests, myRaisedIndents]);
+  }, [departmentIndents, myRaisedIndents]);
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -247,16 +241,6 @@ const PrincipalDashboard = () => {
                 Global Queue
               </button>
               <button
-                onClick={() => setActiveTab('approvals')}
-                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
-                  activeTab === 'approvals' 
-                    ? 'border-indigo-600 text-indigo-600' 
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Review Queue ({approvalRequests.length})
-              </button>
-              <button
                 onClick={() => setActiveTab('myRaised')}
                 className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
                   activeTab === 'myRaised' 
@@ -306,21 +290,13 @@ const PrincipalDashboard = () => {
         {/* Dynamic Content Area */}
         <div className="pb-32">
           
-          {activeTab === 'approvals' && (
-            <div id="approvals" className="scroll-mt-32">
-              <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Review Queue</h2>
-              <ComplaintTable 
-                complaints={approvalRequests}
-                onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
-                showStatusFilter={false}
-              />
-            </div>
-          )}
-
           {activeTab === 'department' && (
             <div id="department" className="scroll-mt-32">
-              <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Global Queue</h2>
-              <StatsCards 
+              <div className="mb-6 pb-2 border-b border-slate-200">
+                <h2 className="text-xl font-bold text-slate-800">Global Queue</h2>
+                <p className="text-sm text-gray-500 mt-1">A read-only view of every indent in the system. Approval and rejection are handled by the Facility Provider for each category.</p>
+              </div>
+              <StatsCards
                 stats={stats} 
                 activeFilter={filterStatus}
                 onCardClick={(val) => {

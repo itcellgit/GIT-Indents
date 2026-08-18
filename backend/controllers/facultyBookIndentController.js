@@ -3,7 +3,6 @@ const prisma = require('../prismaClient');
 const BOOK_TYPES = ['Reference', 'Textbook', 'General'];
 const BOOKS_REQUIRED_FOR = ['UG', 'PG', 'Doctoral', 'Common to all/General Reading'];
 const SEMESTERS = ['1st', '2nd', '3rd', '5th', '6th', '7th', '8th', 'Common to all'];
-const STATUSES = ['Pending', 'Approved', 'Ordered', 'Received', 'Rejected'];
 
 const SELECT_JOIN = `
   SELECT f.id, f.requested_by, f.requested_by_email, f.faculty_name, f.library_id_no,
@@ -271,42 +270,10 @@ const deleteBookIndent = async (req, res) => {
   }
 };
 
-const updateBookIndentStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!STATUSES.includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
-    }
-
-    const existing = await prisma.$queryRawUnsafe(
-      `SELECT id FROM public.faculty_book_indent_forms WHERE id = $1 LIMIT 1`,
-      Number(id)
-    );
-    if (!existing.length) {
-      return res.status(404).json({ message: 'Book indent not found' });
-    }
-
-    await prisma.$queryRawUnsafe(
-      `UPDATE public.faculty_book_indent_forms SET status = $2, updated_at = NOW() WHERE id = $1`,
-      Number(id),
-      status
-    );
-
-    const updated = await prisma.$queryRawUnsafe(`${SELECT_JOIN} WHERE f.id = $1`, Number(id));
-
-    res.json({ success: true, bookIndent: mapRow(updated[0]) });
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error' });
-  }
-};
-
 module.exports = {
   createBookIndent,
   getMyBookIndents,
   getAllBookIndents,
   updateBookIndent,
   deleteBookIndent,
-  updateBookIndentStatus,
 };

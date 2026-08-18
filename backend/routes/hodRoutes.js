@@ -8,7 +8,7 @@ const { ROLES } = require('../utils/roles');
 // HOD Dashboard routes
 router.get('/complaints', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.ADMIN, ROLES.PRINCIPAL), getHODComplaints);
 router.post('/complaints', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.ADMIN, ROLES.PRINCIPAL), upload.single('image'), createHODIndent);
-router.put('/complaints/:id/status', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.ADMIN, ROLES.PRINCIPAL), updateComplaintStatus);
+router.put('/complaints/:id/status', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.ADMIN), updateComplaintStatus);
 
 // Maintainer Management
 router.get('/maintainers', protect, authorize(ROLES.HOD, ROLES.FACILITY_PROVIDER), getMaintainers);

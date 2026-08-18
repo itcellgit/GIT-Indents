@@ -1,7 +1,7 @@
 // backend/controllers/hodController.js
 const prisma = require('../prismaClient');
 const generateIndentNumber = require('../utils/generateIndentNumber');
-const { sendNotification } = require('../utils/notificationService');
+const { sendNotification, escapeHtml } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 const { getPrimaryRoleByUserId, getRoleIdByName, setUserRole: setUserRoleShared } = require('../utils/userRoles');
 const { PASSWORD_POLICY_MESSAGE, isPasswordValid } = require('../utils/passwordPolicy');
@@ -207,6 +207,16 @@ const updateComplaintStatus = async (req, res) => {
       });
     }
 
+    // Approving/rejecting an indent is exclusively the Facility Provider's
+    // call. A Dept HOD reaches this endpoint only to edit an indent's own
+    // fields (via isDeptHOD above), never to change its status — block any
+    // attempted status change from a non-incharge caller.
+    if (status && status !== indent.status && !isMaintenanceIncharge) {
+      return res.status(403).json({
+        message: 'Only the Facility Provider can approve or reject indents.'
+      });
+    }
+
     const updateData = {};
     if (status) {
       updateData.status = status;
@@ -252,33 +262,7 @@ const updateComplaintStatus = async (req, res) => {
     });
 
     // -- NOTIFICATIONS --
-    // 1. Dept HOD -> Maintenance HOD
-    if (status === 'Approved by Dept HOD' && !isMaintenanceIncharge) {
-      const categoryInfo = await prisma.category.findUnique({ where: { id: indent.categoryId } });
-      if (categoryInfo && categoryInfo.inchargeId) {
-        sendNotification(
-          categoryInfo.inchargeId,
-          `Indent ${indent.indentNumber} was approved by Department HOD and requires maintenance assessment.`,
-          req.user.id,
-          indent.id,
-          indent.indentNumber
-        );
-      }
-    }
-    // 2. Department HOD -> Service Provider HOD (Rejection)
-    if (status === 'Rejected by Dept HOD' && isDeptHOD) {
-      const categoryInfo = await prisma.category.findUnique({ where: { id: indent.categoryId } });
-      if (categoryInfo && categoryInfo.inchargeId) {
-        sendNotification(
-          categoryInfo.inchargeId,
-          `Indent ${indent.indentNumber} was rejected by the Department HOD and returned to the service provider HOD review queue.`,
-          req.user.id,
-          indent.id,
-          indent.indentNumber
-        );
-      }
-    }
-    // 3. Maintenance HOD -> Principal (Rejection)
+    // 1. Maintenance HOD -> Principal (Rejection)
     if (status === 'Rejected by Maintenance HOD' && isMaintenanceIncharge) {
       const principalUsers = await prisma.$queryRawUnsafe(
         `SELECT u.id
@@ -301,7 +285,7 @@ const updateComplaintStatus = async (req, res) => {
         );
       }
     }
-    // 4. Resolved -> Faculty
+    // 2. Resolved -> Faculty
     if (status === 'Completed') {
       sendNotification(
         indent.requesterId,
@@ -332,6 +316,15 @@ const createHODIndent = async (req, res) => {
       return res.status(400).json({ message: 'All fields are required.' });
     }
 
+    const categoryRecord = await prisma.category.findUnique({
+      where: { id: category },
+      select: { id: true, name: true, inchargeId: true }
+    });
+
+    if (!categoryRecord) {
+      return res.status(400).json({ message: 'Invalid department selected.' });
+    }
+
     let imagePath = null;
     if (req.file) {
       const uploadDir = process.env.UPLOAD_DIR || 'uploads';
@@ -340,20 +333,30 @@ const createHODIndent = async (req, res) => {
 
     const indentNumber = await generateIndentNumber(req.user.id, category);
 
-    // Auto-approve if HOD is raising for their own department
+    // Approval always sits with the Facility Provider incharge of the target
+    // category. The only exception is a Facility Provider raising an indent
+    // for a category they themselves are incharge of, in which case there's
+    // no one else left to approve it, so it's auto-approved straight to
+    // "Approved by Maintenance HOD" (ready for assignment). Everyone else —
+    // HOD, Admin, Principal, or a Facility Provider raising for a different
+    // category — goes through the normal Facility Provider approval queue,
+    // same as a Faculty-raised indent.
+    const isSelfIncharge = categoryRecord.inchargeId && categoryRecord.inchargeId === req.user.id;
+    const initialStatus = isSelfIncharge ? 'Approved by Maintenance HOD' : 'Indent Created';
+
     const newIndent = await prisma.indent.create({
       data: {
         indentNumber,
         requesterId: req.user.id,
-        categoryId: category,
+        categoryId: categoryRecord.id,
         natureOfWork: nature,
         location,
         description,
         imagePath,
-        status: 'Approved by Dept HOD', // HOD raised indents are auto-approved
+        status: initialStatus,
         statusHistory: {
           create: [
-            { status: 'Approved by Dept HOD' }
+            { status: initialStatus }
           ]
         }
       },
@@ -364,6 +367,20 @@ const createHODIndent = async (req, res) => {
         materialsUsed: true
       }
     });
+
+    if (!isSelfIncharge && categoryRecord.inchargeId) {
+      try {
+        sendNotification(
+          categoryRecord.inchargeId,
+          `New indent ${newIndent.indentNumber} raised by ${escapeHtml(req.user.name)} requires your approval.`,
+          req.user.id,
+          newIndent.id,
+          newIndent.indentNumber
+        );
+      } catch (notifyErr) {
+        console.error('Failed to notify Facility Provider about new HOD-raised indent:', notifyErr);
+      }
+    }
 
     res.status(201).json({
       success: true,

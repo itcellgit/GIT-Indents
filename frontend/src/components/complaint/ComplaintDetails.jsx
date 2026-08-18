@@ -161,15 +161,10 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
   };
 
   const handleApprove = () => {
-    let newStatus = 'Approved by Dept HOD';
-    if (isMaintainerRole) {
-      newStatus = 'Approved by Maintenance HOD';
-    } else if (isIncharge) {
-      newStatus = 'Approved by Maintenance HOD';
-    } else if (isDeptHOD) {
-      newStatus = 'Approved by Dept HOD';
-    }
-    
+    // Approval/rejection is only ever surfaced to the Facility Provider
+    // (isIncharge) or a Maintainer — a Dept HOD never sees these buttons.
+    const newStatus = 'Approved by Maintenance HOD';
+
     onUpdateStatus(complaint._id || complaint.id, {
       status: newStatus,
       ...editFormData
@@ -187,14 +182,9 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
     const rejecterInfo = isMaintainerRole ? `${user.name} (Maintainer)` : `${user.name} (${user.department})`;
 
-    let newStatus = 'Rejected by Maintenance HOD';
-    if (isMaintainerRole) {
-      newStatus = 'Rejected by Maintenance HOD';
-    } else if (isDeptHOD && !isIncharge) {
-      newStatus = 'Rejected by Dept HOD';
-    } else {
-      newStatus = 'Rejected by Maintenance HOD';
-    }
+    // Approval/rejection is only ever surfaced to the Facility Provider
+    // (isIncharge) or a Maintainer — a Dept HOD never sees these buttons.
+    const newStatus = 'Rejected by Maintenance HOD';
 
     onUpdateStatus(complaint._id || complaint.id, {
       status: newStatus,

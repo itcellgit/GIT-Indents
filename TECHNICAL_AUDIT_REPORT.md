@@ -216,14 +216,14 @@ const otp = Math.floor(100000 + Math.random() * 900000).toString();
 - `backend/controllers/authController.js` (line 18)
 
 **Description:**
-1. Default password `password@123` is used for bulk user creation
+1. Default password `Password@123` is used for bulk user creation
 2. Password minimum length is only 6 characters
 3. No password complexity requirements
 4. Passwords are hashed with bcrypt salt rounds 10 (acceptable but could be higher)
 
 ```javascript
 // adminController.js:539
-const defaultPassword = 'password@123';
+const defaultPassword = 'Password@123';
 ```
 
 **Impact:** Users created via bulk upload have well-known default passwords. Weak passwords are susceptible to brute-force attacks.

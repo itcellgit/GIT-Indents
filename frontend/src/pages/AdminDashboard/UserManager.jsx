@@ -700,7 +700,7 @@ export default function UserManager({ users, onUserUpdate }) {
                 <ul className="list-disc pl-5 space-y-1 opacity-90">
                   <li>Upload a valid <strong>Excel (.xlsx, .xls)</strong> or <strong>CSV</strong> file.</li>
                   <li>Required headers: <strong>Name, Department, Email, Role</strong>.</li>
-                  <li>Default password will be set to <code className="bg-white px-1 py-0.5 rounded text-indigo-900">password@123</code>.</li>
+                  <li>Default password will be set to <code className="bg-white px-1 py-0.5 rounded text-indigo-900">Password@123</code>.</li>
                   <li>Users with emails already in the system will be skipped.</li>
                 </ul>
               </div>

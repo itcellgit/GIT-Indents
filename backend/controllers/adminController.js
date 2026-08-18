@@ -590,7 +590,7 @@ const bulkCreateUsers = async (req, res) => {
       return res.status(400).json({ message: 'Valid users array is required' });
     }
 
-    const defaultPassword = 'password@123';
+    const defaultPassword = 'Password@123';
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(defaultPassword, salt);
 

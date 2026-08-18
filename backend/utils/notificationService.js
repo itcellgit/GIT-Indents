@@ -31,7 +31,6 @@ const buildMailTemplate = ({ title, recipientName, message, actionUrl, label, fo
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
     <div style="background-color: #4f46e5; padding: 24px; text-align: center;">
       <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">${escapeHtml(portalName || 'Indents Management Portal')}</h1>
-      <h2 style="color: #ffffff; margin: 8px 0 0; font-size: 16px; font-weight: normal;">Kindly Ignore this email, As the software application is under testing</h2>
     </div>
     <div style="padding: 32px;">
       <h2 style="color: #1e293b; margin-top: 0; font-size: 20px;">${escapeHtml(title)}</h2>

@@ -1,9 +1,26 @@
 import axios from 'axios';
 
-// VITE_API_URL is baked in at build time (see frontend/.env / .env.production).
-// Falls back to the internal-network IP that's the current known-working default
-// so builds that don't set it keep behaving exactly as before.
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://10.22.0.151:5000/api';
+// Derive the backend origin from wherever the page was actually loaded from,
+// instead of a build-time constant. A hardcoded host (e.g. VITE_API_URL=
+// http://localhost:5000/api, or a single specific LAN IP) only ever works for
+// whichever machine matches that exact value at build time — every other
+// machine's browser resolves "localhost" to itself, not the server, and gets
+// no login/API calls at all. This works for both access paths the backend
+// actually serves: the HTTPS domain (indents.git.edu) is reverse-proxied to
+// the backend at the same origin, while plain-HTTP access (LAN IP or
+// localhost, for local dev) hits the backend directly on port 5000.
+const inferBackendOrigin = () => {
+  if (typeof window === 'undefined') return 'http://10.22.0.151:5000';
+  const { protocol, hostname } = window.location;
+  if (protocol === 'https:') return `${protocol}//${hostname}`;
+  return `${protocol}//${hostname}:5000`;
+};
+
+// VITE_API_URL / VITE_BACKEND_URL remain an explicit override for cases that
+// genuinely need to point somewhere else (e.g. a dev frontend against a
+// shared remote backend) — see frontend/.env / .env.production.
+export const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || inferBackendOrigin();
+export const API_BASE_URL = import.meta.env.VITE_API_URL || `${BACKEND_BASE_URL}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL, // Backend base URL

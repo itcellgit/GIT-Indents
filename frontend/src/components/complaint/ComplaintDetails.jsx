@@ -3,7 +3,7 @@ import { X, MapPin, Tag, User, AlignLeft, Calendar, Wrench, Check, Printer, Buil
 import Timeline from './Timeline';
 import MaterialForm from './MaterialForm';
 import { useAuth } from '../../context/AuthContext';
-import api from '../../api/axios';
+import api, { BACKEND_BASE_URL } from '../../api/axios';
 import { ROLES } from '../../constants/roles';
 const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => {
   const { user } = useAuth();
@@ -391,8 +391,8 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                     <p className="text-sm text-indigo-900 uppercase tracking-widest font-bold">Attachment</p>
                   </div>
                   <div className="mt-2">
-                    <a href={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${complaint.imagePath}`} target="_blank" rel="noopener noreferrer" className="block max-w-sm rounded-lg overflow-hidden border border-slate-300 hover:border-indigo-500 hover:shadow-md transition-all">
-                      <img src={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${complaint.imagePath}`} alt="Indent Attachment" className="w-full h-auto object-cover" />
+                    <a href={`${BACKEND_BASE_URL}${complaint.imagePath}`} target="_blank" rel="noopener noreferrer" className="block max-w-sm rounded-lg overflow-hidden border border-slate-300 hover:border-indigo-500 hover:shadow-md transition-all">
+                      <img src={`${BACKEND_BASE_URL}${complaint.imagePath}`} alt="Indent Attachment" className="w-full h-auto object-cover" />
                     </a>
                     <p className="text-xs text-slate-500 mt-2 italic">Click image to view full size.</p>
                   </div>
@@ -406,8 +406,8 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                     <p className="text-sm text-emerald-900 uppercase tracking-widest font-bold">Completion Photo</p>
                   </div>
                   <div className="mt-2">
-                    <a href={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${complaint.completionImagePath}`} target="_blank" rel="noopener noreferrer" className="block max-w-sm rounded-lg overflow-hidden border border-emerald-300 hover:border-emerald-500 hover:shadow-md transition-all">
-                      <img src={`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${complaint.completionImagePath}`} alt="Completed Work" className="w-full h-auto object-cover" />
+                    <a href={`${BACKEND_BASE_URL}${complaint.completionImagePath}`} target="_blank" rel="noopener noreferrer" className="block max-w-sm rounded-lg overflow-hidden border border-emerald-300 hover:border-emerald-500 hover:shadow-md transition-all">
+                      <img src={`${BACKEND_BASE_URL}${complaint.completionImagePath}`} alt="Completed Work" className="w-full h-auto object-cover" />
                     </a>
                     <p className="text-xs text-emerald-700 mt-2 italic">Uploaded when work was marked complete.</p>
                   </div>
@@ -618,7 +618,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                     />
                     {completionImagePreview && (
                       <img
-                        src={completionImagePreview.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${completionImagePreview}` : completionImagePreview}
+                        src={completionImagePreview.startsWith('/') ? `${BACKEND_BASE_URL}${completionImagePreview}` : completionImagePreview}
                         alt="Completion preview"
                         className="w-24 h-24 object-cover rounded border border-slate-200"
                       />

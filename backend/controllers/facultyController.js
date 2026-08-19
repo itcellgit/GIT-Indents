@@ -39,7 +39,7 @@ const getDashboardData = async (req, res) => {
 // @access  Private (Faculty only)
 const createComplaint = async (req, res) => {
   try {
-    const { category, nature, location, description } = req.body;
+    const { category, nature, location, description, isrNo } = req.body;
 
     if (!category || !nature || !location || !description) {
       return res.status(400).json({ message: 'All fields are required.' });
@@ -65,6 +65,7 @@ const createComplaint = async (req, res) => {
     const newIndent = await prisma.indent.create({
       data: {
         indentNumber,
+        isrNo: isrNo ? String(isrNo).trim() : null,
         requesterId: req.user.id,
         categoryId: categoryRecord.id,
         natureOfWork: nature,

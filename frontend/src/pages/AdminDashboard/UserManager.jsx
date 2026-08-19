@@ -47,13 +47,13 @@ export default function UserManager({ users, onUserUpdate }) {
   
   // State for Add User form
   const [addUserData, setAddUserData] = useState({
-    name: '', email: '', roles: [], department: '', password: ''
+    name: '', email: '', roles: [], department: '', staff_phone_no: '', password: ''
   });
-  
+
   const [addUserError, setAddUserError] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [editUserData, setEditUserData] = useState({
-    name: '', email: '', roles: [], roleIds: [], department: '', password: ''
+    name: '', email: '', roles: [], roleIds: [], department: '', staff_phone_no: '', password: ''
   });
   const [editUserError, setEditUserError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -175,12 +175,13 @@ export default function UserManager({ users, onUserUpdate }) {
 
   const openEditModal = (user) => {
     setEditingUser(user);
-    setEditUserData({ 
+    setEditUserData({
       name: user.name || '',
       email: user.email || '',
       roles: getUserRoles(user),
       roleIds: getUserRoleIds(user),
       department: user.department || '',
+      staff_phone_no: user.staff_phone_no || '',
       password: ''
     });
     setEditUserError('');
@@ -248,7 +249,7 @@ export default function UserManager({ users, onUserUpdate }) {
       setIsAdding(true);
       await api.post('/admin/users', addUserData);
       setIsAddUserOpen(false);
-      setAddUserData({ name: '', email: '', roles: [], department: '', password: '' });
+      setAddUserData({ name: '', email: '', roles: [], department: '', staff_phone_no: '', password: '' });
       if (onUserUpdate) onUserUpdate();
     } catch (err) {
       console.error("Failed to add user:", err);
@@ -274,7 +275,7 @@ export default function UserManager({ users, onUserUpdate }) {
       });
       setIsEditUserOpen(false);
       setEditingUser(null);
-      setEditUserData({ name: '', email: '', roles: [], roleIds: [], department: '', password: '' });
+      setEditUserData({ name: '', email: '', roles: [], roleIds: [], department: '', staff_phone_no: '', password: '' });
       if (onUserUpdate) onUserUpdate();
     } catch (err) {
       console.error('Failed to update user:', err);
@@ -331,7 +332,7 @@ export default function UserManager({ users, onUserUpdate }) {
 
   const downloadTemplate = () => {
     const templateRole = availableRoles[0]?.name || 'Role';
-    const ws = XLSX.utils.json_to_sheet([{ Name: 'John Doe', Email: 'john@git.edu', Department: 'Computer Science', Role: templateRole }]);
+    const ws = XLSX.utils.json_to_sheet([{ Name: 'John Doe', Email: 'john@git.edu', Department: 'Computer Science', Phone: '9876543210', Role: templateRole }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Users");
     XLSX.writeFile(wb, "bulk_user_template.xlsx");
@@ -485,6 +486,7 @@ export default function UserManager({ users, onUserUpdate }) {
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Name & Email</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Role</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Department</th>
+              <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Phone</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Actions</th>
             </tr>
@@ -523,6 +525,9 @@ export default function UserManager({ users, onUserUpdate }) {
                   <span className="text-sm text-slate-600">{user.department || '-'}</span>
                 </td>
                 <td className="px-6 py-4">
+                  <span className="text-sm text-slate-600">{user.staff_phone_no || '-'}</span>
+                </td>
+                <td className="px-6 py-4">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                     {user.isActive ? 'Active' : 'Disabled'}
                   </span>
@@ -553,7 +558,7 @@ export default function UserManager({ users, onUserUpdate }) {
               </tr>
             )) : (
               <tr>
-                <td colSpan="5" className="px-6 py-8 text-center text-slate-500 italic">No users found matching your search.</td>
+                <td colSpan="6" className="px-6 py-8 text-center text-slate-500 italic">No users found matching your search.</td>
               </tr>
             )}
           </tbody>
@@ -636,6 +641,10 @@ export default function UserManager({ users, onUserUpdate }) {
                   <input name="password" value={addUserData.password} onChange={handleAddUserChange} type="password" placeholder="••••••••" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600" />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                <input name="staff_phone_no" value={addUserData.staff_phone_no} onChange={handleAddUserChange} type="tel" placeholder="e.g. 9876543210" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600" />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
@@ -699,7 +708,7 @@ export default function UserManager({ users, onUserUpdate }) {
                 <p className="mb-2 font-medium">Instructions:</p>
                 <ul className="list-disc pl-5 space-y-1 opacity-90">
                   <li>Upload a valid <strong>Excel (.xlsx, .xls)</strong> or <strong>CSV</strong> file.</li>
-                  <li>Required headers: <strong>Name, Department, Email, Role</strong>.</li>
+                  <li>Required headers: <strong>Name, Department, Email, Role</strong>. Optional: <strong>Phone</strong>.</li>
                   <li>Default password will be set to <code className="bg-white px-1 py-0.5 rounded text-indigo-900">Password@123</code>.</li>
                   <li>Users with emails already in the system will be skipped.</li>
                 </ul>
@@ -786,6 +795,10 @@ export default function UserManager({ users, onUserUpdate }) {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                   <input name="email" value={editUserData.email} onChange={handleEditUserChange} type="email" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                  <input name="staff_phone_no" value={editUserData.staff_phone_no} onChange={handleEditUserChange} type="tel" placeholder="e.g. 9876543210" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

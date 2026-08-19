@@ -232,6 +232,7 @@ const getAllUsers = async (req, res) => {
         u.name,
         u.email,
         u.department,
+        u.staff_phone_no,
         u."isActive" AS "isActive",
         u."createdAt" AS "createdAt",
         COALESCE(
@@ -246,7 +247,7 @@ const getAllUsers = async (req, res) => {
       FROM "User" u
       LEFT JOIN public.user_roles ur ON ur.user_id = u.id
       LEFT JOIN public.roles r ON r.id = ur.role_id
-      GROUP BY u.id, u.name, u.email, u.department, u."isActive", u."createdAt"
+      GROUP BY u.id, u.name, u.email, u.department, u.staff_phone_no, u."isActive", u."createdAt"
       ORDER BY u."createdAt" DESC
     `);
 
@@ -426,7 +427,7 @@ const deleteRole = async (req, res) => {
 // @access  Private/Admin
 const createUser = async (req, res) => {
   try {
-    const { name, email, password, department, role, roles } = req.body;
+    const { name, email, password, department, role, roles, staff_phone_no } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
@@ -460,6 +461,7 @@ const createUser = async (req, res) => {
           email,
           password: hashedPassword,
           department: department || '',
+          staff_phone_no: staff_phone_no ? String(staff_phone_no).trim() : null,
           isActive: true
         },
         select: {
@@ -467,6 +469,7 @@ const createUser = async (req, res) => {
           name: true,
           email: true,
           department: true,
+          staff_phone_no: true,
           isActive: true,
           createdAt: true
         }
@@ -489,7 +492,7 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, department, roles, roleIds, role, password } = req.body;
+    const { name, email, department, roles, roleIds, role, password, staff_phone_no } = req.body;
 
     const existingUserRows = await prisma.$queryRawUnsafe(
       `SELECT
@@ -497,6 +500,7 @@ const updateUser = async (req, res) => {
          u.name,
          u.email,
          u.department,
+         u.staff_phone_no,
          u."isActive" AS "isActive",
          u."createdAt" AS "createdAt",
          COALESCE(
@@ -543,7 +547,8 @@ const updateUser = async (req, res) => {
     const updateData = {
       name: name !== undefined ? name : existingUser.name,
       email: email !== undefined ? email : existingUser.email,
-      department: department !== undefined ? department : existingUser.department || ''
+      department: department !== undefined ? department : existingUser.department || '',
+      staff_phone_no: staff_phone_no !== undefined ? (staff_phone_no ? String(staff_phone_no).trim() : null) : existingUser.staff_phone_no
     };
 
     if (password && String(password).trim()) {
@@ -563,6 +568,7 @@ const updateUser = async (req, res) => {
           name: true,
           email: true,
           department: true,
+          staff_phone_no: true,
           isActive: true,
           createdAt: true
         }
@@ -598,6 +604,7 @@ const bulkCreateUsers = async (req, res) => {
       name: user.Name || user.name,
       email: user.Email || user.email,
       department: user.Department || user.department || '',
+      staff_phone_no: user.Phone || user.phone || user.staff_phone_no || null,
       role: normalizeRole(user.Role || user.role),
       password: hashedPassword,
       isActive: true
@@ -1058,6 +1065,7 @@ const getMonthlyReport = async (req, res) => {
 
     const reportData = filteredIndents.map(i => ({
       indentNumber: i.indentNumber || i.id.substring(0, 8),
+      isrNo: i.isrNo || '',
       date: new Date(i.createdAt).toLocaleDateString(),
       generatedBy: i.requester?.name || 'N/A',
       assignedToDept: i.category?.name || 'Unassigned',

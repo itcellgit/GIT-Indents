@@ -9,6 +9,7 @@ import logo from '../../assets/logo.png';
 import api from '../../api/axios';
 import { departments as departmentList } from '../../utils/departments';
 import { getPrimaryRole } from '../../utils/userRoles';
+import { formatDate } from '../../utils/formatDate';
 import { ROLES } from '../../constants/roles';
 
 const emptyAssignmentForm = {
@@ -305,8 +306,8 @@ export default function CoordinatorDetails() {
                             {resolveDepartmentName(assignment.department_name || assignment.departmentName || assignment.department_id || assignment.departmentId)}
                           </td>
                           <td className="px-6 py-4 text-sm text-slate-600">{assignment.level || '-'}</td>
-                          <td className="px-6 py-4 text-sm text-slate-600">{assignment.start_date || '-'}</td>
-                          <td className="px-6 py-4 text-sm text-slate-600">{assignment.end_date || '-'}</td>
+                          <td className="px-6 py-4 text-sm text-slate-600">{assignment.start_date ? formatDate(assignment.start_date) : '-'}</td>
+                          <td className="px-6 py-4 text-sm text-slate-600">{assignment.end_date ? formatDate(assignment.end_date) : '-'}</td>
                           <td className="px-6 py-4">
                             <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
                               {assignment.status || 'Active'}

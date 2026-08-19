@@ -12,6 +12,8 @@ const mapVehicleBookingRow = (row) => ({
   vehicle_number: row.vehicle_number || '',
   vehicle_name: row.vehicle_name || '',
   vehicle_type: row.vehicle_type || '',
+  driver_name: row.driver_name || '',
+  driver_phone_number: row.driver_phone_number || '',
   booked_by: row.booked_by,
   booked_by_name: row.booked_by_name || '',
   booked_by_email: row.booked_by_email || '',
@@ -69,7 +71,7 @@ const conflictMessage = (conflict, resourceLabel) =>
 
 const fetchVehicleBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
-    `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+    `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type, v.driver_name, v.driver_phone_number,
             vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
             vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
             vb.created_at, vb.updated_at
@@ -86,7 +88,7 @@ const fetchVehicleBookingById = async (bookingId) => {
 const getVehicleBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type, v.driver_name, v.driver_phone_number,
               vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
               vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
               vb.created_at, vb.updated_at
@@ -161,7 +163,7 @@ const createVehicleBooking = async (req, res) => {
     );
 
     const createdBookingRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type, v.driver_name, v.driver_phone_number,
               vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
               vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
               vb.created_at, vb.updated_at
@@ -325,7 +327,7 @@ const deleteVehicleBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.driver_name, v.driver_phone_number, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
               vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time, vb.passenger_count, vb.remarks,
               vb.status, vb.approved_by, vb.created_at, vb.updated_at, u.department AS booked_by_department
          FROM public.vehicle_bookings vb
@@ -367,6 +369,8 @@ const deleteVehicleBooking = async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
       `Vehicle: ${escapeHtml(bookingToDelete.vehicle_number || bookingToDelete.vehicle_name || `ID ${bookingToDelete.vehicle_id}`)}`,
+      `Driver Name: ${escapeHtml(bookingToDelete.driver_name || 'N/A')}`,
+      `Driver Phone: ${escapeHtml(bookingToDelete.driver_phone_number || 'N/A')}`,
       `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
       `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
       `Destination: ${escapeHtml(bookingToDelete.destination || 'N/A')}`,
@@ -512,6 +516,8 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
     : 'Updated';
   const details = [
     `Vehicle: ${escapeHtml(booking.vehicle_number || booking.vehicle_name || `ID ${booking.vehicle_id}`)}`,
+    `Driver Name: ${escapeHtml(booking.driver_name || 'N/A')}`,
+    `Driver Phone: ${escapeHtml(booking.driver_phone_number || 'N/A')}`,
     `Booked by: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Destination: ${escapeHtml(booking.destination || 'N/A')}`,

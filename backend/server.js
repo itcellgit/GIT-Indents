@@ -6,6 +6,15 @@ const cors = require('cors');
 // Load environment variables from your .env file
 dotenv.config();
 
+// Pin the process timezone to IST regardless of the host OS default.
+// `timestamp without time zone` columns (e.g. hall_bookings) are read back by
+// node-postgres using the process's LOCAL timezone (see postgres-date's
+// non-offset branch), so on a VPS whose OS timezone isn't IST (commonly UTC),
+// the same stored wall-clock time gets reinterpreted as a different instant
+// than on a dev machine, shifting displayed booking times. Setting TZ here
+// keeps read/display consistent across every environment.
+process.env.TZ = process.env.TZ || 'Asia/Kolkata';
+
 // Fail fast rather than silently signing tokens with a guessable secret.
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET is not set. Refusing to start — set JWT_SECRET in the environment/.env file.');

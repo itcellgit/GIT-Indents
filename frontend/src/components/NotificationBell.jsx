@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle } from 'lucide-react';
 import api from '../api/axios';
+import { formatDateTime } from '../utils/formatDate';
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
@@ -117,7 +118,7 @@ const NotificationBell = () => {
                           {notification.message}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
-                          {new Date(notification.createdAt).toLocaleString()}
+                          {formatDateTime(notification.createdAt)}
                         </p>
                       </div>
                       <div className="w-2 h-2 rounded-full bg-indigo-600 mt-1.5 flex-shrink-0"></div>

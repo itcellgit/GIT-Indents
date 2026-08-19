@@ -33,6 +33,7 @@ const PrincipalDashboard = () => {
     department: '',
     nature: 'Maintenance/Repair',
     location: '',
+    isrNo: '',
     description: '',
     additionalDetails: '',
     image: null
@@ -136,7 +137,10 @@ const PrincipalDashboard = () => {
       formDataToSend.append('nature', formData.nature);
       formDataToSend.append('location', formData.location);
       formDataToSend.append('description', formData.description);
-      
+      if (formData.isrNo) {
+        formDataToSend.append('isrNo', formData.isrNo);
+      }
+
       if (formData.additionalDetails) {
         formDataToSend.append('additionalDetails', formData.additionalDetails);
       }
@@ -146,10 +150,10 @@ const PrincipalDashboard = () => {
 
       const res = await api.post('/hod/complaints', formDataToSend, {
       });
-      
+
       setMyRaisedIndents([res.data.complaint, ...myRaisedIndents]);
       setIsRaiseModalOpen(false);
-      setFormData({ department: '', nature: 'Maintenance/Repair', location: '', description: '', additionalDetails: '', image: null });
+      setFormData({ department: '', nature: 'Maintenance/Repair', location: '', isrNo: '', description: '', additionalDetails: '', image: null });
     } catch (err) {
       console.error("Failed to raise indent:", err);
       alert("Failed to raise indent. Please try again.");

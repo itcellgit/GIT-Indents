@@ -63,6 +63,7 @@ export default function FacultyDashboard() {
     department: '',
     nature: 'Maintenance/Repair',
     location: '',
+    isrNo: '',
     description: '',
     additionalDetails: '',
     image: null
@@ -92,7 +93,10 @@ export default function FacultyDashboard() {
       formDataToSend.append('nature', formData.nature);
       formDataToSend.append('location', formData.location);
       formDataToSend.append('description', formData.description);
-      
+      if (formData.isrNo) {
+        formDataToSend.append('isrNo', formData.isrNo);
+      }
+
       if (formData.additionalDetails) {
         formDataToSend.append('additionalDetails', formData.additionalDetails);
       }
@@ -105,7 +109,7 @@ export default function FacultyDashboard() {
       
       setComplaints([res.data.complaint, ...complaints]);
       setIsRaiseModalOpen(false);
-      setFormData({ department: '', nature: 'Maintenance/Repair', location: '', description: '', additionalDetails: '', image: null });
+      setFormData({ department: '', nature: 'Maintenance/Repair', location: '', isrNo: '', description: '', additionalDetails: '', image: null });
     } catch (err) {
       console.error("Failed to raise indent:", err);
       alert("Failed to raise indent. Please try again.");
@@ -199,7 +203,7 @@ export default function FacultyDashboard() {
               className="flex items-center px-4 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
             >
               <BookOpen className="w-4 h-4 mr-2" />
-              Book Indent
+              Library Book Indent
             </Link>
             <button
               onClick={() => setIsRaiseModalOpen(true)}

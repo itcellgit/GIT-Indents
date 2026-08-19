@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
+import { formatDateTime } from '../../utils/formatDate';
 
 const Timeline = ({ currentStatus, history, createdAt, updatedAt }) => {
   // Build the list of steps to display
@@ -52,15 +53,7 @@ const Timeline = ({ currentStatus, history, createdAt, updatedAt }) => {
                 </p>
                 {step.time && (
                   <p className="text-[11px] text-gray-500 mt-0.5">
-                    {new Date(step.time).toLocaleString('en-US', {
-                      year: 'numeric',
-                      month: 'numeric',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: 'numeric',
-                      second: 'numeric',
-                      hour12: true
-                    })}
+                    {formatDateTime(step.time)}
                   </p>
                 )}
               </div>

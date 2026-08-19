@@ -7,6 +7,7 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import logo from '../assets/logo.png';
 import api from '../api/axios';
 import { ROLE_DASHBOARDS } from '../constants/roles';
+import { formatDate as formatShortDate } from '../utils/formatDate';
 
 export default function StationaryIndentCreate() {
   const { user, logout } = useAuth();
@@ -28,19 +29,6 @@ export default function StationaryIndentCreate() {
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const formatShortDate = (value) => {
-    if (!value) return '-';
-
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-
-    return date.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
 
   const createEmptyRow = () => ({ id: Date.now(), stationaryId: '', requestQuantity: '' });
 

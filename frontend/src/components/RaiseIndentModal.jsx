@@ -34,7 +34,7 @@ const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, se
         <form onSubmit={handleRaiseSubmit} className="p-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700">Maintenance Department</label>
+              <label className="block text-sm font-semibold text-slate-700">Maintenance Department <span className="text-red-500">*</span></label>
               <select
                 required
                 className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
@@ -51,7 +51,7 @@ const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, se
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700">Location</label>
+              <label className="block text-sm font-semibold text-slate-700">Location <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 required
@@ -61,10 +61,21 @@ const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, se
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               />
             </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-slate-700">ISR No. <span className="text-slate-400 font-normal">(Optional)</span></label>
+              <input
+                type="text"
+                placeholder="e.g. ISR/2026/045"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={formData.isrNo}
+                onChange={(e) => setFormData({ ...formData, isrNo: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="space-y-2.5">
-            <label className="block text-sm font-semibold text-slate-700">Nature of Work</label>
+            <label className="block text-sm font-semibold text-slate-700">Nature of Work <span className="text-red-500">*</span></label>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
               {["Maintenance/Repair", "New Work"].map((nature) => (
                 <label key={nature} className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
@@ -83,7 +94,7 @@ const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, se
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-slate-700">Description of Issue</label>
+            <label className="block text-sm font-semibold text-slate-700">Description of Issue <span className="text-red-500">*</span></label>
             <textarea
               required
               rows={3}

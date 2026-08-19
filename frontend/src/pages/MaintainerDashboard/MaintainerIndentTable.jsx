@@ -35,6 +35,7 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
         <thead>
           <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
             <th className="px-6 py-4 font-medium">Indent No</th>
+            <th className="px-6 py-4 font-medium">ISR No</th>
             <th className="px-6 py-4 font-medium">Raised By</th>
             <th className="px-6 py-4 font-medium">Type</th>
             <th className="px-6 py-4 font-medium">Location</th>
@@ -53,6 +54,9 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="font-medium text-indigo-600 block">{complaint.indentNumber || complaint.id.substring(0, 8)}</span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                  {complaint.isrNo || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                   {complaint.requester?.name || 'Faculty'}
@@ -82,7 +86,7 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
             );
           }) : (
             <tr>
-              <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+              <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                 <div className="flex flex-col items-center justify-center">
                   <FileText className="w-12 h-12 text-slate-300 mb-3" />
                   <p className="text-base font-medium text-slate-600">No assigned indents found</p>

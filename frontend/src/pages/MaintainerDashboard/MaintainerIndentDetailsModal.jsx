@@ -105,6 +105,12 @@ const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint,
                 <span className="block text-xs font-semibold text-slate-400 uppercase">Location</span>
                 <span className="block mt-1 font-medium text-slate-800">{selectedComplaint.location}</span>
               </div>
+              {selectedComplaint.isrNo && (
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  <span className="block text-xs font-semibold text-slate-400 uppercase">ISR No</span>
+                  <span className="block mt-1 font-medium text-slate-800">{selectedComplaint.isrNo}</span>
+                </div>
+              )}
             </div>
           </div>
 

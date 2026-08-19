@@ -6,6 +6,7 @@ import api from '../../api/axios';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
 import logo from '../../assets/logo.png';
+import { formatDate as formatShortDate } from '../../utils/formatDate';
 
 const sectionTabs = ['Stationery master', 'Processing requests'];
 
@@ -36,17 +37,6 @@ export default function OfficeStationaryDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  const formatShortDate = (value) => {
-    if (!value) return '-';
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
 
   const normalizeRequest = (indent, stationariesList = stationeryItems) => ({
     id: Number(indent.id),

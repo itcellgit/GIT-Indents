@@ -12,6 +12,7 @@ model User {
   email                String         @unique
   password             String
   department           String?
+  staff_phone_no       String?
   isActive             Boolean        @default(true)
   resetPasswordOTP     String?
   resetPasswordExpires DateTime?
@@ -62,6 +63,7 @@ model Category {
 model Indent {
   id                      String   @id @default(uuid())
   indentNumber            String?  @unique
+  isrNo                   String?
   requesterId             String
   categoryId              String
   natureOfWork            String

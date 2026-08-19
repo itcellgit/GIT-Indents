@@ -7,11 +7,14 @@ import ChangePasswordModal from '../../../components/ChangePasswordModal';
 import api from '../../../api/axios';
 import logo from '../../../assets/logo.png';
 import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
+import { formatDate } from '../../../utils/formatDate';
 
 const initialVehicleForm = {
   vehicle_number: '',
   vehicle_name: '',
   vehicle_type: '',
+  driver_name: '',
+  driver_phone_number: '',
   status: 'Available',
 };
 
@@ -105,19 +108,6 @@ const formatTimeWithAmPm = (value) => {
   return `${String(hours).padStart(2, '0')}:${minutes} ${amPm}`;
 };
 
-const formatDateLabel = (value) => {
-  if (!value) return '-';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
-
 const getVehicleLabel = (booking) => {
   if (!booking) return 'Vehicle';
   const number = booking.vehicle_number || '';
@@ -127,8 +117,8 @@ const getVehicleLabel = (booking) => {
 };
 
 const formatBookingDateRange = (startDate, endDate) => {
-  const startLabel = formatDateLabel(startDate);
-  const endLabel = formatDateLabel(endDate);
+  const startLabel = formatDate(startDate);
+  const endLabel = formatDate(endDate);
 
   if (!startDate) return '-';
   if (!endDate || startLabel === endLabel) return startLabel;
@@ -408,6 +398,8 @@ export default function VehicleBookingsPage() {
       vehicle_number: vehicle.vehicle_number,
       vehicle_name: vehicle.vehicle_name,
       vehicle_type: vehicle.vehicle_type,
+      driver_name: vehicle.driver_name || '',
+      driver_phone_number: vehicle.driver_phone_number || '',
       status: vehicle.status || 'Available',
     });
     setEditingVehicleId(vehicle.id);
@@ -605,16 +597,24 @@ export default function VehicleBookingsPage() {
 
                   <form onSubmit={handleSubmit} className="p-6 grid gap-4 md:grid-cols-2">
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
-                      <span>Vehicle Number</span>
+                      <span>Vehicle Number <span className="text-red-500">*</span></span>
                       <input value={form.vehicle_number} onChange={(e) => setForm({ ...form, vehicle_number: e.target.value })} placeholder="Vehicle Number" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                     </label>
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
-                      <span>Vehicle Name</span>
-                      <input value={form.vehicle_name} onChange={(e) => setForm({ ...form, vehicle_name: e.target.value })} placeholder="Vehicle Name" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                      <span>Vehicle Name <span className="text-red-500">*</span></span>
+                      <input value={form.vehicle_name} onChange={(e) => setForm({ ...form, vehicle_name: e.target.value })} placeholder="Vehicle Name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                     </label>
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
-                      <span>Vehicle Type</span>
-                      <input value={form.vehicle_type} onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })} placeholder="Vehicle Type" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                      <span>Vehicle Type <span className="text-red-500">*</span></span>
+                      <input value={form.vehicle_type} onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })} placeholder="Vehicle Type" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                    </label>
+                    <label className="grid gap-1 text-sm font-medium text-slate-700">
+                      <span>Driver Name <span className="text-red-500">*</span></span>
+                      <input value={form.driver_name} onChange={(e) => setForm({ ...form, driver_name: e.target.value })} placeholder="Driver Name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                    </label>
+                    <label className="grid gap-1 text-sm font-medium text-slate-700">
+                      <span>Driver Phone Number <span className="text-red-500">*</span></span>
+                      <input value={form.driver_phone_number} onChange={(e) => setForm({ ...form, driver_phone_number: e.target.value })} placeholder="Driver Phone Number" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                     </label>
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
                       <span>Status</span>
@@ -642,6 +642,8 @@ export default function VehicleBookingsPage() {
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Number</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Name</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Driver Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Driver Phone</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                     </tr>
@@ -649,11 +651,11 @@ export default function VehicleBookingsPage() {
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {loading ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">Loading vehicles...</td>
+                        <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500">Loading vehicles...</td>
                       </tr>
                     ) : vehicles.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">No vehicles yet. Add one above to get started.</td>
+                        <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500">No vehicles yet. Add one above to get started.</td>
                       </tr>
                     ) : (
                       vehicles.map((vehicle, index) => (
@@ -662,6 +664,8 @@ export default function VehicleBookingsPage() {
                           <td className="px-6 py-4 text-sm font-medium text-slate-900">{vehicle.vehicle_number}</td>
                           <td className="px-6 py-4 text-sm text-slate-700">{vehicle.vehicle_name}</td>
                           <td className="px-6 py-4 text-sm text-slate-700">{vehicle.vehicle_type}</td>
+                          <td className="px-6 py-4 text-sm text-slate-700">{vehicle.driver_name || '-'}</td>
+                          <td className="px-6 py-4 text-sm text-slate-700">{vehicle.driver_phone_number || '-'}</td>
                           <td className="px-6 py-4 text-sm text-indigo-600 font-semibold">{vehicle.status}</td>
                           <td className="px-6 py-4 text-sm text-slate-700">
                             <div className="flex items-center gap-2">
@@ -743,7 +747,7 @@ export default function VehicleBookingsPage() {
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    Today<span className="text-xs text-slate-400 font-normal">({formatDateLabel(today)})</span>
+                    Today<span className="text-xs text-slate-400 font-normal">({formatDate(today)})</span>
                   </h4>
                   {upcomingBookings.today.length === 0 ? (
                     <p className="text-sm text-slate-400">No bookings for today.</p>
@@ -760,7 +764,7 @@ export default function VehicleBookingsPage() {
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                    Tomorrow<span className="text-xs text-slate-400 font-normal">({formatDateLabel(tomorrow)})</span>
+                    Tomorrow<span className="text-xs text-slate-400 font-normal">({formatDate(tomorrow)})</span>
                   </h4>
                   {upcomingBookings.tomorrow.length === 0 ? (
                     <p className="text-sm text-slate-400">No bookings for tomorrow.</p>
@@ -863,7 +867,7 @@ export default function VehicleBookingsPage() {
             <form onSubmit={handleBookingSubmit} className="p-6 grid gap-4 md:grid-cols-2">
               {canSelectVehicle ? (
                 <label className="grid gap-1 text-sm font-medium text-slate-700">
-                  <span>Vehicle</span>
+                  <span>Vehicle <span className="text-red-500">*</span></span>
                   <select value={bookingForm.vehicle_id} onChange={(e) => setBookingForm({ ...bookingForm, vehicle_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
                     <option value="">Select Vehicle</option>
                     {vehicles.map((vehicle) => (
@@ -880,19 +884,20 @@ export default function VehicleBookingsPage() {
                 </div>
               )}
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Booked By</span>
+                <span>Booked By <span className="text-red-500">*</span></span>
                 <input value={bookingForm.booked_by_name} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_name: e.target.value })} placeholder="Enter name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Booked By Email</span>
+                <span>Booked By Email <span className="text-red-500">*</span></span>
                 <input type="email" value={bookingForm.booked_by_email} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_email: e.target.value })} placeholder="name@example.com" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               {editingVehicleBookingId && (
                 <label className="grid gap-1 text-sm font-medium text-slate-700">
-                  <span>Status</span>
+                  <span>Status <span className="text-red-500">*</span></span>
                   <select
                     value={bookingForm.status || 'PENDING'}
                     onChange={(e) => setBookingForm({ ...bookingForm, status: e.target.value })}
+                    required
                     className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white"
                   >
                     {statusOptions.map((option) => {
@@ -905,20 +910,20 @@ export default function VehicleBookingsPage() {
                 </label>
               )}
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Passenger Count</span>
-                <input type="number" value={bookingForm.passenger_count} onChange={(e) => setBookingForm({ ...bookingForm, passenger_count: e.target.value })} placeholder="Passenger Count" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>Passenger Count <span className="text-red-500">*</span></span>
+                <input type="number" value={bookingForm.passenger_count} onChange={(e) => setBookingForm({ ...bookingForm, passenger_count: e.target.value })} placeholder="Passenger Count" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Start Date</span>
+                <span>Start Date <span className="text-red-500">*</span></span>
                 <input type="date" value={bookingForm.start_date} onChange={(e) => setBookingForm({ ...bookingForm, start_date: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>End Date</span>
+                <span>End Date <span className="text-red-500">*</span></span>
                 <input type="date" value={bookingForm.end_date} onChange={(e) => setBookingForm({ ...bookingForm, end_date: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Booking Period</span>
-                <select value={bookingForm.booking_period} onChange={(e) => setBookingForm({ ...bookingForm, booking_period: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                <span>Booking Period <span className="text-red-500">*</span></span>
+                <select value={bookingForm.booking_period} onChange={(e) => setBookingForm({ ...bookingForm, booking_period: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
                   <option value="MORNING">Morning</option>
                   <option value="SECOND_HALF">Second Half</option>
                   <option value="FULL_DAY">Full Day</option>
@@ -926,20 +931,20 @@ export default function VehicleBookingsPage() {
                 </select>
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Start Time</span>
-                <input type="time" value={bookingForm.start_time} onChange={(e) => setBookingForm({ ...bookingForm, start_time: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>Start Time <span className="text-red-500">*</span></span>
+                <input type="time" value={bookingForm.start_time} onChange={(e) => setBookingForm({ ...bookingForm, start_time: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>End Time</span>
-                <input type="time" value={bookingForm.end_time} onChange={(e) => setBookingForm({ ...bookingForm, end_time: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>End Time <span className="text-red-500">*</span></span>
+                <input type="time" value={bookingForm.end_time} onChange={(e) => setBookingForm({ ...bookingForm, end_time: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Destination</span>
-                <input value={bookingForm.destination} onChange={(e) => setBookingForm({ ...bookingForm, destination: e.target.value })} placeholder="Destination" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>Destination <span className="text-red-500">*</span></span>
+                <input value={bookingForm.destination} onChange={(e) => setBookingForm({ ...bookingForm, destination: e.target.value })} placeholder="Destination place" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
-                <span>Purpose</span>
-                <input value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} placeholder="Purpose" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>Purpose <span className="text-red-500">*</span></span>
+                <input value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} placeholder="Purpose" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
                 <span>Remarks</span>

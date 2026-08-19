@@ -5,6 +5,7 @@ import MaterialForm from './MaterialForm';
 import { useAuth } from '../../context/AuthContext';
 import api, { BACKEND_BASE_URL } from '../../api/axios';
 import { ROLES } from '../../constants/roles';
+import { formatDate } from '../../utils/formatDate';
 const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => {
   const { user } = useAuth();
   const [workerList, setWorkerList] = useState(complaint.assignedWorkerNames || []);
@@ -242,6 +243,11 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
             <span className="bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded text-sm font-semibold">
               {complaint.indentNumber || complaint.id}
             </span>
+            {complaint.isrNo && (
+              <span className="bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded text-sm font-semibold">
+                ISR: {complaint.isrNo}
+              </span>
+            )}
             <span className={`px-2.5 py-0.5 text-sm font-semibold rounded-md 
               ${complaint.status === 'Completed' ? 'bg-green-100 text-green-700' :
                 complaint.status === 'In Progress' ? 'bg-indigo-100 text-indigo-700' :
@@ -333,6 +339,19 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   </div>
                 </div>
 
+                {/* 3b. ISR No. */}
+                {complaint.isrNo && (
+                  <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-4 flex items-center gap-4 transition-all hover:shadow-md">
+                    <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0 border border-amber-100">
+                      <Tag className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5">ISR No.</p>
+                      <p className="text-base font-bold text-gray-900 leading-tight truncate">{complaint.isrNo}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* 4. Created Date */}
                 <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-4 flex items-center gap-4 transition-all hover:shadow-md">
                   <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0 border border-orange-100">
@@ -340,7 +359,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5">Created Date</p>
-                    <p className="text-base font-bold text-gray-900 leading-tight">{new Date(complaint.createdAt).toLocaleDateString()}</p>
+                    <p className="text-base font-bold text-gray-900 leading-tight">{formatDate(complaint.createdAt)}</p>
                   </div>
                 </div>
 

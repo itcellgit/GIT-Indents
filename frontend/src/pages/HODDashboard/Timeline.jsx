@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import { formatDate } from '../../utils/formatDate';
 
 const Timeline = ({ currentStatus, timestamps }) => {
   const steps = [
@@ -61,7 +62,7 @@ const Timeline = ({ currentStatus, timestamps }) => {
                 </p>
                 {step.time && (
                   <p className="text-[10px] text-gray-500 mt-1 whitespace-nowrap">
-                    {new Date(step.time).toLocaleDateString()}
+                    {formatDate(step.time)}
                   </p>
                 )}
               </div>

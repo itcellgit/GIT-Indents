@@ -140,6 +140,7 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
           <thead>
             <tr className="bg-gray-50 text-gray-600 text-sm font-semibold border-b border-gray-200">
               <th className="px-6 py-4">Indent No</th>
+              <th className="px-6 py-4">ISR No</th>
               <th className="px-6 py-4">Raised By</th>
               <th className="px-6 py-4">Type</th>
               <th className="px-6 py-4">Location</th>
@@ -157,6 +158,7 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
                   onClick={() => onOpenDetails(complaint)}
                 >
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{complaint.indentNumber || complaint.id}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{complaint.isrNo || '-'}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{complaint.requester?.name || complaint.raisedBy || 'Faculty'}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{complaint.natureOfWork || complaint.workType || 'Maintenance/Repair'}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{complaint.location}</td>
@@ -181,7 +183,7 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
                   <div className="flex flex-col items-center justify-center gap-2">
                      <AlertCircle className="w-8 h-8 text-gray-300 mb-2" />
                      <p className="font-semibold text-gray-900">

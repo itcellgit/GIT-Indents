@@ -7,6 +7,7 @@ import ChangePasswordModal from '../../components/ChangePasswordModal';
 import api from '../../api/axios';
 import logo from '../../assets/logo.png';
 import { ROLE_DASHBOARDS } from '../../constants/roles';
+import { formatDate } from '../../utils/formatDate';
 
 const BOOKS_REQUIRED_FOR_OPTIONS = ['UG', 'PG', 'Doctoral', 'Common to all/General Reading'];
 const SEMESTER_OPTIONS = ['1st', '2nd', '3rd', '5th', '6th', '7th', '8th', 'Common to all'];
@@ -271,7 +272,7 @@ export default function BookIndentPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}
+                      {formatDate(item.createdAt)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="inline-flex items-center gap-2">

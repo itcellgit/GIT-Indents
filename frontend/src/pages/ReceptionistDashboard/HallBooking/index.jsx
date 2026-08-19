@@ -7,6 +7,7 @@ import ChangePasswordModal from '../../../components/ChangePasswordModal';
 import api from '../../../api/axios';
 import logo from '../../../assets/logo.png';
 import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
+import { formatDate } from '../../../utils/formatDate';
 
 const initialHallForm = {
   name: '',
@@ -103,22 +104,9 @@ const formatTimeWithAmPm = (value) => {
   return `${String(hours).padStart(2, '0')}:${minutes} ${amPm}`;
 };
 
-const formatDateLabel = (value) => {
-  if (!value) return '-';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
-
 const formatBookingDateRange = (startValue, endValue) => {
-  const startLabel = formatDateLabel(startValue);
-  const endLabel = formatDateLabel(endValue);
+  const startLabel = formatDate(startValue);
+  const endLabel = formatDate(endValue);
 
   if (!startValue) return '-';
   if (!endValue || startLabel === endLabel) return startLabel;
@@ -713,7 +701,7 @@ export default function HallBookingsPage() {
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    Today<span className="text-xs text-slate-400 font-normal">({formatDateLabel(today)})</span>
+                    Today<span className="text-xs text-slate-400 font-normal">({formatDate(today)})</span>
                   </h4>
                   {upcomingBookings.today.length === 0 ? (
                     <p className="text-sm text-slate-400">No bookings for today.</p>
@@ -730,7 +718,7 @@ export default function HallBookingsPage() {
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                    Tomorrow<span className="text-xs text-slate-400 font-normal">({formatDateLabel(tomorrow)})</span>
+                    Tomorrow<span className="text-xs text-slate-400 font-normal">({formatDate(tomorrow)})</span>
                   </h4>
                   {upcomingBookings.tomorrow.length === 0 ? (
                     <p className="text-sm text-slate-400">No bookings for tomorrow.</p>

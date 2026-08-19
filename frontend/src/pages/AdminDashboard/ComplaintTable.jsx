@@ -92,6 +92,7 @@ export default function ComplaintTable({ complaints, departments, onOpenDetails 
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Indent No</th>
+              <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">ISR No</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Raised By</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Location</th>
@@ -109,6 +110,9 @@ export default function ComplaintTable({ complaints, departments, onOpenDetails 
               >
                 <td className="px-6 py-4">
                   <span className="font-semibold text-indigo-600 text-sm">{complaint.indentNumber || complaint.id?.substring(0,8) || complaint._id?.toString().substring(0,8)}</span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="text-sm text-slate-600">{complaint.isrNo || '-'}</span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="text-sm text-slate-600">{complaint.requester?.name || 'Unknown'}</span>

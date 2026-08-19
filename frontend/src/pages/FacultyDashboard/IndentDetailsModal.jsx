@@ -1,6 +1,7 @@
 import React from 'react';
 import { XCircle, Clock, CheckCircle } from 'lucide-react';
 import api from '../../api/axios';
+import { formatDateTime } from '../../utils/formatDate';
 
 const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
   if (!selectedComplaint) return null;
@@ -58,6 +59,12 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
                 <span className="block text-xs font-semibold text-slate-400 uppercase">Location</span>
                 <span className="block mt-1 font-medium text-slate-800">{selectedComplaint.location}</span>
               </div>
+              {selectedComplaint.isrNo && (
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  <span className="block text-xs font-semibold text-slate-400 uppercase">ISR No</span>
+                  <span className="block mt-1 font-medium text-slate-800">{selectedComplaint.isrNo}</span>
+                </div>
+              )}
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                 <span className="block text-xs font-semibold text-slate-400 uppercase">Assigned Worker</span>
                 <span className="block mt-1 font-medium text-slate-800 text-sm">
@@ -158,8 +165,8 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
               </h4>
               <div className="relative border-l-2 border-indigo-100 ml-3 space-y-6">
                 {(selectedComplaint.statusHistory && selectedComplaint.statusHistory.length > 0
-                  ? selectedComplaint.statusHistory.map(item => ({ status: item.status, date: new Date(item.timestamp).toLocaleString() }))
-                  : [{ status: 'Indent Created', date: new Date(selectedComplaint.createdAt).toLocaleString() }, { status: selectedComplaint.status, date: new Date(selectedComplaint.updatedAt || selectedComplaint.createdAt).toLocaleString() }]
+                  ? selectedComplaint.statusHistory.map(item => ({ status: item.status, date: formatDateTime(item.timestamp) }))
+                  : [{ status: 'Indent Created', date: formatDateTime(selectedComplaint.createdAt) }, { status: selectedComplaint.status, date: formatDateTime(selectedComplaint.updatedAt || selectedComplaint.createdAt) }]
                 ).map((event, idx, arr) => {
                   const isLast = idx === arr.length - 1;
                   const isRejected = event.status.includes('Rejected');

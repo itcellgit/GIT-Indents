@@ -504,6 +504,7 @@ export default function BusBookingsPage() {
   const handleApproveBooking = async (booking) => {
     try {
       await api.put(`/bus-bookings/${booking.id}/approve`);
+      setIsDayListOpen(false);
       await loadBusBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to approve booking');
@@ -513,6 +514,7 @@ export default function BusBookingsPage() {
   const handleRejectBooking = async (booking) => {
     try {
       await api.put(`/bus-bookings/${booking.id}/reject`, { remarks: booking.remarks || '' });
+      setIsDayListOpen(false);
       await loadBusBookings();
     } catch (apiError) {
       setError(apiError.response?.data?.message || 'Failed to reject booking');
@@ -1099,30 +1101,35 @@ export default function BusBookingsPage() {
                         </td>
                          <td className="px-4 py-4 text-sm text-slate-700">
                             <div className="flex items-center gap-2">
-                              {isAdminOrTransport && (
-                                <>
-                                  {booking.status !== 'APPROVED' && booking.status !== 'CANCELLED' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleApproveBooking(booking)}
-                                      className="inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
-                                      title="Approve"
-                                    >
-                                      <CheckCircle className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  {booking.status !== 'REJECTED' && booking.status !== 'CANCELLED' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRejectBooking(booking)}
-                                      className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                                      title="Reject"
-                                    >
-                                      <ShieldX className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </>
-                              )}
+                              {isAdminOrTransport && (() => {
+                                const isBusUnassigned = !booking.bus_id;
+                                return (
+                                  <>
+                                    {booking.status !== 'APPROVED' && booking.status !== 'CANCELLED' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { if (!isBusUnassigned) handleApproveBooking(booking); }}
+                                        disabled={isBusUnassigned}
+                                        className={`inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors ${isBusUnassigned ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        title={isBusUnassigned ? 'Assign a bus via Edit before approving' : 'Approve'}
+                                      >
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    {booking.status !== 'REJECTED' && booking.status !== 'CANCELLED' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { if (!isBusUnassigned) handleRejectBooking(booking); }}
+                                        disabled={isBusUnassigned}
+                                        className={`inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${isBusUnassigned ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        title={isBusUnassigned ? 'Assign a bus via Edit before rejecting' : 'Reject'}
+                                      >
+                                        <ShieldX className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </>
+                                );
+                              })()}
                                <button
                                  type="button"
                                  onClick={() => {

@@ -425,6 +425,10 @@ const approveBusBooking = async (req, res) => {
       return res.status(404).json({ message: 'Bus booking not found' });
     }
 
+    if (!existingRows[0].bus_id) {
+      return res.status(400).json({ message: 'Assign a bus to this booking before approving it' });
+    }
+
     const conflict = await findBusBookingConflict(
       existingRows[0].bus_id,
       existingRows[0].start_date,

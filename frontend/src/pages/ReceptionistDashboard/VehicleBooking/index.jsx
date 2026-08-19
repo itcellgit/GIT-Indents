@@ -1049,30 +1049,35 @@ export default function VehicleBookingsPage() {
                         </td>
                          <td className="px-4 py-4 text-sm text-slate-700">
                             <div className="flex items-center gap-2">
-                              {isAdminOrReceptionist && (
-                                <>
-                                  {booking.status !== 'APPROVED' && booking.status !== 'CANCELLED' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleApproveBooking(booking)}
-                                      className="inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
-                                      title="Approve"
-                                    >
-                                      <CheckCircle className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  {booking.status !== 'REJECTED' && booking.status !== 'CANCELLED' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRejectBooking(booking)}
-                                      className="inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                                      title="Reject"
-                                    >
-                                      <ShieldX className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </>
-                              )}
+                              {isAdminOrReceptionist && (() => {
+                                const isVehicleUnassigned = !booking.vehicle_id;
+                                return (
+                                  <>
+                                    {booking.status !== 'APPROVED' && booking.status !== 'CANCELLED' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { if (!isVehicleUnassigned) handleApproveBooking(booking); }}
+                                        disabled={isVehicleUnassigned}
+                                        className={`inline-flex items-center justify-center rounded-md p-2 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors ${isVehicleUnassigned ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        title={isVehicleUnassigned ? 'Assign a vehicle via Edit before approving' : 'Approve'}
+                                      >
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    {booking.status !== 'REJECTED' && booking.status !== 'CANCELLED' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { if (!isVehicleUnassigned) handleRejectBooking(booking); }}
+                                        disabled={isVehicleUnassigned}
+                                        className={`inline-flex items-center justify-center rounded-md p-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${isVehicleUnassigned ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        title={isVehicleUnassigned ? 'Assign a vehicle via Edit before rejecting' : 'Reject'}
+                                      >
+                                        <ShieldX className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </>
+                                );
+                              })()}
                                <button
                                  type="button"
                                  onClick={() => {

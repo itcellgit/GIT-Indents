@@ -444,6 +444,10 @@ const approveVehicleBooking = async (req, res) => {
       return res.status(404).json({ message: 'Vehicle booking not found' });
     }
 
+    if (!existingRows[0].vehicle_id) {
+      return res.status(400).json({ message: 'Assign a vehicle to this booking before approving it' });
+    }
+
     const conflict = await findVehicleBookingConflict(
       existingRows[0].vehicle_id,
       existingRows[0].start_date,

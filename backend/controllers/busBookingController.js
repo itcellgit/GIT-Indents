@@ -12,6 +12,9 @@ const mapBusBookingRow = (row) => ({
   bus_number: row.bus_number || '',
   bus_name: row.bus_name || '',
   bus_type: row.bus_type || '',
+  driver_id: row.driver_id || null,
+  driver_name: row.driver_name || '',
+  driver_phone_no: row.driver_phone_no || '',
   booked_by: row.booked_by,
   booked_by_name: row.booked_by_name || '',
   booked_by_email: row.booked_by_email || '',
@@ -63,11 +66,14 @@ const conflictMessage = (conflict, resourceLabel) =>
 const fetchBusBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
     `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
+            bb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
             bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
             bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks,
             bb.created_at, bb.updated_at, u.department AS booked_by_department
      FROM public.bus_bookings bb
      LEFT JOIN public.buses b ON b.id = bb.bus_id
+     LEFT JOIN "Driver" d ON d.id = bb.driver_id
+     LEFT JOIN "User" du ON du.id = d."userId"
      LEFT JOIN public."User" u ON u.id = bb.booked_by
      WHERE bb.id = $1
      LIMIT 1`,
@@ -80,11 +86,14 @@ const getBusBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
       `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
+              bb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
               bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
               bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks,
               bb.created_at, bb.updated_at
          FROM public.bus_bookings bb
          LEFT JOIN public.buses b ON b.id = bb.bus_id
+         LEFT JOIN "Driver" d ON d.id = bb.driver_id
+         LEFT JOIN "User" du ON du.id = d."userId"
          LEFT JOIN public."User" u ON u.id = bb.booked_by
          ORDER BY bb.start_date DESC, bb.id DESC`
     );
@@ -99,6 +108,7 @@ const createBusBooking = async (req, res) => {
   try {
     const {
       bus_id,
+      driver_id,
       booked_by,
       purpose,
       destination,
@@ -136,10 +146,11 @@ const createBusBooking = async (req, res) => {
 
     const bookingRows = await prisma.$queryRawUnsafe(
       `INSERT INTO public.bus_bookings
-        (bus_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDING', NOW(), NOW())
+        (bus_id, driver_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'PENDING', NOW(), NOW())
        RETURNING id`,
       bus_id ? Number(bus_id) : null,
+      driver_id ? String(driver_id).trim() : null,
       String(booked_by).trim(),
       String(req.body.booked_by_email).trim().toLowerCase(),
       purpose ? String(purpose).trim() : null,
@@ -169,6 +180,7 @@ const updateBusBooking = async (req, res) => {
     const bookingId = Number(id);
     const {
       bus_id,
+      driver_id,
       booked_by,
       booked_by_email,
       purpose,
@@ -249,27 +261,29 @@ const updateBusBooking = async (req, res) => {
     await prisma.$queryRawUnsafe(
       `UPDATE public.bus_bookings
          SET bus_id = COALESCE($2, bus_id),
-             booked_by = COALESCE($3, booked_by),
-             booked_by_email = COALESCE($4, booked_by_email),
-             purpose = $5,
-             destination = $6,
-             start_date = COALESCE($7, start_date),
-             end_date = COALESCE($8, end_date),
-             booking_period = COALESCE($9, booking_period),
-             start_time = $10,
-             end_time = $11,
-             passenger_count = $12,
-             remarks = $13,
-             status = COALESCE(NULLIF($14, '')::text, status),
+             driver_id = COALESCE($3, driver_id),
+             booked_by = COALESCE($4, booked_by),
+             booked_by_email = COALESCE($5, booked_by_email),
+             purpose = $6,
+             destination = $7,
+             start_date = COALESCE($8, start_date),
+             end_date = COALESCE($9, end_date),
+             booking_period = COALESCE($10, booking_period),
+             start_time = $11,
+             end_time = $12,
+             passenger_count = $13,
+             remarks = $14,
+             status = COALESCE(NULLIF($15, '')::text, status),
              approved_by = CASE
-               WHEN $14 IS NOT NULL AND (UPPER($14) = 'APPROVED' OR UPPER($14) = 'REJECTED')
-                 THEN COALESCE(NULLIF($15, '')::text, approved_by)
+               WHEN $15 IS NOT NULL AND (UPPER($15) = 'APPROVED' OR UPPER($15) = 'REJECTED')
+                 THEN COALESCE(NULLIF($16, '')::text, approved_by)
                ELSE approved_by
              END,
              updated_at = NOW()
        WHERE id = $1`,
       bookingId,
       bus_id ? Number(bus_id) : null,
+      driver_id ? String(driver_id).trim() : null,
       booked_by ? String(booked_by).trim() : null,
       booked_by_email ? String(booked_by_email).trim().toLowerCase() : null,
       purpose ? String(purpose).trim() : null,
@@ -337,6 +351,8 @@ const deleteBusBooking = async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
       `Bus: ${escapeHtml(bookingToDelete.bus_number || bookingToDelete.bus_name || `ID ${bookingToDelete.bus_id}`)}`,
+      `Driver Name: ${escapeHtml(bookingToDelete.driver_name || 'N/A')}`,
+      `Driver Phone: ${escapeHtml(bookingToDelete.driver_phone_no || 'N/A')}`,
       `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
       `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
       `Destination: ${escapeHtml(bookingToDelete.destination || 'N/A')}`,
@@ -482,6 +498,8 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     : 'Updated';
   const details = [
     `Bus: ${escapeHtml(booking.bus_number || booking.bus_name || `ID ${booking.bus_id}`)}`,
+    `Driver Name: ${escapeHtml(booking.driver_name || 'N/A')}`,
+    `Driver Phone: ${escapeHtml(booking.driver_phone_no || 'N/A')}`,
     `Booked by: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Destination: ${escapeHtml(booking.destination || 'N/A')}`,

@@ -235,6 +235,7 @@ const getAllUsers = async (req, res) => {
         u.staff_phone_no,
         u."isActive" AS "isActive",
         u."createdAt" AS "createdAt",
+        EXISTS (SELECT 1 FROM "Driver" d WHERE d."userId" = u.id) AS "isDriver",
         COALESCE(
           json_agg(
             json_build_object(
@@ -427,7 +428,7 @@ const deleteRole = async (req, res) => {
 // @access  Private/Admin
 const createUser = async (req, res) => {
   try {
-    const { name, email, password, department, role, roles, staff_phone_no } = req.body;
+    const { name, email, password, department, role, roles, staff_phone_no, is_driver } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
@@ -477,10 +478,14 @@ const createUser = async (req, res) => {
 
       await syncUserRoles(tx, createdUser.id, selectedRoles);
 
+      if ((department || '') === 'Vehicle Maintenance' && is_driver) {
+        await tx.driver.create({ data: { userId: createdUser.id } });
+      }
+
       return createdUser;
     });
 
-    res.status(201).json({ success: true, user, roles: normalizeRoleList(roles || role) });
+    res.status(201).json({ success: true, user: { ...user, isDriver: (department || '') === 'Vehicle Maintenance' && Boolean(is_driver) }, roles: normalizeRoleList(roles || role) });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
   }
@@ -492,7 +497,7 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, department, roles, roleIds, role, password, staff_phone_no } = req.body;
+    const { name, email, department, roles, roleIds, role, password, staff_phone_no, is_driver } = req.body;
 
     const existingUserRows = await prisma.$queryRawUnsafe(
       `SELECT
@@ -544,10 +549,12 @@ const updateUser = async (req, res) => {
       return res.status(400).json({ message: 'Email already exists' });
     }
 
+    const resolvedDepartment = department !== undefined ? department : existingUser.department || '';
+
     const updateData = {
       name: name !== undefined ? name : existingUser.name,
       email: email !== undefined ? email : existingUser.email,
-      department: department !== undefined ? department : existingUser.department || '',
+      department: resolvedDepartment,
       staff_phone_no: staff_phone_no !== undefined ? (staff_phone_no ? String(staff_phone_no).trim() : null) : existingUser.staff_phone_no
     };
 
@@ -576,7 +583,15 @@ const updateUser = async (req, res) => {
 
       await syncUserRoles(tx, id, selectedRoles);
 
-      return userRecord;
+      const shouldBeDriver = resolvedDepartment === 'Vehicle Maintenance' && Boolean(is_driver);
+      const existingDriver = await tx.driver.findUnique({ where: { userId: id } });
+      if (shouldBeDriver && !existingDriver) {
+        await tx.driver.create({ data: { userId: id } });
+      } else if (!shouldBeDriver && existingDriver) {
+        await tx.driver.delete({ where: { userId: id } });
+      }
+
+      return { ...userRecord, isDriver: shouldBeDriver };
     });
 
     res.json({ success: true, user: updatedUser, roles: selectedRoles });

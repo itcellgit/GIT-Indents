@@ -12,8 +12,9 @@ const mapVehicleBookingRow = (row) => ({
   vehicle_number: row.vehicle_number || '',
   vehicle_name: row.vehicle_name || '',
   vehicle_type: row.vehicle_type || '',
+  driver_id: row.driver_id || null,
   driver_name: row.driver_name || '',
-  driver_phone_number: row.driver_phone_number || '',
+  driver_phone_no: row.driver_phone_no || '',
   booked_by: row.booked_by,
   booked_by_name: row.booked_by_name || '',
   booked_by_email: row.booked_by_email || '',
@@ -71,12 +72,15 @@ const conflictMessage = (conflict, resourceLabel) =>
 
 const fetchVehicleBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
-    `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type, v.driver_name, v.driver_phone_number,
+    `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+            vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
             vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
             vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
             vb.created_at, vb.updated_at
      FROM public.vehicle_bookings vb
      LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
+     LEFT JOIN "Driver" d ON d.id = vb.driver_id
+     LEFT JOIN "User" du ON du.id = d."userId"
      LEFT JOIN public."User" u ON u.id = vb.booked_by
      WHERE vb.id = $1
      LIMIT 1`,
@@ -88,12 +92,15 @@ const fetchVehicleBookingById = async (bookingId) => {
 const getVehicleBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type, v.driver_name, v.driver_phone_number,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+            vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
               vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
               vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
               vb.created_at, vb.updated_at
          FROM public.vehicle_bookings vb
          LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
+         LEFT JOIN "Driver" d ON d.id = vb.driver_id
+         LEFT JOIN "User" du ON du.id = d."userId"
          LEFT JOIN public."User" u ON u.id = vb.booked_by
          ORDER BY vb.start_date DESC, vb.id DESC`
     );
@@ -108,6 +115,7 @@ const createVehicleBooking = async (req, res) => {
   try {
     const {
       vehicle_id,
+      driver_id,
       booked_by,
       purpose,
       destination,
@@ -145,10 +153,11 @@ const createVehicleBooking = async (req, res) => {
 
     const bookingRows = await prisma.$queryRawUnsafe(
       `INSERT INTO public.vehicle_bookings
-        (vehicle_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'PENDING', NOW(), NOW())
+        (vehicle_id, driver_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'PENDING', NOW(), NOW())
        RETURNING id, vehicle_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at`,
       vehicle_id ? Number(vehicle_id) : null,
+      driver_id ? String(driver_id).trim() : null,
       String(booked_by).trim(),
       String(req.body.booked_by_email).trim().toLowerCase(),
       purpose ? String(purpose).trim() : null,
@@ -163,12 +172,15 @@ const createVehicleBooking = async (req, res) => {
     );
 
     const createdBookingRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type, v.driver_name, v.driver_phone_number,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+            vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
               vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
               vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
               vb.created_at, vb.updated_at
          FROM public.vehicle_bookings vb
          LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
+         LEFT JOIN "Driver" d ON d.id = vb.driver_id
+         LEFT JOIN "User" du ON du.id = d."userId"
          LEFT JOIN public."User" u ON u.id = vb.booked_by
          WHERE vb.id = $1
          LIMIT 1`,
@@ -190,6 +202,7 @@ const updateVehicleBooking = async (req, res) => {
     const bookingId = Number(id);
     const {
       vehicle_id,
+      driver_id,
       booked_by,
       booked_by_email,
       purpose,
@@ -271,27 +284,29 @@ const updateVehicleBooking = async (req, res) => {
     await prisma.$queryRawUnsafe(
       `UPDATE public.vehicle_bookings
          SET vehicle_id = COALESCE($2, vehicle_id),
-             booked_by = COALESCE($3, booked_by),
-             booked_by_email = COALESCE($4, booked_by_email),
-             purpose = $5,
-             destination = $6,
-             start_date = COALESCE($7, start_date),
-             end_date = COALESCE($8, end_date),
-             booking_period = COALESCE($9, booking_period),
-             start_time = $10,
-             end_time = $11,
-             passenger_count = $12,
-             remarks = $13,
-             status = COALESCE(NULLIF($14, '')::text, status),
+             driver_id = COALESCE($3, driver_id),
+             booked_by = COALESCE($4, booked_by),
+             booked_by_email = COALESCE($5, booked_by_email),
+             purpose = $6,
+             destination = $7,
+             start_date = COALESCE($8, start_date),
+             end_date = COALESCE($9, end_date),
+             booking_period = COALESCE($10, booking_period),
+             start_time = $11,
+             end_time = $12,
+             passenger_count = $13,
+             remarks = $14,
+             status = COALESCE(NULLIF($15, '')::text, status),
              approved_by = CASE
-               WHEN $14 IS NOT NULL AND (UPPER($14) = 'APPROVED' OR UPPER($14) = 'REJECTED')
-                 THEN COALESCE(NULLIF($15, '')::text, approved_by)
+               WHEN $15 IS NOT NULL AND (UPPER($15) = 'APPROVED' OR UPPER($15) = 'REJECTED')
+                 THEN COALESCE(NULLIF($16, '')::text, approved_by)
                ELSE approved_by
              END,
              updated_at = NOW()
        WHERE id = $1`,
       bookingId,
       vehicle_id ? Number(vehicle_id) : null,
+      driver_id ? String(driver_id).trim() : null,
       booked_by ? String(booked_by).trim() : null,
       booked_by_email ? String(booked_by_email).trim().toLowerCase() : null,
       purpose ? String(purpose).trim() : null,
@@ -327,11 +342,13 @@ const deleteVehicleBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.driver_name, v.driver_phone_number, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
               vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time, vb.passenger_count, vb.remarks,
               vb.status, vb.approved_by, vb.created_at, vb.updated_at, u.department AS booked_by_department
          FROM public.vehicle_bookings vb
          LEFT JOIN public.vehicles v ON v.id = vb.vehicle_id
+         LEFT JOIN "Driver" d ON d.id = vb.driver_id
+         LEFT JOIN "User" du ON du.id = d."userId"
          LEFT JOIN public."User" u ON u.id = vb.booked_by
          WHERE vb.id = $1
          LIMIT 1`,
@@ -370,7 +387,7 @@ const deleteVehicleBooking = async (req, res) => {
     const cancellationDetails = [
       `Vehicle: ${escapeHtml(bookingToDelete.vehicle_number || bookingToDelete.vehicle_name || `ID ${bookingToDelete.vehicle_id}`)}`,
       `Driver Name: ${escapeHtml(bookingToDelete.driver_name || 'N/A')}`,
-      `Driver Phone: ${escapeHtml(bookingToDelete.driver_phone_number || 'N/A')}`,
+      `Driver Phone: ${escapeHtml(bookingToDelete.driver_phone_no || 'N/A')}`,
       `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
       `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
       `Destination: ${escapeHtml(bookingToDelete.destination || 'N/A')}`,
@@ -517,7 +534,7 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
   const details = [
     `Vehicle: ${escapeHtml(booking.vehicle_number || booking.vehicle_name || `ID ${booking.vehicle_id}`)}`,
     `Driver Name: ${escapeHtml(booking.driver_name || 'N/A')}`,
-    `Driver Phone: ${escapeHtml(booking.driver_phone_number || 'N/A')}`,
+    `Driver Phone: ${escapeHtml(booking.driver_phone_no || 'N/A')}`,
     `Booked by: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Destination: ${escapeHtml(booking.destination || 'N/A')}`,

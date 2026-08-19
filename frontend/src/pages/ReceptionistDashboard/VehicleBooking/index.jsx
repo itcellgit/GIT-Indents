@@ -13,13 +13,12 @@ const initialVehicleForm = {
   vehicle_number: '',
   vehicle_name: '',
   vehicle_type: '',
-  driver_name: '',
-  driver_phone_number: '',
   status: 'Available',
 };
 
 const initialBookingForm = {
   vehicle_id: '',
+  driver_id: '',
   booked_by: '',
   booked_by_name: '',
   booked_by_email: '',
@@ -259,6 +258,7 @@ export default function VehicleBookingsPage() {
   const [editingVehicleId, setEditingVehicleId] = useState(null);
   const [editingVehicleBookingId, setEditingVehicleBookingId] = useState(null);
   const [vehicles, setVehicles] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [vehicleBookings, setVehicleBookings] = useState([]);
   const [form, setForm] = useState(initialVehicleForm);
   const [bookingForm, setBookingForm] = useState(initialBookingForm);
@@ -281,6 +281,15 @@ export default function VehicleBookingsPage() {
       setError(apiError.response?.data?.message || 'Failed to load vehicles');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDrivers = async () => {
+    try {
+      const response = await api.get('/drivers');
+      setDrivers(response.data?.drivers || []);
+    } catch (apiError) {
+      setDrivers([]);
     }
   };
 
@@ -338,6 +347,7 @@ export default function VehicleBookingsPage() {
     setBookingForm({
       ...initialBookingForm,
       vehicle_id: '',
+      driver_id: '',
       booked_by: user?.id || '',
       booked_by_name: user?.name || '',
       booked_by_email: user?.email || '',
@@ -360,6 +370,7 @@ export default function VehicleBookingsPage() {
 
   useEffect(() => {
     loadVehicles();
+    loadDrivers();
   }, []);
 
   useEffect(() => {
@@ -398,8 +409,6 @@ export default function VehicleBookingsPage() {
       vehicle_number: vehicle.vehicle_number,
       vehicle_name: vehicle.vehicle_name,
       vehicle_type: vehicle.vehicle_type,
-      driver_name: vehicle.driver_name || '',
-      driver_phone_number: vehicle.driver_phone_number || '',
       status: vehicle.status || 'Available',
     });
     setEditingVehicleId(vehicle.id);
@@ -420,6 +429,7 @@ export default function VehicleBookingsPage() {
 
     const payload = {
       vehicle_id: bookingForm.vehicle_id,
+      driver_id: bookingForm.driver_id,
       booked_by: bookingForm.booked_by,
       booked_by_email: bookingForm.booked_by_email,
       purpose: bookingForm.purpose,
@@ -453,6 +463,7 @@ export default function VehicleBookingsPage() {
   const openEditVehicleBooking = (booking) => {
     setBookingForm({
       vehicle_id: String(booking.vehicle_id || ''),
+      driver_id: String(booking.driver_id || ''),
       booked_by: String(booking.booked_by || ''),
       booked_by_name: String(booking.booked_by_name || booking.booked_by || ''),
       booked_by_email: String(booking.booked_by_email || ''),
@@ -609,14 +620,6 @@ export default function VehicleBookingsPage() {
                       <input value={form.vehicle_type} onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })} placeholder="Vehicle Type" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                     </label>
                     <label className="grid gap-1 text-sm font-medium text-slate-700">
-                      <span>Driver Name <span className="text-red-500">*</span></span>
-                      <input value={form.driver_name} onChange={(e) => setForm({ ...form, driver_name: e.target.value })} placeholder="Driver Name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
-                    </label>
-                    <label className="grid gap-1 text-sm font-medium text-slate-700">
-                      <span>Driver Phone Number <span className="text-red-500">*</span></span>
-                      <input value={form.driver_phone_number} onChange={(e) => setForm({ ...form, driver_phone_number: e.target.value })} placeholder="Driver Phone Number" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
-                    </label>
-                    <label className="grid gap-1 text-sm font-medium text-slate-700">
                       <span>Status</span>
                       <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
                         <option value="Available">Available</option>
@@ -642,8 +645,6 @@ export default function VehicleBookingsPage() {
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Number</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Name</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle Type</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Driver Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Driver Phone</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                     </tr>
@@ -651,11 +652,11 @@ export default function VehicleBookingsPage() {
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {loading ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500">Loading vehicles...</td>
+                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">Loading vehicles...</td>
                       </tr>
                     ) : vehicles.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500">No vehicles yet. Add one above to get started.</td>
+                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">No vehicles yet. Add one above to get started.</td>
                       </tr>
                     ) : (
                       vehicles.map((vehicle, index) => (
@@ -664,8 +665,6 @@ export default function VehicleBookingsPage() {
                           <td className="px-6 py-4 text-sm font-medium text-slate-900">{vehicle.vehicle_number}</td>
                           <td className="px-6 py-4 text-sm text-slate-700">{vehicle.vehicle_name}</td>
                           <td className="px-6 py-4 text-sm text-slate-700">{vehicle.vehicle_type}</td>
-                          <td className="px-6 py-4 text-sm text-slate-700">{vehicle.driver_name || '-'}</td>
-                          <td className="px-6 py-4 text-sm text-slate-700">{vehicle.driver_phone_number || '-'}</td>
                           <td className="px-6 py-4 text-sm text-indigo-600 font-semibold">{vehicle.status}</td>
                           <td className="px-6 py-4 text-sm text-slate-700">
                             <div className="flex items-center gap-2">
@@ -883,6 +882,24 @@ export default function VehicleBookingsPage() {
                   </div>
                 </div>
               )}
+              {canSelectVehicle ? (
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Driver</span>
+                  <select value={bookingForm.driver_id} onChange={(e) => setBookingForm({ ...bookingForm, driver_id: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                    <option value="">Select Driver</option>
+                    {drivers.map((driver) => (
+                      <option key={driver.id} value={driver.id}>{driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Driver</span>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
+                    Driver will be assigned by the Receptionist
+                  </div>
+                </div>
+              )}
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Booked By <span className="text-red-500">*</span></span>
                 <input value={bookingForm.booked_by_name} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_name: e.target.value })} placeholder="Enter name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
@@ -992,6 +1009,7 @@ export default function VehicleBookingsPage() {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">S.No</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vehicle</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Driver</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By Email</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Purpose</th>
@@ -1004,13 +1022,14 @@ export default function VehicleBookingsPage() {
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {selectedDayBookings.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
+                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
                     </tr>
                   ) : (
                     selectedDayBookings.map((booking, index) => (
                       <tr key={booking.id} className="hover:bg-slate-50">
                         <td className="px-4 py-4 text-sm text-slate-700">{index + 1}</td>
                         <td className="px-4 py-4 text-sm font-medium text-slate-900">{getVehicleLabel(booking)}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">{booking.driver_name || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>

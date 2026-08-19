@@ -140,6 +140,7 @@ const busRoutes = require('./routes/busRoutes');
 const busBookingRoutes = require('./routes/busBookingRoutes');
 const branchRoutes = require('./routes/branchRoutes');
 const facultyBookIndentRoutes = require('./routes/facultyBookIndentRoutes');
+const driverRoutes = require('./routes/driverRoutes');
 
 // --- MOUNT ROUTES ---
 // Every route inside authRoutes.js will automatically start with /api/auth
@@ -159,6 +160,7 @@ app.use('/api/buses', busRoutes);
 app.use('/api/bus-bookings', busBookingRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/faculty-book-indents', facultyBookIndentRoutes);
+app.use('/api/drivers', driverRoutes);
 
 // A simple test route to verify the server is running when you visit localhost:5000 in your browser
 app.get('/', (req, res) => {

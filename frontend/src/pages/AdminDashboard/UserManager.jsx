@@ -47,13 +47,13 @@ export default function UserManager({ users, onUserUpdate }) {
   
   // State for Add User form
   const [addUserData, setAddUserData] = useState({
-    name: '', email: '', roles: [], department: '', staff_phone_no: '', password: ''
+    name: '', email: '', roles: [], department: '', staff_phone_no: '', is_driver: false, password: ''
   });
 
   const [addUserError, setAddUserError] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [editUserData, setEditUserData] = useState({
-    name: '', email: '', roles: [], roleIds: [], department: '', staff_phone_no: '', password: ''
+    name: '', email: '', roles: [], roleIds: [], department: '', staff_phone_no: '', is_driver: false, password: ''
   });
   const [editUserError, setEditUserError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -182,6 +182,7 @@ export default function UserManager({ users, onUserUpdate }) {
       roleIds: getUserRoleIds(user),
       department: user.department || '',
       staff_phone_no: user.staff_phone_no || '',
+      is_driver: Boolean(user.isDriver),
       password: ''
     });
     setEditUserError('');
@@ -249,7 +250,7 @@ export default function UserManager({ users, onUserUpdate }) {
       setIsAdding(true);
       await api.post('/admin/users', addUserData);
       setIsAddUserOpen(false);
-      setAddUserData({ name: '', email: '', roles: [], department: '', staff_phone_no: '', password: '' });
+      setAddUserData({ name: '', email: '', roles: [], department: '', staff_phone_no: '', is_driver: false, password: '' });
       if (onUserUpdate) onUserUpdate();
     } catch (err) {
       console.error("Failed to add user:", err);
@@ -275,7 +276,7 @@ export default function UserManager({ users, onUserUpdate }) {
       });
       setIsEditUserOpen(false);
       setEditingUser(null);
-      setEditUserData({ name: '', email: '', roles: [], roleIds: [], department: '', staff_phone_no: '', password: '' });
+      setEditUserData({ name: '', email: '', roles: [], roleIds: [], department: '', staff_phone_no: '', is_driver: false, password: '' });
       if (onUserUpdate) onUserUpdate();
     } catch (err) {
       console.error('Failed to update user:', err);
@@ -683,6 +684,17 @@ export default function UserManager({ users, onUserUpdate }) {
                   </datalist>
                 </div>
               </div>
+              {addUserData.department === 'Vehicle Maintenance' && (
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={addUserData.is_driver}
+                    onChange={(e) => setAddUserData(prev => ({ ...prev, is_driver: e.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                  />
+                  <span className="text-sm font-medium">Driver</span>
+                </label>
+              )}
             </div>
             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3">
               <button onClick={() => setIsAddUserOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Close</button>
@@ -821,6 +833,17 @@ export default function UserManager({ users, onUserUpdate }) {
                   <input name="department" value={editUserData.department} onChange={handleEditUserChange} placeholder="Type to search..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600 bg-white" />
                 </div>
               </div>
+              {editUserData.department === 'Vehicle Maintenance' && (
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={editUserData.is_driver}
+                    onChange={(e) => setEditUserData(prev => ({ ...prev, is_driver: e.target.checked }))}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                  />
+                  <span className="text-sm font-medium">Driver</span>
+                </label>
+              )}
             </div>
             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3">
               <button onClick={() => setIsEditUserOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Close</button>

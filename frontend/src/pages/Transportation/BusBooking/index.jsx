@@ -18,6 +18,7 @@ const initialBusForm = {
 
 const initialBookingForm = {
   bus_id: '',
+  driver_id: '',
   booked_by: '',
   booked_by_name: '',
   booked_by_email: '',
@@ -257,6 +258,7 @@ export default function BusBookingsPage() {
   const [editingBusId, setEditingBusId] = useState(null);
   const [editingBusBookingId, setEditingBusBookingId] = useState(null);
   const [buses, setBuses] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [busBookings, setBusBookings] = useState([]);
   const [form, setForm] = useState(initialBusForm);
   const [bookingForm, setBookingForm] = useState(initialBookingForm);
@@ -279,6 +281,15 @@ export default function BusBookingsPage() {
       setError(apiError.response?.data?.message || 'Failed to load buses');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDrivers = async () => {
+    try {
+      const response = await api.get('/drivers');
+      setDrivers(response.data?.drivers || []);
+    } catch (apiError) {
+      setDrivers([]);
     }
   };
 
@@ -336,6 +347,7 @@ export default function BusBookingsPage() {
     setBookingForm({
       ...initialBookingForm,
       bus_id: '',
+      driver_id: '',
       booked_by: user?.id || '',
       booked_by_name: user?.name || '',
       booked_by_email: user?.email || '',
@@ -358,6 +370,7 @@ export default function BusBookingsPage() {
 
   useEffect(() => {
     loadBuses();
+    loadDrivers();
   }, []);
 
   useEffect(() => {
@@ -416,6 +429,7 @@ export default function BusBookingsPage() {
 
     const payload = {
       bus_id: bookingForm.bus_id,
+      driver_id: bookingForm.driver_id,
       booked_by: bookingForm.booked_by,
       booked_by_email: bookingForm.booked_by_email,
       purpose: bookingForm.purpose,
@@ -449,6 +463,7 @@ export default function BusBookingsPage() {
   const openEditBusBooking = (booking) => {
     setBookingForm({
       bus_id: String(booking.bus_id || ''),
+      driver_id: String(booking.driver_id || ''),
       booked_by: String(booking.booked_by || ''),
       booked_by_name: String(booking.booked_by_name || booking.booked_by || ''),
       booked_by_email: String(booking.booked_by_email || ''),
@@ -864,6 +879,24 @@ export default function BusBookingsPage() {
                   </div>
                 </div>
               )}
+              {canSelectBus ? (
+                <label className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Driver</span>
+                  <select value={bookingForm.driver_id} onChange={(e) => setBookingForm({ ...bookingForm, driver_id: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
+                    <option value="">Select Driver</option>
+                    {drivers.map((driver) => (
+                      <option key={driver.id} value={driver.id}>{driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Driver</span>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
+                    Driver will be assigned by Transportation
+                  </div>
+                </div>
+              )}
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Booked By</span>
                 <input value={bookingForm.booked_by_name} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_name: e.target.value })} placeholder="Enter name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
@@ -972,6 +1005,7 @@ export default function BusBookingsPage() {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">S.No</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Bus</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Driver</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By Email</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Purpose</th>
@@ -984,13 +1018,14 @@ export default function BusBookingsPage() {
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {selectedDayBookings.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
+                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
                     </tr>
                   ) : (
                     selectedDayBookings.map((booking, index) => (
                       <tr key={booking.id} className="hover:bg-slate-50">
                         <td className="px-4 py-4 text-sm text-slate-700">{index + 1}</td>
                         <td className="px-4 py-4 text-sm font-medium text-slate-900">{getBusLabel(booking)}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">{booking.driver_name || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>

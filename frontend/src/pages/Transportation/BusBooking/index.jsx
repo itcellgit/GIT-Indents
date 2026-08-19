@@ -1003,7 +1003,7 @@ export default function BusBookingsPage() {
                       <tr key={booking.id} className="hover:bg-slate-50">
                         <td className="px-4 py-4 text-sm text-slate-700">{index + 1}</td>
                         <td className="px-4 py-4 text-sm font-medium text-slate-900">{getBusLabel(booking)}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || booking.booked_by || '-'}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>
                          <td className="px-4 py-4 text-sm text-slate-700">

@@ -3,12 +3,12 @@ const { sendEmailNotificationToRecipients, escapeHtml } = require('../utils/noti
 const { ROLES } = require('../utils/roles');
 
 const HALL_BOOKING_EMAILS = [
-   'maintenance@git.edu',
-   'productioncenter@git.edu',
-   'epmc@git.edu',
-   'itmaintenance@git.edu',
-   'energycell@git.edu',
-  // 'rypatil@git.edu',
+  //  'maintenance@git.edu',
+  //  'productioncenter@git.edu',
+  //  'epmc@git.edu',
+  //  'itmaintenance@git.edu',
+  //  'energycell@git.edu',
+  'rypatil@git.edu',
   // 'itcell@git.edu',
 ];
 
@@ -307,7 +307,7 @@ const deleteHallBooking = async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
       `Hall: ${escapeHtml(bookingToDelete.hall_name || `ID ${bookingToDelete.hall_id}`)}`,
-      `Booked by: ${escapeHtml(bookingToDelete.booked_by || 'N/A')}`,
+        `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
       `Booked by email: ${escapeHtml(bookingToDelete.booked_by_email || 'N/A')}`,
       `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
       `Start: ${bookingToDelete.start_datetime ? new Date(bookingToDelete.start_datetime).toLocaleString() : 'N/A'}`,
@@ -368,7 +368,7 @@ const sendBookingStatusNotification = async (booking, action) => {
     : 'Updated';
   const details = [
     `Hall: ${escapeHtml(booking.hall_name || `ID ${booking.hall_id}`)}`,
-    `Booked by: ${escapeHtml(booking.booked_by || 'N/A')}`,
+    `Booked by: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Booked by email: ${escapeHtml(booking.booked_by_email || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Start: ${booking.start_datetime ? new Date(booking.start_datetime).toLocaleString() : 'N/A'}`,

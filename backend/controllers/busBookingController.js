@@ -337,7 +337,7 @@ const deleteBusBooking = async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
       `Bus: ${escapeHtml(bookingToDelete.bus_number || bookingToDelete.bus_name || `ID ${bookingToDelete.bus_id}`)}`,
-      `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || bookingToDelete.booked_by || 'N/A')}`,
+      `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
       `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
       `Destination: ${escapeHtml(bookingToDelete.destination || 'N/A')}`,
       `Start Date: ${bookingToDelete.start_date || 'N/A'}`,
@@ -482,7 +482,7 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     : 'Updated';
   const details = [
     `Bus: ${escapeHtml(booking.bus_number || booking.bus_name || `ID ${booking.bus_id}`)}`,
-    `Booked by: ${escapeHtml(booking.booked_by_name || booking.booked_by || 'N/A')}`,
+    `Booked by: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Destination: ${escapeHtml(booking.destination || 'N/A')}`,
     `Start Date: ${booking.start_date || 'N/A'}`,

@@ -10,6 +10,7 @@ import ManageMaintainers from './ManageMaintainers';
 import ManageCoordinatorStaffs from './ManageCoordinatorStaffs';
 import BranchManager from '../../components/BranchManager';
 import BookIndentManager from '../../components/BookIndentManager';
+import Analytics from '../../components/Analytics';
 import api from '../../api/axios';
 
 const LIBRARY_HOD_EMAIL = 'librarian@git.edu';
@@ -106,11 +107,23 @@ const HODDashboard = () => {
   }, [departmentIndents, filterStatus]);
 
   const activeMaintenanceCount = useMemo(() => {
-    return departmentIndents.filter(c => 
-      c.status === 'Approved by Maintenance HOD' || 
+    return departmentIndents.filter(c =>
+      c.status === 'Approved by Maintenance HOD' ||
       c.status === 'In Progress'
     ).length;
   }, [departmentIndents]);
+
+  // departmentIndents (Facility Provider's "Maintenance Queue") is deliberately
+  // narrowed by the backend to just the active-work statuses, so it alone is too
+  // thin for analytics. Merge every indent list this dashboard already has,
+  // deduplicated by id, so charts reflect the full picture for this user's
+  // department/category rather than one status-filtered slice of it.
+  const analyticsIndents = useMemo(() => {
+    const merged = new Map();
+    [...deptTrackIndents, ...departmentIndents, ...approvalRequests, ...deptFacilityProviderIndents, ...myRaisedIndents]
+      .forEach((indent) => merged.set(indent.id, indent));
+    return Array.from(merged.values());
+  }, [deptTrackIndents, departmentIndents, approvalRequests, deptFacilityProviderIndents, myRaisedIndents]);
 
   const stats = useMemo(() => {
     return {
@@ -361,6 +374,16 @@ const HODDashboard = () => {
           >
             My Raised Indents
           </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              activeTab === 'analytics'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+            }`}
+          >
+            Analytics
+          </button>
           {user?.role === ROLES.FACILITY_PROVIDER && (
             <button
               onClick={() => setActiveTab('maintainers')}
@@ -535,6 +558,13 @@ const HODDashboard = () => {
                 onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
                 showStatusFilter={true}
               />
+            </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div id="analytics" className="scroll-mt-32">
+              <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Analytics</h2>
+              <Analytics complaints={analyticsIndents} />
             </div>
           )}
 

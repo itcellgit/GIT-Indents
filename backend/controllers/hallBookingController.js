@@ -1,5 +1,5 @@
 const prisma = require('../prismaClient');
-const { sendEmailNotificationToRecipients, escapeHtml } = require('../utils/notificationService');
+const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDateTime } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
 const HALL_BOOKING_EMAILS = [
@@ -8,7 +8,9 @@ const HALL_BOOKING_EMAILS = [
   //  'epmc@git.edu',
   //  'itmaintenance@git.edu',
   //  'energycell@git.edu',
+  // 'dmc@git.edu',
   'rypatil@git.edu',
+  'vcpatil@git.edu',
   // 'itcell@git.edu',
 ];
 
@@ -307,17 +309,18 @@ const deleteHallBooking = async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
       `Hall: ${escapeHtml(bookingToDelete.hall_name || `ID ${bookingToDelete.hall_id}`)}`,
-        `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
-      `Booked by email: ${escapeHtml(bookingToDelete.booked_by_email || 'N/A')}`,
+      `Booked By: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
+      `Booked By Email: ${escapeHtml(bookingToDelete.booked_by_email || 'N/A')}`,
       `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
-      `Start: ${bookingToDelete.start_datetime ? new Date(bookingToDelete.start_datetime).toLocaleString() : 'N/A'}`,
-      `End: ${bookingToDelete.end_datetime ? new Date(bookingToDelete.end_datetime).toLocaleString() : 'N/A'}`,
+      `Start: ${formatEmailDateTime(bookingToDelete.start_datetime)}`,
+      `End: ${formatEmailDateTime(bookingToDelete.end_datetime)}`,
       `Remarks: ${escapeHtml(bookingToDelete.remarks || 'N/A')}`,
     ].join('<br>');
 
     const emailResult = await sendEmailNotificationToRecipients({
       recipients: recipientEmails,
-      message: `A previously scheduled hall booking has been cancelled.<br><br>${cancellationDetails}`,
+      recipientName: bookingToDelete.booked_by_name,
+      message: `We're writing to let you know that your hall booking has been cancelled.<br><br>${cancellationDetails}`,
       title: 'Hall Booking Cancelled',
       subject: `Hall Booking Cancelled${bookingToDelete.hall_name ? ` - ${bookingToDelete.hall_name}` : ''}`,
       actionUrl: `${frontendUrl}/hall-bookings`,
@@ -368,17 +371,18 @@ const sendBookingStatusNotification = async (booking, action) => {
     : 'Updated';
   const details = [
     `Hall: ${escapeHtml(booking.hall_name || `ID ${booking.hall_id}`)}`,
-    `Booked by: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
-    `Booked by email: ${escapeHtml(booking.booked_by_email || 'N/A')}`,
+    `Booked By: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
+    `Booked By Email: ${escapeHtml(booking.booked_by_email || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
-    `Start: ${booking.start_datetime ? new Date(booking.start_datetime).toLocaleString() : 'N/A'}`,
-    `End: ${booking.end_datetime ? new Date(booking.end_datetime).toLocaleString() : 'N/A'}`,
+    `Start: ${formatEmailDateTime(booking.start_datetime)}`,
+    `End: ${formatEmailDateTime(booking.end_datetime)}`,
     `Remarks: ${escapeHtml(booking.remarks || 'N/A')}`,
   ].join('<br>');
 
   void sendEmailNotificationToRecipients({
     recipients: recipientEmails,
-    message: `Your hall booking has been <strong>${actionLabel}</strong>.<br><br>${details}`,
+    recipientName: booking.booked_by_name,
+    message: `Your hall booking has been <strong>${actionLabel}</strong>. Please find the details below.<br><br>${details}`,
     title: `Hall Booking ${actionLabel}`,
     subject: `Hall Booking ${actionLabel}${booking.hall_name ? ` - ${booking.hall_name}` : ''}`,
     actionUrl: `${frontendUrl}/hall-bookings`,

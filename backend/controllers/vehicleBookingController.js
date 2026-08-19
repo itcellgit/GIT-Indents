@@ -1,10 +1,18 @@
 const prisma = require('../prismaClient');
-const { sendEmailNotificationToRecipients, escapeHtml } = require('../utils/notificationService');
+const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDate, formatEmailTime } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
 const VEHICLE_BOOKING_EMAILS = [];
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+
+const BOOKING_PERIOD_LABELS = {
+  MORNING: 'Morning',
+  SECOND_HALF: 'Second Half',
+  FULL_DAY: 'Full Day',
+  CUSTOM: 'Custom',
+};
+const humanizeBookingPeriod = (period) => BOOKING_PERIOD_LABELS[period] || period || 'N/A';
 
 const mapVehicleBookingRow = (row) => ({
   id: Number(row.id),
@@ -388,21 +396,22 @@ const deleteVehicleBooking = async (req, res) => {
       `Vehicle: ${escapeHtml(bookingToDelete.vehicle_number || bookingToDelete.vehicle_name || `ID ${bookingToDelete.vehicle_id}`)}`,
       `Driver Name: ${escapeHtml(bookingToDelete.driver_name || 'N/A')}`,
       `Driver Phone: ${escapeHtml(bookingToDelete.driver_phone_no || 'N/A')}`,
-      `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
+      `Booked By: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
       `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
       `Destination: ${escapeHtml(bookingToDelete.destination || 'N/A')}`,
-      `Start Date: ${bookingToDelete.start_date || 'N/A'}`,
-      `End Date: ${bookingToDelete.end_date || 'N/A'}`,
-      `Period: ${bookingToDelete.booking_period || 'N/A'}`,
-      `Start Time: ${bookingToDelete.start_time || 'N/A'}`,
-      `End Time: ${bookingToDelete.end_time || 'N/A'}`,
+      `Start Date: ${formatEmailDate(bookingToDelete.start_date)}`,
+      `End Date: ${formatEmailDate(bookingToDelete.end_date)}`,
+      `Period: ${escapeHtml(humanizeBookingPeriod(bookingToDelete.booking_period))}`,
+      `Start Time: ${formatEmailTime(bookingToDelete.start_time)}`,
+      `End Time: ${formatEmailTime(bookingToDelete.end_time)}`,
       `Passengers: ${bookingToDelete.passenger_count || 'N/A'}`,
       `Remarks: ${escapeHtml(bookingToDelete.remarks || 'N/A')}`,
     ].join('<br>');
 
     const emailResult = await sendEmailNotificationToRecipients({
       recipients: recipientEmails,
-      message: `A previously scheduled vehicle booking has been cancelled.<br><br>${cancellationDetails}`,
+      recipientName: bookingToDelete.booked_by_name,
+      message: `We're writing to let you know that your vehicle booking has been cancelled.<br><br>${cancellationDetails}`,
       title: 'Vehicle Booking Cancelled',
       subject: `Vehicle Booking Cancelled${bookingToDelete.vehicle_number ? ` - ${bookingToDelete.vehicle_number}` : ''}`,
       actionUrl: `${frontendUrl}/vehicle-bookings`,
@@ -535,21 +544,22 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
     `Vehicle: ${escapeHtml(booking.vehicle_number || booking.vehicle_name || `ID ${booking.vehicle_id}`)}`,
     `Driver Name: ${escapeHtml(booking.driver_name || 'N/A')}`,
     `Driver Phone: ${escapeHtml(booking.driver_phone_no || 'N/A')}`,
-    `Booked by: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
+    `Booked By: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Destination: ${escapeHtml(booking.destination || 'N/A')}`,
-    `Start Date: ${booking.start_date || 'N/A'}`,
-    `End Date: ${booking.end_date || 'N/A'}`,
-    `Period: ${booking.booking_period || 'N/A'}`,
-    `Start Time: ${booking.start_time || 'N/A'}`,
-    `End Time: ${booking.end_time || 'N/A'}`,
+    `Start Date: ${formatEmailDate(booking.start_date)}`,
+    `End Date: ${formatEmailDate(booking.end_date)}`,
+    `Period: ${escapeHtml(humanizeBookingPeriod(booking.booking_period))}`,
+    `Start Time: ${formatEmailTime(booking.start_time)}`,
+    `End Time: ${formatEmailTime(booking.end_time)}`,
     `Passengers: ${booking.passenger_count || 'N/A'}`,
     `Remarks: ${escapeHtml(booking.remarks || 'N/A')}`,
   ].join('<br>');
 
   void sendEmailNotificationToRecipients({
     recipients: recipientEmails,
-    message: `Your vehicle booking has been <strong>${actionLabel}</strong>.<br><br>${details}`,
+    recipientName: booking.booked_by_name,
+    message: `Your vehicle booking has been <strong>${actionLabel}</strong>. Please find the details below.<br><br>${details}`,
     title: `Vehicle Booking ${actionLabel}`,
     subject: `Vehicle Booking ${actionLabel}${booking.vehicle_number ? ` - ${booking.vehicle_number}` : ''}`,
     actionUrl: `${frontendUrl}/vehicle-bookings`,

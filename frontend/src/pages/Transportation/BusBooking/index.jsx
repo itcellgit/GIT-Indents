@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, ChevronLeft, ChevronRight, CheckCircle, ShieldX, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, ChevronLeft, ChevronRight, CheckCircle, ShieldX, Clock, Paperclip, Upload } from 'lucide-react';
 import NotificationBell from '../../../components/NotificationBell';
 import ChangePasswordModal from '../../../components/ChangePasswordModal';
-import api from '../../../api/axios';
+import api, { BACKEND_BASE_URL } from '../../../api/axios';
 import logo from '../../../assets/logo.png';
 import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
 import { formatDate } from '../../../utils/formatDate';
@@ -32,6 +32,8 @@ const initialBookingForm = {
   passenger_count: '',
   remarks: '',
   status: 'PENDING',
+  attachment: null,
+  attachment_path: '',
 };
 
 const tabs = [
@@ -427,28 +429,30 @@ export default function BusBookingsPage() {
   const handleBookingSubmit = async (event) => {
     event.preventDefault();
 
-    const payload = {
-      bus_id: bookingForm.bus_id,
-      driver_id: bookingForm.driver_id,
-      booked_by: bookingForm.booked_by,
-      booked_by_email: bookingForm.booked_by_email,
-      purpose: bookingForm.purpose,
-      destination: bookingForm.destination,
-      start_date: bookingForm.start_date,
-      end_date: bookingForm.end_date,
-      booking_period: bookingForm.booking_period,
-      start_time: bookingForm.start_time || null,
-      end_time: bookingForm.end_time || null,
-      passenger_count: bookingForm.passenger_count || null,
-      remarks: bookingForm.remarks,
-      status: bookingForm.status,
-    };
+    const formDataToSend = new FormData();
+    formDataToSend.append('bus_id', bookingForm.bus_id);
+    formDataToSend.append('driver_id', bookingForm.driver_id);
+    formDataToSend.append('booked_by', bookingForm.booked_by);
+    formDataToSend.append('booked_by_email', bookingForm.booked_by_email);
+    formDataToSend.append('purpose', bookingForm.purpose);
+    formDataToSend.append('destination', bookingForm.destination);
+    formDataToSend.append('start_date', bookingForm.start_date);
+    formDataToSend.append('end_date', bookingForm.end_date);
+    formDataToSend.append('booking_period', bookingForm.booking_period);
+    if (bookingForm.start_time) formDataToSend.append('start_time', bookingForm.start_time);
+    if (bookingForm.end_time) formDataToSend.append('end_time', bookingForm.end_time);
+    if (bookingForm.passenger_count) formDataToSend.append('passenger_count', bookingForm.passenger_count);
+    formDataToSend.append('remarks', bookingForm.remarks);
+    formDataToSend.append('status', bookingForm.status);
+    if (bookingForm.attachment) {
+      formDataToSend.append('attachment', bookingForm.attachment);
+    }
 
     try {
       if (editingBusBookingId) {
-        await api.put(`/bus-bookings/${editingBusBookingId}`, payload);
+        await api.put(`/bus-bookings/${editingBusBookingId}`, formDataToSend);
       } else {
-        await api.post('/bus-bookings', payload);
+        await api.post('/bus-bookings', formDataToSend);
       }
 
       setIsBookingModalOpen(false);
@@ -477,6 +481,8 @@ export default function BusBookingsPage() {
       passenger_count: booking.passenger_count ? String(booking.passenger_count) : '',
       remarks: booking.remarks || '',
       status: booking.status || 'PENDING',
+      attachment: null,
+      attachment_path: booking.attachment_path || '',
     });
     setEditingBusBookingId(booking.id);
     setIsBookingModalOpen(true);
@@ -963,6 +969,39 @@ export default function BusBookingsPage() {
                 <span>Remarks</span>
                 <textarea value={bookingForm.remarks} onChange={(e) => setBookingForm({ ...bookingForm, remarks: e.target.value })} placeholder="Remarks" rows={3} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
+              <div className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
+                <span>Attachment <span className="text-slate-400 font-normal">(Photo or PDF, optional)</span></span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="inline-flex items-center gap-2 cursor-pointer rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                    <Upload className="h-4 w-4 text-slate-400" />
+                    {bookingForm.attachment ? 'Change File' : 'Upload File'}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="sr-only"
+                      onChange={(e) => setBookingForm({ ...bookingForm, attachment: e.target.files[0] || null })}
+                    />
+                  </label>
+                  {bookingForm.attachment ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm text-slate-600">
+                      <Paperclip className="h-3.5 w-3.5 text-slate-400" />
+                      {bookingForm.attachment.name}
+                    </span>
+                  ) : bookingForm.attachment_path ? (
+                    <a
+                      href={`${BACKEND_BASE_URL}${bookingForm.attachment_path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 hover:underline"
+                    >
+                      <Paperclip className="h-3.5 w-3.5" />
+                      View current attachment
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-400">PNG, JPG or PDF up to 5MB</span>
+                  )}
+                </div>
+              </div>
               <div className="md:col-span-2 flex justify-end gap-3 pt-2">
                 {editingBusBookingId && (
                   <button
@@ -1009,6 +1048,7 @@ export default function BusBookingsPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By Email</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Purpose</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Attachment</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Time</th>
@@ -1018,7 +1058,7 @@ export default function BusBookingsPage() {
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {selectedDayBookings.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
+                      <td colSpan={11} className="px-4 py-10 text-center text-sm text-slate-500">No bookings for this date.</td>
                     </tr>
                   ) : (
                     selectedDayBookings.map((booking, index) => (
@@ -1029,6 +1069,20 @@ export default function BusBookingsPage() {
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">
+                          {booking.attachment_path ? (
+                            <a
+                              href={`${BACKEND_BASE_URL}${booking.attachment_path}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                              View
+                            </a>
+                          ) : '-'}
+                        </td>
                          <td className="px-4 py-4 text-sm text-slate-700">
                            {(() => {
                              const badge = getStatusBadge(booking.status);

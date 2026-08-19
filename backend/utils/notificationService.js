@@ -27,6 +27,31 @@ const escapeHtml = (value) => String(value ?? '')
 // as pre-formatted HTML (<br>, <strong> for layout). Callers are responsible for
 // escaping any user-controlled substring *before* splicing it into `message` —
 // use the exported `escapeHtml` above at that point, not here.
+// `en-GB` gives day-first ordering ("19 Aug 2026") to match the rest of the
+// system's date display, rather than the US-style month-first default.
+const formatEmailDate = (value) => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const formatEmailTime = (value) => {
+  if (!value) return 'N/A';
+  // Plain "HH:MM[:SS]" strings (Postgres TIME columns) aren't valid Date
+  // input on their own, so anchor them to an arbitrary date first.
+  const date = /^\d{1,2}:\d{2}/.test(String(value)) ? new Date(`2000-01-01T${value}`) : new Date(value);
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+};
+
+const formatEmailDateTime = (value) => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  return `${formatEmailDate(date)}, ${formatEmailTime(date)}`;
+};
+
 const buildMailTemplate = ({ title, recipientName, message, actionUrl, label, footerNote, portalName }) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
     <div style="background-color: #4f46e5; padding: 24px; text-align: center;">
@@ -36,7 +61,7 @@ const buildMailTemplate = ({ title, recipientName, message, actionUrl, label, fo
       <h2 style="color: #1e293b; margin-top: 0; font-size: 20px;">${escapeHtml(title)}</h2>
       ${label ? `<p style="display: inline-block; background-color: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 9999px; font-size: 14px; font-weight: bold; margin-bottom: 16px;">${escapeHtml(label)}</p>` : ''}
       <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
-        Hello ${escapeHtml(recipientName)},
+        ${recipientName ? `Dear ${escapeHtml(recipientName)},` : 'Hello,'}
         <br><br>
         ${message}
       </p>
@@ -204,6 +229,7 @@ const sendEmailNotificationToRecipients = async ({
   actionUrl,
   label,
   portalName,
+  recipientName,
 }) => {
   try {
     if (!Array.isArray(recipients) || recipients.length === 0) {
@@ -219,7 +245,6 @@ const sendEmailNotificationToRecipients = async ({
     }
 
     const emailTitle = title || 'New Notification from Indents Management Portal';
-    const recipientName = 'Maintenance Head';
     let sentCount = 0;
     let failedCount = 0;
 
@@ -263,5 +288,8 @@ module.exports = {
   sendRoleNotification,
   sendEmailNotificationToRecipients,
   escapeHtml,
+  formatEmailDate,
+  formatEmailTime,
+  formatEmailDateTime,
   ROLES,
 };

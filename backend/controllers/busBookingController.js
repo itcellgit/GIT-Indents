@@ -1,10 +1,18 @@
 const prisma = require('../prismaClient');
-const { sendEmailNotificationToRecipients, escapeHtml } = require('../utils/notificationService');
+const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDate, formatEmailTime } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
 const BUS_BOOKING_EMAILS = [];
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+
+const BOOKING_PERIOD_LABELS = {
+  MORNING: 'Morning',
+  SECOND_HALF: 'Second Half',
+  FULL_DAY: 'Full Day',
+  CUSTOM: 'Custom',
+};
+const humanizeBookingPeriod = (period) => BOOKING_PERIOD_LABELS[period] || period || 'N/A';
 
 const mapBusBookingRow = (row) => ({
   id: Number(row.id),
@@ -15,6 +23,7 @@ const mapBusBookingRow = (row) => ({
   driver_id: row.driver_id || null,
   driver_name: row.driver_name || '',
   driver_phone_no: row.driver_phone_no || '',
+  attachment_path: row.attachment_path || null,
   booked_by: row.booked_by,
   booked_by_name: row.booked_by_name || '',
   booked_by_email: row.booked_by_email || '',
@@ -68,7 +77,7 @@ const fetchBusBookingById = async (bookingId) => {
     `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
             bb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
             bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
-            bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks,
+            bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks, bb.attachment_path,
             bb.created_at, bb.updated_at, u.department AS booked_by_department
      FROM public.bus_bookings bb
      LEFT JOIN public.buses b ON b.id = bb.bus_id
@@ -88,7 +97,7 @@ const getBusBookings = async (req, res) => {
       `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
               bb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
               bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
-              bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks,
+              bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks, bb.attachment_path,
               bb.created_at, bb.updated_at
          FROM public.bus_bookings bb
          LEFT JOIN public.buses b ON b.id = bb.bus_id
@@ -144,10 +153,16 @@ const createBusBooking = async (req, res) => {
       return res.status(409).json({ message: conflictMessage(conflict, 'This bus') });
     }
 
+    let attachmentPath = null;
+    if (req.file) {
+      const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+      attachmentPath = `/${uploadDir}/${req.file.filename}`;
+    }
+
     const bookingRows = await prisma.$queryRawUnsafe(
       `INSERT INTO public.bus_bookings
-        (bus_id, driver_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'PENDING', NOW(), NOW())
+        (bus_id, driver_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, attachment_path, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'PENDING', NOW(), NOW())
        RETURNING id`,
       bus_id ? Number(bus_id) : null,
       driver_id ? String(driver_id).trim() : null,
@@ -161,7 +176,8 @@ const createBusBooking = async (req, res) => {
       start_time || null,
       end_time || null,
       passenger_count ? Number(passenger_count) : null,
-      remarks ? String(remarks).trim() : null
+      remarks ? String(remarks).trim() : null,
+      attachmentPath
     );
 
     const createdBookingRows = await fetchBusBookingById(Number(bookingRows[0].id));
@@ -258,6 +274,12 @@ const updateBusBooking = async (req, res) => {
       return res.status(400).json({ message: 'Invalid booked-by email format' });
     }
 
+    let attachmentPath = null;
+    if (req.file) {
+      const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+      attachmentPath = `/${uploadDir}/${req.file.filename}`;
+    }
+
     await prisma.$queryRawUnsafe(
       `UPDATE public.bus_bookings
          SET bus_id = COALESCE($2, bus_id),
@@ -273,10 +295,11 @@ const updateBusBooking = async (req, res) => {
              end_time = $12,
              passenger_count = $13,
              remarks = $14,
-             status = COALESCE(NULLIF($15, '')::text, status),
+             attachment_path = COALESCE($15, attachment_path),
+             status = COALESCE(NULLIF($16, '')::text, status),
              approved_by = CASE
-               WHEN $15 IS NOT NULL AND (UPPER($15) = 'APPROVED' OR UPPER($15) = 'REJECTED')
-                 THEN COALESCE(NULLIF($16, '')::text, approved_by)
+               WHEN $16 IS NOT NULL AND (UPPER($16) = 'APPROVED' OR UPPER($16) = 'REJECTED')
+                 THEN COALESCE(NULLIF($17, '')::text, approved_by)
                ELSE approved_by
              END,
              updated_at = NOW()
@@ -295,6 +318,7 @@ const updateBusBooking = async (req, res) => {
       end_time || null,
       passenger_count === undefined || passenger_count === null || passenger_count === '' ? null : Number(passenger_count),
       remarks ? String(remarks).trim() : null,
+      attachmentPath,
       normalizedStatus,
       approverId
     );
@@ -353,21 +377,22 @@ const deleteBusBooking = async (req, res) => {
       `Bus: ${escapeHtml(bookingToDelete.bus_number || bookingToDelete.bus_name || `ID ${bookingToDelete.bus_id}`)}`,
       `Driver Name: ${escapeHtml(bookingToDelete.driver_name || 'N/A')}`,
       `Driver Phone: ${escapeHtml(bookingToDelete.driver_phone_no || 'N/A')}`,
-      `Booked by: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
+      `Booked By: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
       `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
       `Destination: ${escapeHtml(bookingToDelete.destination || 'N/A')}`,
-      `Start Date: ${bookingToDelete.start_date || 'N/A'}`,
-      `End Date: ${bookingToDelete.end_date || 'N/A'}`,
-      `Period: ${bookingToDelete.booking_period || 'N/A'}`,
-      `Start Time: ${bookingToDelete.start_time || 'N/A'}`,
-      `End Time: ${bookingToDelete.end_time || 'N/A'}`,
+      `Start Date: ${formatEmailDate(bookingToDelete.start_date)}`,
+      `End Date: ${formatEmailDate(bookingToDelete.end_date)}`,
+      `Period: ${escapeHtml(humanizeBookingPeriod(bookingToDelete.booking_period))}`,
+      `Start Time: ${formatEmailTime(bookingToDelete.start_time)}`,
+      `End Time: ${formatEmailTime(bookingToDelete.end_time)}`,
       `Passengers: ${bookingToDelete.passenger_count || 'N/A'}`,
       `Remarks: ${escapeHtml(bookingToDelete.remarks || 'N/A')}`,
     ].join('<br>');
 
     const emailResult = await sendEmailNotificationToRecipients({
       recipients: recipientEmails,
-      message: `A previously scheduled bus booking has been cancelled.<br><br>${cancellationDetails}`,
+      recipientName: bookingToDelete.booked_by_name,
+      message: `We're writing to let you know that your bus booking has been cancelled.<br><br>${cancellationDetails}`,
       title: 'Bus Booking Cancelled',
       subject: `Bus Booking Cancelled${bookingToDelete.bus_number ? ` - ${bookingToDelete.bus_number}` : ''}`,
       actionUrl: `${frontendUrl}/bus-bookings`,
@@ -500,21 +525,22 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     `Bus: ${escapeHtml(booking.bus_number || booking.bus_name || `ID ${booking.bus_id}`)}`,
     `Driver Name: ${escapeHtml(booking.driver_name || 'N/A')}`,
     `Driver Phone: ${escapeHtml(booking.driver_phone_no || 'N/A')}`,
-    `Booked by: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
+    `Booked By: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Destination: ${escapeHtml(booking.destination || 'N/A')}`,
-    `Start Date: ${booking.start_date || 'N/A'}`,
-    `End Date: ${booking.end_date || 'N/A'}`,
-    `Period: ${booking.booking_period || 'N/A'}`,
-    `Start Time: ${booking.start_time || 'N/A'}`,
-    `End Time: ${booking.end_time || 'N/A'}`,
+    `Start Date: ${formatEmailDate(booking.start_date)}`,
+    `End Date: ${formatEmailDate(booking.end_date)}`,
+    `Period: ${escapeHtml(humanizeBookingPeriod(booking.booking_period))}`,
+    `Start Time: ${formatEmailTime(booking.start_time)}`,
+    `End Time: ${formatEmailTime(booking.end_time)}`,
     `Passengers: ${booking.passenger_count || 'N/A'}`,
     `Remarks: ${escapeHtml(booking.remarks || 'N/A')}`,
   ].join('<br>');
 
   void sendEmailNotificationToRecipients({
     recipients: recipientEmails,
-    message: `Your bus booking has been <strong>${actionLabel}</strong>.<br><br>${details}`,
+    recipientName: booking.booked_by_name,
+    message: `Your bus booking has been <strong>${actionLabel}</strong>. Please find the details below.<br><br>${details}`,
     title: `Bus Booking ${actionLabel}`,
     subject: `Bus Booking ${actionLabel}${booking.bus_number ? ` - ${booking.bus_number}` : ''}`,
     actionUrl: `${frontendUrl}/bus-bookings`,

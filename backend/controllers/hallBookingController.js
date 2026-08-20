@@ -3,13 +3,13 @@ const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDateTime } = r
 const { ROLES } = require('../utils/roles');
 
 const HALL_BOOKING_EMAILS = [
-  //  'maintenance@git.edu',
-  //  'productioncenter@git.edu',
-  //  'epmc@git.edu',
-  //  'itmaintenance@git.edu',
-  //  'energycell@git.edu',
-  //   'dmc@git.edu',
-  'rypatil@git.edu',
+   'maintenance@git.edu',
+   'productioncenter@git.edu',
+   'epmc@git.edu',
+   'itmaintenance@git.edu',
+   'energycell@git.edu',
+    'dmc@git.edu',
+  //'rypatil@git.edu',
   // 'itcell@git.edu',
 ];
 

@@ -115,7 +115,8 @@ export default function ComplaintTable({ complaints, departments, onOpenDetails 
                   <span className="text-sm text-slate-600">{complaint.isrNo || '-'}</span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-slate-600">{complaint.requester?.name || 'Unknown'}</span>
+                  <span className="text-sm text-slate-600 block">{complaint.requester?.name || 'Unknown'}</span>
+                  <span className="text-xs text-slate-400 block">{complaint.requester?.staff_phone_no || '-'}</span>
                 </td>
                 <td className="px-6 py-4">
                   <span className="text-sm text-slate-600">{complaint.natureOfWork || complaint.workType || 'Maintenance/Repair'}</span>

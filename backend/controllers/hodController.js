@@ -10,7 +10,7 @@ const setUserRole = (tx, userId, roleName) => setUserRoleShared(tx, userId, role
 
 const HOD_DASHBOARD_INCLUDE = {
   category: { select: { name: true, incharge: { select: { id: true } } } },
-  requester: { select: { name: true, email: true, department: true } },
+  requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
   statusHistory: { orderBy: { timestamp: 'asc' } },
   materialsUsed: true
 };
@@ -255,7 +255,7 @@ const updateComplaintStatus = async (req, res) => {
       data: updateData,
       include: {
         category: { select: { name: true, inchargeId: true, incharge: { select: { id: true } } } },
-        requester: { select: { name: true, email: true, department: true } },
+        requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
         materialsUsed: true,
         statusHistory: { orderBy: { timestamp: 'asc' } }
       }
@@ -363,7 +363,7 @@ const createHODIndent = async (req, res) => {
       },
       include: {
         category: { select: { name: true, inchargeId: true } },
-        requester: { select: { name: true, email: true, department: true } },
+        requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
         statusHistory: { orderBy: { timestamp: 'asc' } },
         materialsUsed: true
       }
@@ -699,7 +699,7 @@ const assignMaintainer = async (req, res) => {
       data: { maintainerId: maintainerId },
       include: {
         category: { select: { name: true, inchargeId: true } },
-        requester: { select: { name: true, email: true, department: true } },
+        requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
         statusHistory: { orderBy: { timestamp: 'asc' } },
         materialsUsed: true
       }

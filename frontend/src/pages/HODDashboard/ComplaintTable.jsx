@@ -159,7 +159,10 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
                 >
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{complaint.indentNumber || complaint.id}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{complaint.isrNo || '-'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{complaint.requester?.name || complaint.raisedBy || 'Faculty'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    <span className="block">{complaint.requester?.name || complaint.raisedBy || 'Faculty'}</span>
+                    <span className="block text-xs text-gray-400">{complaint.requester?.staff_phone_no || '-'}</span>
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-600">{complaint.natureOfWork || complaint.workType || 'Maintenance/Repair'}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{complaint.location}</td>
                   <td className="px-6 py-4">

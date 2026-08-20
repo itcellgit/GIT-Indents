@@ -50,6 +50,7 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                 <span className="block text-xs font-semibold text-slate-400 uppercase">Raised By</span>
                 <span className="block mt-1 font-medium text-slate-800">{selectedComplaint.requester?.name || 'Unknown'}</span>
+                <span className="block mt-1 text-sm text-slate-500">{selectedComplaint.requester?.staff_phone_no || 'Phone not available'}</span>
               </div>
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                 <span className="block text-xs font-semibold text-slate-400 uppercase">Nature of Work</span>

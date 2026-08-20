@@ -668,7 +668,7 @@ const getAllComplaints = async (req, res) => {
   try {
     const indents = await prisma.indent.findMany({
       include: {
-        requester: { select: { name: true } },
+        requester: { select: { name: true, staff_phone_no: true } },
         category: { select: { name: true } },
         statusHistory: { orderBy: { timestamp: 'asc' } },
         materialsUsed: true
@@ -1055,7 +1055,7 @@ const getMonthlyReport = async (req, res) => {
     const indents = await prisma.indent.findMany({
       where: query,
       include: {
-        requester: { select: { name: true } },
+        requester: { select: { name: true, staff_phone_no: true } },
         category: { select: { name: true } }
       },
       orderBy: { createdAt: 'asc' }

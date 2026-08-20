@@ -18,7 +18,7 @@ const parseJsonField = (value, fallback) => {
 // @access  Private (Maintainer view)
 const DASHBOARD_INCLUDE = {
   category: { select: { name: true, incharge: { select: { id: true, name: true } } } },
-  requester: { select: { name: true, email: true, department: true } },
+  requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
   statusHistory: { orderBy: { timestamp: 'asc' } },
   materialsUsed: true
 };
@@ -103,7 +103,7 @@ const updateComplaint = async (req, res) => {
       data: updateData,
       include: {
         category: { select: { name: true, inchargeId: true, incharge: { select: { id: true } } } },
-        requester: { select: { name: true, email: true, department: true } },
+        requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
         materialsUsed: true,
         statusHistory: { orderBy: { timestamp: 'asc' } }
       }
@@ -251,7 +251,7 @@ const completeIndent = async (req, res) => {
       data: updateData,
       include: {
         category: { select: { name: true, inchargeId: true, incharge: { select: { id: true, name: true } } } },
-        requester: { select: { name: true, email: true, department: true } },
+        requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
         materialsUsed: true,
         statusHistory: { orderBy: { timestamp: 'asc' } }
       }

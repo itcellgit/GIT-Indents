@@ -59,7 +59,8 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
                   {complaint.isrNo || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                  {complaint.requester?.name || 'Faculty'}
+                  <span className="block">{complaint.requester?.name || 'Faculty'}</span>
+                  <span className="block text-xs text-slate-400">{complaint.requester?.staff_phone_no || '-'}</span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                   {complaint.natureOfWork || 'Maintenance/Repair'}

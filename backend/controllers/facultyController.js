@@ -12,7 +12,7 @@ const getDashboardData = async (req, res) => {
       where: { requesterId: req.user.id },
       include: { 
         category: { select: { name: true } },
-        requester: { select: { name: true } },
+        requester: { select: { name: true, staff_phone_no: true } },
         statusHistory: { orderBy: { timestamp: 'asc' } },
         materialsUsed: true
       },
@@ -80,7 +80,7 @@ const createComplaint = async (req, res) => {
       },
       include: { 
         category: { select: { name: true } },
-        requester: { select: { name: true } },
+        requester: { select: { name: true, staff_phone_no: true } },
         statusHistory: { orderBy: { timestamp: 'asc' } },
         materialsUsed: true
       }

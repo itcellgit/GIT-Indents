@@ -868,11 +868,11 @@ export default function HallBookingsPage() {
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Start Date & Time <span className="text-red-500">*</span></span>
-                <input type="datetime-local" value={bookingForm.start_datetime} onChange={(e) => setBookingForm({ ...bookingForm, start_datetime: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <input type="datetime-local" lang="en-US" value={bookingForm.start_datetime} onChange={(e) => setBookingForm({ ...bookingForm, start_datetime: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>End Date & Time <span className="text-red-500">*</span></span>
-                <input type="datetime-local" value={bookingForm.end_datetime} onChange={(e) => setBookingForm({ ...bookingForm, end_datetime: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <input type="datetime-local" lang="en-US" value={bookingForm.end_datetime} onChange={(e) => setBookingForm({ ...bookingForm, end_datetime: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
                 <span>Remarks</span>

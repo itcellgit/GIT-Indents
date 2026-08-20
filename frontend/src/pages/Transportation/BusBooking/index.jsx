@@ -962,11 +962,11 @@ export default function BusBookingsPage() {
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Start Time <span className="text-red-500">*</span></span>
-                <input type="time" value={bookingForm.start_time} onChange={(e) => setBookingForm({ ...bookingForm, start_time: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <input type="time" lang="en-US" value={bookingForm.start_time} onChange={(e) => setBookingForm({ ...bookingForm, start_time: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>End Time <span className="text-red-500">*</span></span>
-                <input type="time" value={bookingForm.end_time} onChange={(e) => setBookingForm({ ...bookingForm, end_time: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <input type="time" lang="en-US" value={bookingForm.end_time} onChange={(e) => setBookingForm({ ...bookingForm, end_time: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Destination <span className="text-red-500">*</span></span>

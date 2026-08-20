@@ -2,6 +2,8 @@ const prisma = require('../prismaClient');
 const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDate, formatEmailTime } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
+const DEAN_ADMIN_EMAIL = 'deanadmin@git.edu';
+
 const VEHICLE_BOOKING_EMAILS = [];
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
@@ -562,6 +564,7 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
 
   await sendEmailNotificationToRecipients({
     recipients: recipientEmails,
+    cc: [DEAN_ADMIN_EMAIL],
     recipientName: booking.booked_by_name,
     message: `Your vehicle booking has been <strong>${actionLabel}</strong>. Please find the details below.<br><br>${details}`,
     title: `Vehicle Booking ${actionLabel}`,

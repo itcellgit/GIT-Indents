@@ -2,6 +2,8 @@ const prisma = require('../prismaClient');
 const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDateTime } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
+const DEAN_ADMIN_EMAIL = 'deanadmin@git.edu';
+
 const HALL_BOOKING_EMAILS = [
    'maintenance@git.edu',
    'productioncenter@git.edu',
@@ -380,6 +382,7 @@ const sendBookingStatusNotification = async (booking, action) => {
 
   await sendEmailNotificationToRecipients({
     recipients: recipientEmails,
+    cc: [DEAN_ADMIN_EMAIL],
     recipientName: booking.booked_by_name,
     message: `Your hall booking has been <strong>${actionLabel}</strong>. Please find the details below.<br><br>${details}`,
     title: `Hall Booking ${actionLabel}`,

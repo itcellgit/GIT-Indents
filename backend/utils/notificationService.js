@@ -72,7 +72,7 @@ const buildMailTemplate = ({ title, recipientName, message, actionUrl, label, fo
   </div>
 `;
 
-const sendEmailSafely = async ({ to, subject, html }) => {
+const sendEmailSafely = async ({ to, cc, subject, html }) => {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS || !to) {
     return false;
   }
@@ -81,6 +81,7 @@ const sendEmailSafely = async ({ to, subject, html }) => {
     await transporter.sendMail({
       from: `"Indents Management System" <${process.env.SMTP_USER}>`,
       to,
+      ...(cc ? { cc } : {}),
       subject,
       html,
     });
@@ -231,6 +232,7 @@ const sendEmailNotificationToRecipients = async ({
   label,
   portalName,
   recipientName,
+  cc = [],
 }) => {
   try {
     if (!Array.isArray(recipients) || recipients.length === 0) {
@@ -245,9 +247,20 @@ const sendEmailNotificationToRecipients = async ({
       return { success: true, recipients: 0 };
     }
 
+    // Cc'd addresses (e.g. an admin who should be kept in the loop on approvals)
+    // are attached to a single email in the fan-out below, not every one of
+    // them — recipients are emailed individually (each sees only themselves in
+    // "to") specifically so they don't see each other's addresses, so a cc
+    // repeated on every iteration would mean the cc'd address gets one copy
+    // per recipient instead of one copy per notification.
+    const normalizedCc = (Array.isArray(cc) ? cc : [cc])
+      .map((address) => String(address || '').trim())
+      .filter((address) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address));
+
     const emailTitle = title || 'New Notification from Indents Management Portal';
     let sentCount = 0;
     let failedCount = 0;
+    let ccPending = normalizedCc.length > 0;
 
     for (const recipientEmail of normalizedRecipients) {
       const html = buildMailTemplate({
@@ -261,9 +274,11 @@ const sendEmailNotificationToRecipients = async ({
 
       const delivered = await sendEmailSafely({
         to: recipientEmail,
+        cc: ccPending ? normalizedCc.join(',') : undefined,
         subject,
         html,
       });
+      ccPending = false;
 
       if (delivered) {
         sentCount += 1;

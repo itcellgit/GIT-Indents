@@ -4,8 +4,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
-const nodemailer = require('nodemailer');
 const { ROLES, normalizeRole } = require('../utils/roles');
+const { transporter } = require('../utils/notificationService');
 
 // Cryptographically strong 6-digit OTP (Math.random() is predictable and unsuitable for security codes).
 const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
@@ -220,20 +220,10 @@ const registerUser = async (req, res) => {
     const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
     const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
 
-    // If smtpUser is not set, log it to console to allow testing without credentials
     if (!smtpUser) {
       console.log('No SMTP_USER configured. Generated OTP is:', otp);
       return res.status(200).json({ message: 'OTP generated (Check server console, email not configured)' });
     }
-
-    // Send email using nodemailer
-    const transporter = nodemailer.createTransport({
-      service: process.env.SMTP_SERVICE || 'gmail',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass
-      }
-    });
 
     const mailOptions = {
       from: smtpUser,
@@ -242,7 +232,12 @@ const registerUser = async (req, res) => {
       text: `Your OTP for registration verification is: ${otp}. It is valid for 15 minutes.`
     };
 
-    await transporter.sendMail(mailOptions);
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (emailError) {
+      console.error('Registration OTP email failed:', emailError.message);
+      return res.status(500).json({ message: 'Failed to send OTP email' });
+    }
     res.status(200).json({ message: 'OTP sent to email' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error during registration' });
@@ -352,15 +347,6 @@ const resendRegistrationOtp = async (req, res) => {
       return res.status(200).json({ message: 'New OTP generated (Check server console, email not configured)' });
     }
 
-    // Send email using nodemailer
-    const transporter = nodemailer.createTransport({
-      service: process.env.SMTP_SERVICE || 'gmail',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass
-      }
-    });
-
     const mailOptions = {
       from: smtpUser,
       to: email,
@@ -368,7 +354,12 @@ const resendRegistrationOtp = async (req, res) => {
       text: `Your new OTP for registration verification is: ${otp}. It is valid for 15 minutes.`
     };
 
-    await transporter.sendMail(mailOptions);
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (emailError) {
+      console.error('Resend OTP email failed:', emailError.message);
+      return res.status(500).json({ message: 'Failed to send OTP email' });
+    }
     res.status(200).json({ message: 'New OTP sent to email' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error during OTP resend' });
@@ -466,20 +457,10 @@ const forgotPassword = async (req, res) => {
     const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
     const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
 
-    // If smtpUser is not set, log it to console to allow testing without credentials
     if (!smtpUser) {
       console.log('No SMTP_USER configured. Generated OTP is:', otp);
       return res.status(200).json({ message: 'OTP generated (Check server console, email not configured)' });
     }
-
-    // Send email using nodemailer
-    const transporter = nodemailer.createTransport({
-      service: process.env.SMTP_SERVICE || 'gmail',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass
-      }
-    });
 
     const mailOptions = {
       from: smtpUser,
@@ -488,7 +469,12 @@ const forgotPassword = async (req, res) => {
       text: `Your OTP for password reset is: ${otp}. It is valid for 15 minutes.`
     };
 
-    await transporter.sendMail(mailOptions);
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (emailError) {
+      console.error('Password reset OTP email failed:', emailError.message);
+      return res.status(500).json({ message: 'Failed to send OTP email' });
+    }
     res.status(200).json({ message: 'OTP sent to email' });
 
   } catch (error) {

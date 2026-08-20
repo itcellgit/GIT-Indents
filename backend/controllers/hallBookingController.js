@@ -3,13 +3,13 @@ const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDateTime } = r
 const { ROLES } = require('../utils/roles');
 
 const HALL_BOOKING_EMAILS = [
-   'maintenance@git.edu',
-   'productioncenter@git.edu',
-   'epmc@git.edu',
-   'itmaintenance@git.edu',
-   'energycell@git.edu',
-    'dmc@git.edu',
-  //'rypatil@git.edu',
+  //  'maintenance@git.edu',
+  //  'productioncenter@git.edu',
+  //  'epmc@git.edu',
+  //  'itmaintenance@git.edu',
+  //  'energycell@git.edu',
+  //   'dmc@git.edu',
+  'rypatil@git.edu',
   // 'itcell@git.edu',
 ];
 
@@ -252,7 +252,7 @@ const createHallBooking = async (req, res) => {
       const updatedBooking = mapHallBookingRow(updatedBookingRows[0]);
 
       if (normalizedStatus && normalizedStatus !== previousStatus) {
-        void sendBookingStatusNotification(updatedBooking, normalizedStatus);
+        await sendBookingStatusNotification(updatedBooking, normalizedStatus);
       }
 
       res.json({ success: true, booking: updatedBooking });
@@ -378,7 +378,7 @@ const sendBookingStatusNotification = async (booking, action) => {
     `Remarks: ${escapeHtml(booking.remarks || 'N/A')}`,
   ].join('<br>');
 
-  void sendEmailNotificationToRecipients({
+  await sendEmailNotificationToRecipients({
     recipients: recipientEmails,
     recipientName: booking.booked_by_name,
     message: `Your hall booking has been <strong>${actionLabel}</strong>. Please find the details below.<br><br>${details}`,
@@ -430,7 +430,7 @@ const approveHallBooking = async (req, res) => {
     const updatedBookingRows = await fetchHallBookingById(bookingId);
     const updatedBooking = mapHallBookingRow(updatedBookingRows[0]);
 
-    void sendBookingStatusNotification(updatedBooking, 'APPROVED');
+    await sendBookingStatusNotification(updatedBooking, 'APPROVED');
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
@@ -472,7 +472,7 @@ const rejectHallBooking = async (req, res) => {
     const updatedBookingRows = await fetchHallBookingById(bookingId);
     const updatedBooking = mapHallBookingRow(updatedBookingRows[0]);
 
-    void sendBookingStatusNotification(updatedBooking, 'REJECTED');
+    await sendBookingStatusNotification(updatedBooking, 'REJECTED');
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {

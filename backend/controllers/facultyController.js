@@ -88,7 +88,7 @@ const createComplaint = async (req, res) => {
 
     try {
       if (categoryRecord.inchargeId) {
-        sendNotification(
+        await sendNotification(
           categoryRecord.inchargeId,
           `New indent ${newIndent.indentNumber} raised by ${escapeHtml(req.user.name)} requires your approval.`,
           req.user.id,
@@ -114,7 +114,7 @@ const createComplaint = async (req, res) => {
       const deptHOD = deptHODRows[0] || null;
 
       if (deptHOD) {
-        sendNotification(
+        await sendNotification(
           deptHOD.id,
           `New indent ${newIndent.indentNumber} was raised by ${escapeHtml(req.user.name)} in your department.`,
           req.user.id,

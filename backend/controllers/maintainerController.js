@@ -112,7 +112,7 @@ const updateComplaint = async (req, res) => {
     // Notify Maintenance HOD if the maintainer marked it as completed
     if (isMaintainerCompleted && !indent.isMaintainerCompleted) {
       if (indent.category && indent.category.inchargeId) {
-        sendNotification(
+        await sendNotification(
           indent.category.inchargeId,
           `Maintainer ${escapeHtml(req.user.name)} has completed work on Indent ${indent.indentNumber}. Please review and finalize.`,
           req.user.id,
@@ -172,7 +172,7 @@ const reviewIndent = async (req, res) => {
     });
 
     const isRejection = status.startsWith('Rejected');
-    sendNotification(
+    await sendNotification(
       indent.requesterId,
       isRejection
         ? `Your indent ${indent.indentNumber} was rejected by a Maintainer. Reason: ${escapeHtml(rejectionReason || 'No reason provided')}`
@@ -257,7 +257,7 @@ const completeIndent = async (req, res) => {
       }
     });
 
-    sendNotification(
+    await sendNotification(
       indent.requesterId,
       `Your indent ${indent.indentNumber} has been marked as Completed by Maintainer ${escapeHtml(req.user.name)}.`,
       req.user.id,
@@ -266,7 +266,7 @@ const completeIndent = async (req, res) => {
     );
 
     if (indent.category && indent.category.inchargeId) {
-      sendNotification(
+      await sendNotification(
         indent.category.inchargeId,
         `Indent ${indent.indentNumber} has been completed by Maintainer ${escapeHtml(req.user.name)}.`,
         req.user.id,

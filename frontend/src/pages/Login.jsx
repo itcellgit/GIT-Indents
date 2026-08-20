@@ -97,29 +97,19 @@ const Login = () => {
         <HelpCircle className="w-4 h-4" /> Help
       </Link>
 
-      {/* Branding - Slightly larger logo */}
-      <div className="absolute top-10 left-10 z-20 hidden lg:flex flex-col items-start text-white">
-        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-4 shadow-2xl backdrop-blur-md bg-opacity-95 overflow-hidden">
-          <img src={logo} alt="KLS GIT Logo" className="w-11 h-11 object-contain" />
-        </div>
-        <h1 className="text-3xl font-extrabold tracking-tight">GIT Indent Management  Portal</h1>
-        <p className="text-base text-blue-100 opacity-90">Streamlining Campus Infrastructure</p>
-      </div>
-
-      {/* Form Container - Width increased to max-w-lg (approx 512px) */}
+      {/* Form Container */}
       <div className="relative z-30 w-full max-w-lg px-6 py-12 mt-12">
         <div className="bg-white p-10 md:p-12 rounded-3xl shadow-2xl border border-white/20 backdrop-blur-sm bg-opacity-[0.99]" >
           
-          <div className="lg:hidden flex items-center mb-8">
-            <div className="w-12 h-12 bg-white border border-gray-200 rounded-xl flex items-center justify-center mr-4 overflow-hidden">
-              <img src={logo} alt="KLS GIT Logo" className="w-9 h-9 object-contain" />
+          {/* Branding */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 bg-white border border-gray-200 rounded-xl flex items-center justify-center mb-4 overflow-hidden">
+              <img src={logo} alt="KLS GIT Logo" className="w-12 h-12 object-contain" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900">GIT Portal</h2>
-          </div>
-
-          <div className="mb-10">
-            <h2 className="text-4xl font-bold text-gray-900 mb-3">Welcome Back</h2>
-            <p className="text-lg text-gray-500">Sign in to your account to continue.</p>
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-gray-900">GIT Indent Management Portal</h2>
+              <p className="text-sm text-gray-500">Streamlining Campus Infrastructure</p>
+            </div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">

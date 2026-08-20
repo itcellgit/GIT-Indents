@@ -157,6 +157,7 @@ const sendNotification = async (recipientId, message, senderId = null, indentId 
 
     return notification;
   } catch (error) {
+    console.error('sendNotification error:', error);
     return null;
   }
 };

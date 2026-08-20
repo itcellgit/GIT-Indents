@@ -327,7 +327,7 @@ const updateBusBooking = async (req, res) => {
     const updatedBooking = mapBusBookingRow(updatedBookingRows[0]);
 
     if (normalizedStatus && normalizedStatus !== previousStatus) {
-      void sendBusBookingStatusNotification(updatedBooking, normalizedStatus);
+      await sendBusBookingStatusNotification(updatedBooking, normalizedStatus);
     }
 
     res.json({ success: true, booking: updatedBooking });
@@ -458,7 +458,7 @@ const approveBusBooking = async (req, res) => {
     const updatedBookingRows = await fetchBusBookingById(bookingId);
     const updatedBooking = mapBusBookingRow(updatedBookingRows[0]);
 
-    void sendBusBookingStatusNotification(updatedBooking, 'APPROVED');
+    await sendBusBookingStatusNotification(updatedBooking, 'APPROVED');
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
@@ -500,7 +500,7 @@ const rejectBusBooking = async (req, res) => {
     const updatedBookingRows = await fetchBusBookingById(bookingId);
     const updatedBooking = mapBusBookingRow(updatedBookingRows[0]);
 
-    void sendBusBookingStatusNotification(updatedBooking, 'REJECTED');
+    await sendBusBookingStatusNotification(updatedBooking, 'REJECTED');
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
@@ -541,7 +541,7 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     `Remarks: ${escapeHtml(booking.remarks || 'N/A')}`,
   ].join('<br>');
 
-  void sendEmailNotificationToRecipients({
+  await sendEmailNotificationToRecipients({
     recipients: recipientEmails,
     recipientName: booking.booked_by_name,
     message: `Your bus booking has been <strong>${actionLabel}</strong>. Please find the details below.<br><br>${details}`,

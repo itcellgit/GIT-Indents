@@ -276,7 +276,7 @@ const updateComplaintStatus = async (req, res) => {
       );
       const principal = principalUsers[0];
       if (principal) {
-        sendNotification(
+        await sendNotification(
           principal.id,
           `Indent ${indent.indentNumber} was rejected by Maintenance HOD. Review required.`,
           req.user.id,
@@ -287,7 +287,7 @@ const updateComplaintStatus = async (req, res) => {
     }
     // 2. Resolved -> Faculty
     if (status === 'Completed') {
-      sendNotification(
+      await sendNotification(
         indent.requesterId,
         `Your indent ${indent.indentNumber} has been marked as Completed.`,
         req.user.id,
@@ -371,7 +371,7 @@ const createHODIndent = async (req, res) => {
 
     if (!isSelfIncharge && categoryRecord.inchargeId) {
       try {
-        sendNotification(
+        await sendNotification(
           categoryRecord.inchargeId,
           `New indent ${newIndent.indentNumber} raised by ${escapeHtml(req.user.name)} requires your approval.`,
           req.user.id,
@@ -706,7 +706,7 @@ const assignMaintainer = async (req, res) => {
     });
 
     // Notify Maintainer
-    sendNotification(
+    await sendNotification(
       maintainerId,
       `You have been assigned to Indent ${indent.indentNumber} by your HOD.`,
       req.user.id,

@@ -334,7 +334,7 @@ const updateVehicleBooking = async (req, res) => {
     const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
 
     if (normalizedStatus && normalizedStatus !== previousStatus) {
-      void sendVehicleBookingStatusNotification(updatedBooking, normalizedStatus);
+      await sendVehicleBookingStatusNotification(updatedBooking, normalizedStatus);
     }
 
     res.json({ success: true, booking: updatedBooking });
@@ -477,7 +477,7 @@ const approveVehicleBooking = async (req, res) => {
     const updatedBookingRows = await fetchVehicleBookingById(bookingId);
     const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
 
-    void sendVehicleBookingStatusNotification(updatedBooking, 'APPROVED');
+    await sendVehicleBookingStatusNotification(updatedBooking, 'APPROVED');
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
@@ -519,7 +519,7 @@ const rejectVehicleBooking = async (req, res) => {
     const updatedBookingRows = await fetchVehicleBookingById(bookingId);
     const updatedBooking = mapVehicleBookingRow(updatedBookingRows[0]);
 
-    void sendVehicleBookingStatusNotification(updatedBooking, 'REJECTED');
+    await sendVehicleBookingStatusNotification(updatedBooking, 'REJECTED');
 
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
@@ -560,7 +560,7 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
     `Remarks: ${escapeHtml(booking.remarks || 'N/A')}`,
   ].join('<br>');
 
-  void sendEmailNotificationToRecipients({
+  await sendEmailNotificationToRecipients({
     recipients: recipientEmails,
     recipientName: booking.booked_by_name,
     message: `Your vehicle booking has been <strong>${actionLabel}</strong>. Please find the details below.<br><br>${details}`,

@@ -254,7 +254,10 @@ export default function HallBookingsPage() {
   const [activeTab, setActiveTab] = useState(defaultActiveTab);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedDayBookings, setSelectedDayBookings] = useState([]);
-  const [calendarMonth, setCalendarMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [editingHallBookingId, setEditingHallBookingId] = useState(null);
 
   const loadHalls = async () => {
@@ -321,6 +324,7 @@ export default function HallBookingsPage() {
 
   const openBookingModal = (dateString) => {
     setSelectedDate(dateString);
+    setError('');
     setBookingForm({
       ...initialBookingForm,
       booked_by: user?.id || '',
@@ -427,6 +431,7 @@ export default function HallBookingsPage() {
   };
 
   const openEditHallBooking = (booking) => {
+    setError('');
     setBookingForm({
       hall_id: String(booking.hall_id || ''),
       booked_by: String(booking.booked_by || ''),
@@ -661,7 +666,7 @@ export default function HallBookingsPage() {
                   type="button"
                   onClick={() => {
                     const previous = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() - 1, 1);
-                    setCalendarMonth(previous.toISOString().slice(0, 7));
+                    setCalendarMonth(`${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`);
                   }}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
                 >
@@ -675,7 +680,7 @@ export default function HallBookingsPage() {
                   type="button"
                   onClick={() => {
                     const next = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 1);
-                    setCalendarMonth(next.toISOString().slice(0, 7));
+                    setCalendarMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
                   }}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
                 >
@@ -751,16 +756,17 @@ export default function HallBookingsPage() {
 
                     const dateString = toLocalDateString(day);
                     const dayBookings = hallBookings.filter((booking) => isBookingOnDate(booking, dateString));
+                    const isToday = dateString === today;
 
                     return (
                       <button
                         key={dateString}
                         type="button"
                         onClick={() => openBookingModal(dateString)}
-                        className={`min-h-28 rounded-xl border p-3 text-left transition-colors ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
+                        className={`min-h-28 rounded-xl border p-3 text-left transition-colors ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : isToday ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-inset ring-indigo-300' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-semibold text-slate-900">{day.getDate()}</span>
+                          <span className={`text-sm font-semibold ${isToday ? 'flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white' : 'text-slate-900'}`}>{day.getDate()}</span>
                           {dayBookings.length > 0 && (() => {
                            const hasPending = dayBookings.some((b) => (b.status || 'PENDING').toUpperCase() === 'PENDING');
                            const hasRejected = dayBookings.some((b) => (b.status || '').toUpperCase() === 'REJECTED');
@@ -818,9 +824,11 @@ export default function HallBookingsPage() {
               </button>
             </div>
 
+            {error && <div className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm text-red-700 bg-red-50 border border-red-200">{error}</div>}
+
             <form onSubmit={handleBookingSubmit} className="p-6 grid gap-4 md:grid-cols-2">
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Hall</span>
+                <span>Hall <span className="text-red-500">*</span></span>
                 <select value={bookingForm.hall_id} onChange={(e) => setBookingForm({ ...bookingForm, hall_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
                   <option value="">Select Hall</option>
                   {bookings.map((hall) => (
@@ -829,19 +837,20 @@ export default function HallBookingsPage() {
                 </select>
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Booked By</span>
+                <span>Booked By <span className="text-red-500">*</span></span>
                 <input value={bookingForm.booked_by_name} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_name: e.target.value })} placeholder="Enter name" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Booked By Email</span>
+                <span>Booked By Email <span className="text-red-500">*</span></span>
                 <input type="email" value={bookingForm.booked_by_email} onChange={(e) => setBookingForm({ ...bookingForm, booked_by_email: e.target.value })} placeholder="name@example.com" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               {editingHallBookingId && (
                 <label className="grid gap-1 text-sm font-medium text-slate-700">
-                  <span>Status</span>
+                  <span>Status <span className="text-red-500">*</span></span>
                   <select
                     value={bookingForm.status || 'PENDING'}
                     onChange={(e) => setBookingForm({ ...bookingForm, status: e.target.value })}
+                    required
                     className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white"
                   >
                     {statusOptions.map((option) => {
@@ -854,15 +863,15 @@ export default function HallBookingsPage() {
                 </label>
               )}
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
-                <span>Purpose</span>
-                <input value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} placeholder="Purpose" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <span>Purpose <span className="text-red-500">*</span></span>
+                <input value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} placeholder="Purpose" required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>Start Date & Time</span>
+                <span>Start Date & Time <span className="text-red-500">*</span></span>
                 <input type="datetime-local" value={bookingForm.start_datetime} onChange={(e) => setBookingForm({ ...bookingForm, start_datetime: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
-                <span>End Date & Time</span>
+                <span>End Date & Time <span className="text-red-500">*</span></span>
                 <input type="datetime-local" value={bookingForm.end_datetime} onChange={(e) => setBookingForm({ ...bookingForm, end_datetime: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">

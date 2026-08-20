@@ -268,7 +268,10 @@ export default function VehicleBookingsPage() {
   const [activeTab, setActiveTab] = useState(defaultActiveTab);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedDayBookings, setSelectedDayBookings] = useState([]);
-  const [calendarMonth, setCalendarMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const loadVehicles = async () => {
     setLoading(true);
@@ -344,6 +347,7 @@ export default function VehicleBookingsPage() {
   const openBookingModal = (dateString) => {
     setSelectedDate(dateString);
     setIsDayListOpen(false);
+    setError('');
     setBookingForm({
       ...initialBookingForm,
       vehicle_id: '',
@@ -461,6 +465,7 @@ export default function VehicleBookingsPage() {
   };
 
   const openEditVehicleBooking = (booking) => {
+    setError('');
     setBookingForm({
       vehicle_id: String(booking.vehicle_id || ''),
       driver_id: String(booking.driver_id || ''),
@@ -707,7 +712,7 @@ export default function VehicleBookingsPage() {
                   type="button"
                   onClick={() => {
                     const previous = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() - 1, 1);
-                    setCalendarMonth(previous.toISOString().slice(0, 7));
+                    setCalendarMonth(`${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`);
                   }}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
                 >
@@ -721,7 +726,7 @@ export default function VehicleBookingsPage() {
                   type="button"
                   onClick={() => {
                     const next = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 1);
-                    setCalendarMonth(next.toISOString().slice(0, 7));
+                    setCalendarMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
                   }}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
                 >
@@ -792,6 +797,7 @@ export default function VehicleBookingsPage() {
 
                     const dateString = toLocalDateString(day);
                     const dayBookings = vehicleBookings.filter((booking) => isBookingOnDate(booking, dateString));
+                    const isToday = dateString === today;
 
                     return (
                       <div
@@ -805,10 +811,10 @@ export default function VehicleBookingsPage() {
                             openBookingModal(dateString);
                           }
                         }}
-                        className={`min-h-28 rounded-xl border p-3 text-left transition-colors cursor-pointer ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
+                        className={`min-h-28 rounded-xl border p-3 text-left transition-colors cursor-pointer ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : isToday ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-inset ring-indigo-300' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-semibold text-slate-900">{day.getDate()}</span>
+                          <span className={`text-sm font-semibold ${isToday ? 'flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white' : 'text-slate-900'}`}>{day.getDate()}</span>
                           {dayBookings.length > 0 && (() => {
                            const hasPending = dayBookings.some((b) => (b.status || 'PENDING').toUpperCase() === 'PENDING');
                            const hasRejected = dayBookings.some((b) => (b.status || '').toUpperCase() === 'REJECTED');
@@ -862,6 +868,8 @@ export default function VehicleBookingsPage() {
                 <XCircle className="h-5 w-5" />
               </button>
             </div>
+
+            {error && <div className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm text-red-700 bg-red-50 border border-red-200">{error}</div>}
 
             <form onSubmit={handleBookingSubmit} className="p-6 grid gap-4 md:grid-cols-2">
               {canSelectVehicle ? (

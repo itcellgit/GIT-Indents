@@ -5,6 +5,7 @@ import api from '../api/axios';
 const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, setFormData }) => {
   const [categories, setCategories] = useState([]);
   const normalizedNature = formData?.nature === 'Fault' ? 'Maintenance/Repair' : formData?.nature || 'Maintenance/Repair';
+  const isIsrRequired = normalizedNature === 'Services';
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -63,9 +64,12 @@ const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, se
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-slate-700">ISR No. <span className="text-slate-400 font-normal">(Optional)</span></label>
+              <label className="block text-sm font-semibold text-slate-700">
+                ISR No. {isIsrRequired ? <span className="text-red-500">*</span> : <span className="text-slate-400 font-normal">(Optional)</span>}
+              </label>
               <input
                 type="text"
+                required={isIsrRequired}
                 placeholder="e.g. ISR/2026/045"
                 className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 value={formData.isrNo}
@@ -77,7 +81,7 @@ const RaiseIndentModal = ({ setIsRaiseModalOpen, handleRaiseSubmit, formData, se
           <div className="space-y-2.5">
             <label className="block text-sm font-semibold text-slate-700">Nature of Work <span className="text-red-500">*</span></label>
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-              {["Maintenance/Repair", "New Work"].map((nature) => (
+              {["Maintenance/Repair", "New Work", "Services"].map((nature) => (
                 <label key={nature} className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
                   <input
                     type="radio"

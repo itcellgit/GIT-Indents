@@ -31,6 +31,7 @@ const ACTIVE_MAINTENANCE_STATUSES = ['Approved by Maintenance HOD', 'In Progress
 const getHODComplaints = async (req, res) => {
   try {
     let maintenanceIndents = [];
+    let maintenanceStatsIndents = [];
     let approvalRequests = [];
     let deptTrackIndents = [];
     let deptFacilityProviderIndents = [];
@@ -45,11 +46,19 @@ const getHODComplaints = async (req, res) => {
       maintenanceIndents = await prisma.indent.findMany({
         include: HOD_DASHBOARD_INCLUDE
       });
+      maintenanceStatsIndents = maintenanceIndents;
     } else {
       // 1. Find all categories where the current user is the incharge (Maintenance HOD role)
       const categories = await prisma.category.findMany({ where: { inchargeId: req.user.id } });
       const categoryIds = categories.map(cat => cat.id);
       isCategoryIncharge = categoryIds.length > 0;
+
+      maintenanceStatsIndents = await prisma.indent.findMany({
+        where: {
+          categoryId: { in: categoryIds }
+        },
+        include: HOD_DASHBOARD_INCLUDE
+      });
 
       // 2. Fetch Maintenance Indents managed by this incharge
       maintenanceIndents = await prisma.indent.findMany({ 
@@ -146,6 +155,7 @@ const getHODComplaints = async (req, res) => {
       myRaisedIndents,
       deptTrackIndents,
       deptFacilityProviderIndents,
+      maintenanceStatsIndents,
       hasDeptFacilityProvider,
       isCategoryIncharge
     });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ClipboardList, Clock, Wrench, CheckCircle } from 'lucide-react';
 
-const DeptStatsCards = ({ stats, activeFilter, onCardClick }) => {
+const DeptStatsCards = ({ stats, activeFilter, onCardClick, view = 'full' }) => {
   const cards = [
     {
       title: 'Total Raised Indents',
@@ -39,10 +39,14 @@ const DeptStatsCards = ({ stats, activeFilter, onCardClick }) => {
       textColor: 'text-emerald-700',
       filterValue: 'Completed',
     },
-  ];
+  ].filter((card) => {
+    if (view === 'total') return card.filterValue === 'All';
+    if (view === 'summary') return card.filterValue !== 'All';
+    return true;
+  });
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className={`grid grid-cols-1 sm:grid-cols-2 ${view === 'summary' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4 mb-6`}>
       {cards.map((card, index) => {
         const isActive = activeFilter === card.filterValue;
         return (

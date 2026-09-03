@@ -29,6 +29,7 @@ const HODDashboard = () => {
   const [myRaisedIndents, setMyRaisedIndents] = useState([]);
   const [deptTrackIndents, setDeptTrackIndents] = useState([]);
   const [deptFacilityProviderIndents, setDeptFacilityProviderIndents] = useState([]);
+  const [maintenanceStatsIndents, setMaintenanceStatsIndents] = useState([]);
   const [hasDeptFacilityProvider, setHasDeptFacilityProvider] = useState(false);
   const [isCategoryIncharge, setIsCategoryIncharge] = useState(false);
 
@@ -86,6 +87,7 @@ const HODDashboard = () => {
         setMyRaisedIndents(res.data.myRaisedIndents || []);
         setDeptTrackIndents(res.data.deptTrackIndents || []);
         setDeptFacilityProviderIndents(res.data.deptFacilityProviderIndents || []);
+        setMaintenanceStatsIndents(res.data.maintenanceStatsIndents || []);
         setHasDeptFacilityProvider(Boolean(res.data.hasDeptFacilityProvider));
         const categoryIncharge = Boolean(res.data.isCategoryIncharge);
         setIsCategoryIncharge(categoryIncharge);
@@ -106,12 +108,17 @@ const HODDashboard = () => {
     return departmentIndents.filter(c => c.status === filterStatus);
   }, [departmentIndents, filterStatus]);
 
+  const filteredMaintenanceIndents = useMemo(() => {
+    if (filterStatus === 'All') return maintenanceStatsIndents;
+    return maintenanceStatsIndents.filter(c => c.status === filterStatus);
+  }, [maintenanceStatsIndents, filterStatus]);
+
   const activeMaintenanceCount = useMemo(() => {
-    return departmentIndents.filter(c =>
+    return maintenanceStatsIndents.filter(c =>
       c.status === 'Approved by Maintenance HOD' ||
       c.status === 'In Progress'
     ).length;
-  }, [departmentIndents]);
+  }, [maintenanceStatsIndents]);
 
   // departmentIndents (Facility Provider's "Maintenance Queue") is deliberately
   // narrowed by the backend to just the active-work statuses, so it alone is too
@@ -128,11 +135,11 @@ const HODDashboard = () => {
   const stats = useMemo(() => {
     return {
       approvals: approvalRequests.length,
-      pending: departmentIndents.filter(c => c.status === 'Approved by Maintenance HOD').length,
-      inProgress: departmentIndents.filter(c => c.status === 'In Progress').length,
-      resolved: departmentIndents.filter(c => c.status === 'Completed').length,
+      pending: maintenanceStatsIndents.filter(c => c.status === 'Approved by Maintenance HOD').length,
+      inProgress: maintenanceStatsIndents.filter(c => c.status === 'In Progress').length,
+      resolved: maintenanceStatsIndents.filter(c => c.status === 'Completed').length,
     };
-  }, [departmentIndents, approvalRequests]);
+  }, [maintenanceStatsIndents, approvalRequests]);
 
   const deptStats = useMemo(() => {
     return {
@@ -141,12 +148,21 @@ const HODDashboard = () => {
       active: deptTrackIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
       completed: deptTrackIndents.filter(c => c.status === 'Completed').length,
     };
-  }, [deptTrackIndents]);
+  }, [deptTrackIndents, deptFacilityProviderIndents]);
+
+  const deptFacilityProviderStats = useMemo(() => {
+    return {
+      total: deptFacilityProviderIndents.length,
+      pendingApproval: deptFacilityProviderIndents.filter(c => c.status === 'Indent Created').length,
+      active: deptFacilityProviderIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
+      completed: deptFacilityProviderIndents.filter(c => c.status === 'Completed').length,
+    };
+  }, [deptFacilityProviderIndents]);
 
   const filteredDeptTrackIndents = useMemo(() => {
     if (deptFilterStatus === 'All') return deptTrackIndents;
     if (deptFilterStatus === 'Pending Approval') {
-      return deptTrackIndents.filter(c => c.status === 'Indent Created');
+      return deptFacilityProviderIndents.filter(c => c.status === 'Indent Created');
     }
     if (deptFilterStatus === 'Active') {
       return deptTrackIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected'));
@@ -155,7 +171,7 @@ const HODDashboard = () => {
       return deptTrackIndents.filter(c => c.status === 'Completed');
     }
     return deptTrackIndents;
-  }, [deptTrackIndents, deptFilterStatus]);
+  }, [deptTrackIndents, deptFacilityProviderIndents, deptFilterStatus]);
 
   const updateIndentList = (updatedComplaint) => {
     const targetId = updatedComplaint.id || updatedComplaint._id;
@@ -513,7 +529,7 @@ const HODDashboard = () => {
               />
               <div className="mt-8">
                 <ComplaintTable 
-                  complaints={filteredDepartmentIndents}
+                  complaints={filteredMaintenanceIndents}
                   onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
                   showStatusFilter={true}
                 />
@@ -528,6 +544,7 @@ const HODDashboard = () => {
                 <DeptStatsCards 
                   stats={deptStats}
                   activeFilter={deptFilterStatus}
+                  view="total"
                   onCardClick={(val) => setDeptFilterStatus(val)}
                 />
               </div>
@@ -542,6 +559,12 @@ const HODDashboard = () => {
           {activeTab === 'deptFacilityProviders' && user?.role === ROLES.HOD && hasDeptFacilityProvider && (
             <div id="deptFacilityProviders" className="scroll-mt-32">
               <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Department Facility Providers</h2>
+              <DeptStatsCards
+                stats={deptFacilityProviderStats}
+                activeFilter={deptFilterStatus}
+                view="summary"
+                onCardClick={(val) => setDeptFilterStatus(val)}
+              />
               <ComplaintTable
                 complaints={deptFacilityProviderIndents}
                 onOpenDetails={(complaint) => setSelectedComplaint(complaint)}

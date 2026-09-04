@@ -5,6 +5,7 @@ const {
   getStationaryIndents,
   createStationaryIndent,
   updateStationaryIndent,
+  reviewStationaryIndent,
   deleteStationaryIndent
 } = require('../controllers/stationaryIndentController');
 const { ROLES } = require('../utils/roles');
@@ -13,6 +14,7 @@ const STATIONARY_ROLES = [ROLES.ADMIN, ROLES.FACULTY, ROLES.HOD, ROLES.FACILITY_
 
 router.get('/', protect, authorize(...STATIONARY_ROLES), getStationaryIndents);
 router.post('/', protect, authorize(...STATIONARY_ROLES), createStationaryIndent);
+router.put('/:id/approval', protect, authorize(ROLES.HOD, ROLES.ADMIN), reviewStationaryIndent);
 router.put('/:id', protect, authorize(...STATIONARY_ROLES), updateStationaryIndent);
 router.delete('/:id', protect, authorize(...STATIONARY_ROLES), deleteStationaryIndent);
 

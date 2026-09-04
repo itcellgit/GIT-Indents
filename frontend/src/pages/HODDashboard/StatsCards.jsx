@@ -4,13 +4,13 @@ import { Clock, Users, Wrench, CheckCircle } from 'lucide-react';
 const StatsCards = ({ stats, activeFilter, onCardClick }) => {
   const cards = [
     {
-      title: 'Pending Assignment',
+      title: 'Pending Approval',
       value: stats.pending,
       icon: Clock,
       color: 'bg-yellow-500',
       bgColor: 'bg-yellow-50',
       textColor: 'text-yellow-700',
-      filterValue: 'Approved by Maintenance HOD',
+      filterValue: 'Indent Created',
     },
 
     {

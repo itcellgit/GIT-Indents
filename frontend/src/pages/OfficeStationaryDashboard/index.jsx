@@ -16,6 +16,26 @@ const STATUS_COLORS = {
   'Completed': 'bg-green-100 text-green-800 border-green-200'
 };
 
+const REQUEST_STATUS_STYLES = {
+  'pending': 'border-amber-200 bg-amber-50 text-amber-700',
+  'hod approved': 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  'hod rejected': 'border-red-200 bg-red-50 text-red-700',
+  'received': 'border-indigo-200 bg-indigo-50 text-indigo-700'
+};
+
+const normalizeStatus = (status) => String(status || 'Pending').trim();
+const isHodApproved = (status) => normalizeStatus(status).toLowerCase() === 'hod approved';
+
+const RequestStatusBadge = ({ status }) => {
+  const label = normalizeStatus(status);
+  const style = REQUEST_STATUS_STYLES[label.toLowerCase()] || 'border-slate-200 bg-slate-50 text-slate-600';
+  return (
+    <span className={`inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium ${style}`}>
+      {label}
+    </span>
+  );
+};
+
 export default function OfficeStationaryDashboard() {
   const { user, logout } = useAuth();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
@@ -44,12 +64,14 @@ export default function OfficeStationaryDashboard() {
     requestDate: formatShortDate(indent.createdAt),
     departmentName: indent.departmentName || indent.departmentId,
     status: indent.status,
+    hodRemark: indent.hodRemark || '',
     items: (indent.items || []).map((item) => ({
       id: Number(item.id),
       stationaryId: Number(item.stationaryId),
-      itemName: stationariesList.find((stationary) => String(stationary.id) === String(item.stationaryId))?.name || '-',
+      itemName: item.stationaryName || stationariesList.find((stationary) => String(stationary.id) === String(item.stationaryId))?.name || '-',
       requestQuantity: Number(item.requestQuantity),
       grantQuantity: Number(item.grantQuantity || 0),
+      givenQuantity: Number(item.grantQuantity || item.givenQuantity || 0),
       grantDate: item.grantDate ? item.grantDate.slice(0, 10) : ''
     }))
   });
@@ -178,6 +200,11 @@ export default function OfficeStationaryDashboard() {
 
   const saveReview = async () => {
     if (!selectedRequest) return;
+
+    if (!isHodApproved(selectedRequest.status)) {
+      setRequestError('This indent must be approved by the HOD before it can be granted.');
+      return;
+    }
 
     if (!sharedGrantDate) {
       setRequestError('Given Date is required.');
@@ -469,15 +496,7 @@ export default function OfficeStationaryDashboard() {
                         <td className="px-6 py-4 text-sm text-slate-600">{request.requestDate || '-'}</td>
                         <td className="px-6 py-4 text-sm text-slate-600">{request.departmentName || '-'}</td>
                         <td className="px-6 py-4 text-sm text-slate-600">
-                          {String(request.status || 'Pending').trim().toLowerCase() === 'received' ? (
-                            <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-                              Received
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
-                              Pending
-                            </span>
-                          )}
+                          <RequestStatusBadge status={request.status} />
                         </td>
                         <td className="px-6 py-4 text-right">
                           <button
@@ -584,8 +603,9 @@ export default function OfficeStationaryDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto">
           <div className="w-full max-w-5xl max-h-[90vh] rounded-2xl bg-white shadow-xl overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-200 flex items-start justify-between gap-4">
-              <div>
+              <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-slate-800">Processing Request</h2>
+                <RequestStatusBadge status={selectedRequest.status} />
               </div>
               <button
                 onClick={() => setIsReviewOpen(false)}
@@ -602,6 +622,17 @@ export default function OfficeStationaryDashboard() {
                 </div>
               )}
 
+              {normalizeStatus(selectedRequest.status).toLowerCase() === 'pending' && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  This indent is awaiting HOD approval. Grant quantities can be recorded only after the department HOD approves it.
+                </div>
+              )}
+              {normalizeStatus(selectedRequest.status).toLowerCase() === 'hod rejected' && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  This indent was rejected by the HOD{selectedRequest.hodRemark ? `: ${selectedRequest.hodRemark}` : '.'}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm items-end">
                 <div className="md:col-span-1">
                   <p className="text-slate-500">Reason</p>
@@ -611,16 +642,23 @@ export default function OfficeStationaryDashboard() {
                   <p className="text-slate-500">Request Date</p>
                   <p className="font-medium text-slate-800">{selectedRequest.requestDate || '-'}</p>
                 </div>
-                <div className="md:col-span-1">
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Given Date <span className="text-red-500">*</span></label>
-                  <input
-                    type="date"
-                    value={sharedGrantDate}
-                    onChange={(e) => setSharedGrantDate(e.target.value)}
-                    required
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+                {isHodApproved(selectedRequest.status) ? (
+                  <div className="md:col-span-1">
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Given Date <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      value={sharedGrantDate}
+                      onChange={(e) => setSharedGrantDate(e.target.value)}
+                      required
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                ) : (
+                  <div className="md:col-span-1">
+                    <p className="text-slate-500">Given Date</p>
+                    <p className="font-medium text-slate-800">{sharedGrantDate ? formatShortDate(sharedGrantDate) : '-'}</p>
+                  </div>
+                )}
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -631,7 +669,7 @@ export default function OfficeStationaryDashboard() {
                       <th className="px-6 py-4 font-medium">Item Name</th>
                       <th className="px-6 py-4 font-medium">Request Quantity</th>
                       <th className="px-6 py-4 font-medium">Given Quantity</th>
-                      {String(selectedRequest.status || 'Pending').trim().toLowerCase() === 'pending' && (
+                      {isHodApproved(selectedRequest.status) && (
                         <th className="px-6 py-4 font-medium">Grant Quantity</th>
                       )}
                     </tr>
@@ -642,8 +680,8 @@ export default function OfficeStationaryDashboard() {
                         <td className="px-6 py-4 text-sm text-slate-600">{index + 1}</td>
                         <td className="px-6 py-4 text-sm font-medium text-slate-900">{item.itemName || '-'}</td>
                         <td className="px-6 py-4 text-sm text-slate-600">{item.requestQuantity || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{Number(item.grantQuantity || 0)}</td>
-                        {String(selectedRequest.status || 'Pending').trim().toLowerCase() === 'pending' && (
+                        <td className="px-6 py-4 text-sm text-slate-600">{Number(item.givenQuantity || item.grantQuantity || 0)}</td>
+                        {isHodApproved(selectedRequest.status) && (
                           <td className="px-6 py-4 text-sm text-slate-600 min-w-[160px]">
                             <input
                               type="number"
@@ -670,14 +708,16 @@ export default function OfficeStationaryDashboard() {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={saveReview}
-                disabled={reviewSaving}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {reviewSaving ? 'Saving...' : 'Grant Request'}
-              </button>
+              {isHodApproved(selectedRequest.status) && (
+                <button
+                  type="button"
+                  onClick={saveReview}
+                  disabled={reviewSaving}
+                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {reviewSaving ? 'Saving...' : 'Grant Request'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -38,14 +38,16 @@ export default function StationaryIndentCreate() {
     departmentName: indent.departmentName || indent.department || '',
     reason: indent.reason,
     status: indent.status,
+    hodRemark: indent.hodRemark || '',
     createdAt: formatShortDate(indent.createdAt),
     updatedAt: formatShortDate(indent.updatedAt),
     items: (indent.items || []).map((item) => ({
       id: Number(item.id),
       stationaryId: String(item.stationaryId),
-      itemName: stationariesList.find((stationary) => String(stationary.id) === String(item.stationaryId))?.name || '',
+      itemName: item.stationaryName || stationariesList.find((stationary) => String(stationary.id) === String(item.stationaryId))?.name || '',
       requestQuantity: item.requestQuantity,
       grantQuantity: item.grantQuantity,
+      givenQuantity: item.grantQuantity,
       requestDate: formatShortDate(item.requestDate)
     }))
   });
@@ -53,7 +55,10 @@ export default function StationaryIndentCreate() {
   const hasGrantedQuantity = (request) =>
     (request.items || []).some((item) => Number(item.grantQuantity || 0) > 0);
 
-  const isReceivedRequest = (request) => String(request.status || '').trim().toLowerCase() === 'received';
+  const normalizeStatus = (request) => String(request.status || 'Pending').trim();
+  const statusKey = (request) => normalizeStatus(request).toLowerCase();
+  const isReceivedRequest = (request) => statusKey(request) === 'received';
+  const isPendingRequest = (request) => statusKey(request) === 'pending';
 
   const buildPayload = (sourceFormData, sourceIndentItems) => ({
     departmentId: user?.id,
@@ -187,17 +192,7 @@ export default function StationaryIndentCreate() {
 
   const markAsReceived = async (request) => {
     try {
-      const payload = {
-        reason: request.reason,
-        status: 'Received',
-        items: (request.items || []).map((item) => ({
-          stationaryId: Number(item.stationaryId),
-          requestQuantity: Number(item.requestQuantity),
-          grantQuantity: Number(item.grantQuantity || 0)
-        }))
-      };
-
-      const res = await api.put(`/stationary-indents/${request.id}`, payload);
+      const res = await api.put(`/stationary-indents/${request.id}`, { status: 'Received' });
       const updated = normalizeRequest(res.data.indent, stationaries);
       setRequests((prev) => prev.map((entry) => (entry.id === updated.id ? updated : entry)));
       setMessage('Stationary indent marked as received.');
@@ -308,15 +303,21 @@ export default function StationaryIndentCreate() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{item.items?.length || 0} item(s)</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{item.createdAt || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                      {String(item.status || 'Pending').trim().toLowerCase() === 'received' ? (
-                        <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-                          Received
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
-                          Pending
-                        </span>
-                      )}
+                      {(() => {
+                        const styles = {
+                          'pending': 'border-amber-200 bg-amber-50 text-amber-700',
+                          'hod approved': 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                          'hod rejected': 'border-red-200 bg-red-50 text-red-700',
+                          'received': 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                        };
+                        const label = normalizeStatus(item);
+                        const style = styles[label.toLowerCase()] || 'border-slate-200 bg-slate-50 text-slate-600';
+                        return (
+                          <span className={`inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium ${style}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
                       <button
@@ -337,7 +338,7 @@ export default function StationaryIndentCreate() {
                           <Check className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      {!hasGrantedQuantity(item) && !isReceivedRequest(item) && (
+                      {isPendingRequest(item) && (
                         <button
                           type="button"
                           onClick={() => openEditModal(item)}
@@ -347,7 +348,7 @@ export default function StationaryIndentCreate() {
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      {!hasGrantedQuantity(item) && !isReceivedRequest(item) && (
+                      {isPendingRequest(item) && (
                         <button
                           type="button"
                           onClick={() => confirmDelete(item.id)}
@@ -548,6 +549,16 @@ export default function StationaryIndentCreate() {
                       <p className="text-slate-500">Reason</p>
                       <p className="font-medium text-slate-800">{selectedRequest.reason || '-'}</p>
                     </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-slate-500">Status</p>
+                      <p className="font-medium text-slate-800">{normalizeStatus(selectedRequest)}</p>
+                    </div>
+                    {selectedRequest.hodRemark && (
+                      <div className="sm:col-span-2">
+                        <p className="text-slate-500">HOD remark</p>
+                        <p className="font-medium text-slate-800">{selectedRequest.hodRemark}</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -556,7 +567,8 @@ export default function StationaryIndentCreate() {
                         <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
                           <th className="px-4 py-3 font-medium">S.No</th>
                           <th className="px-4 py-3 font-medium">Item</th>
-                          <th className="px-4 py-3 font-medium">Quantity</th>
+                          <th className="px-4 py-3 font-medium">Requested Quantity</th>
+                          <th className="px-4 py-3 font-medium">Given Quantity</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -565,11 +577,12 @@ export default function StationaryIndentCreate() {
                             <td className="px-4 py-3 text-sm text-slate-700">{index + 1}</td>
                             <td className="px-4 py-3 text-sm text-slate-700">{item.itemName || '-'}</td>
                             <td className="px-4 py-3 text-sm text-slate-700">{item.requestQuantity || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-slate-700">{item.givenQuantity || '-'}</td>
                           </tr>
                         ))}
                         {(selectedRequest.items || []).length === 0 && (
                           <tr>
-                            <td colSpan="3" className="px-4 py-6 text-center text-slate-500">
+                            <td colSpan="4" className="px-4 py-6 text-center text-slate-500">
                               No items found.
                             </td>
                           </tr>
@@ -647,7 +660,8 @@ export default function StationaryIndentCreate() {
                   <tr className="bg-gray-100 text-xs uppercase tracking-wider text-gray-700">
                     <th className="border border-gray-300 px-4 py-3 font-medium">S.No</th>
                     <th className="border border-gray-300 px-4 py-3 font-medium">Item</th>
-                    <th className="border border-gray-300 px-4 py-3 font-medium">Quantity</th>
+                    <th className="border border-gray-300 px-4 py-3 font-medium">Requested Quantity</th>
+                    <th className="border border-gray-300 px-4 py-3 font-medium">Given Quantity</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -656,11 +670,12 @@ export default function StationaryIndentCreate() {
                       <td className="border border-gray-300 px-4 py-2">{index + 1}</td>
                       <td className="border border-gray-300 px-4 py-2">{item.itemName || '-'}</td>
                       <td className="border border-gray-300 px-4 py-2">{item.requestQuantity || '-'}</td>
+                      <td className="border border-gray-300 px-4 py-2">{item.givenQuantity || '-'}</td>
                     </tr>
                   ))}
                   {(selectedRequest.items || []).length === 0 && (
                     <tr>
-                      <td colSpan="3" className="border border-gray-300 px-4 py-6 text-center">
+                      <td colSpan="4" className="border border-gray-300 px-4 py-6 text-center">
                         No items found.
                       </td>
                     </tr>

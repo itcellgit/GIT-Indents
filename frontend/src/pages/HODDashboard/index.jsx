@@ -8,6 +8,7 @@ import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
 import ManageMaintainers from './ManageMaintainers';
 import ManageCoordinatorStaffs from './ManageCoordinatorStaffs';
+import StationaryIndents from './StationaryIndents';
 import BranchManager from '../../components/BranchManager';
 import BookIndentManager from '../../components/BookIndentManager';
 import Analytics from '../../components/Analytics';
@@ -135,7 +136,7 @@ const HODDashboard = () => {
   const stats = useMemo(() => {
     return {
       approvals: approvalRequests.length,
-      pending: maintenanceStatsIndents.filter(c => c.status === 'Approved by Maintenance HOD').length,
+      pending: maintenanceStatsIndents.filter(c => c.status === 'Indent Created').length,
       inProgress: maintenanceStatsIndents.filter(c => c.status === 'In Progress').length,
       resolved: maintenanceStatsIndents.filter(c => c.status === 'Completed').length,
     };
@@ -416,12 +417,24 @@ const HODDashboard = () => {
             <button
               onClick={() => setActiveTab('coordinatorStaffs')}
               className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                activeTab === 'coordinatorStaffs' 
-                  ? 'bg-white text-indigo-600 shadow-sm' 
+                activeTab === 'coordinatorStaffs'
+                  ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
               }`}
             >
               Stationary Coordinator
+            </button>
+          )}
+          {user?.role === ROLES.HOD && (
+            <button
+              onClick={() => setActiveTab('stationaryIndents')}
+              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'stationaryIndents'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+              }`}
+            >
+              Stationary Indents
             </button>
           )}
           {isLibraryHod && (
@@ -600,6 +613,12 @@ const HODDashboard = () => {
           {activeTab === 'coordinatorStaffs' && (
             <div id="coordinatorStaffs" className="scroll-mt-32">
               <ManageCoordinatorStaffs />
+            </div>
+          )}
+
+          {activeTab === 'stationaryIndents' && user?.role === ROLES.HOD && (
+            <div id="stationaryIndents" className="scroll-mt-32">
+              <StationaryIndents />
             </div>
           )}
 

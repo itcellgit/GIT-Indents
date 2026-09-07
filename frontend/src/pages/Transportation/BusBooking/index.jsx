@@ -43,6 +43,7 @@ const tabs = [
 
 const managementTabs = [
   { id: 'buses', label: 'Bus List' },
+  { id: 'drivers', label: 'Vehicle Maintenance Users' },
   { id: 'calendar', label: 'Calendar' },
 ];
 
@@ -298,6 +299,11 @@ export default function BusBookingsPage() {
     }
   };
 
+  const assignedDrivers = useMemo(
+    () => drivers.filter((driver) => Boolean(driver.isDriver)),
+    [drivers]
+  );
+
   const selectedMonthDate = useMemo(() => new Date(`${calendarMonth}-01T00:00:00`), [calendarMonth]);
 
   const calendarDays = useMemo(() => {
@@ -526,6 +532,15 @@ export default function BusBookingsPage() {
     }
   };
 
+  const handleToggleDriverAssignment = async (user, shouldAssign) => {
+    try {
+      await api.patch(`/drivers/${user.id}/assignment`, { isDriver: shouldAssign });
+      await loadDrivers();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || 'Failed to update driver assignment');
+    }
+  };
+
   const canSelectBus = isAdminOrTransport;
 
   return (
@@ -705,6 +720,83 @@ export default function BusBookingsPage() {
               </div>
             </section>
           </>
+        )}
+
+        {activeTab === 'drivers' && (
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900">Vehicle Maintenance Users</h3>
+                <p className="text-sm text-slate-500">All users assigned to the Vehicle Maintenance department.</p>
+              </div>
+              <div className="text-sm font-medium text-slate-500">
+                Total users: <span className="text-slate-900 font-semibold">{drivers.length}</span>
+              </div>
+            </div>
+
+            {error && <div className="px-6 py-4 text-sm text-red-700 bg-red-50 border-b border-red-100">{error}</div>}
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">S.No</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Phone</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Department</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Driver</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {drivers.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500">No Vehicle Maintenance users found.</td>
+                    </tr>
+                  ) : (
+                    drivers.map((driver, index) => (
+                      <tr key={driver.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 text-sm text-slate-700">{index + 1}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">{driver.name || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{driver.email || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{driver.staff_phone_no || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{driver.department || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          {driver.roles?.length > 0
+                            ? driver.roles.map((role) => role.roleName).filter(Boolean).join(', ')
+                            : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{driver.isDriver ? 'Yes' : 'No'}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          <div className="flex items-center gap-2">
+                            {driver.isDriver ? (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDriverAssignment(driver, false)}
+                                className="inline-flex items-center rounded-md bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                              >
+                                Unassign Driver
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDriverAssignment(driver, true)}
+                                className="inline-flex items-center rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                              >
+                                Assign Driver
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
 
         {activeTab === 'calendar' && (
@@ -900,7 +992,7 @@ export default function BusBookingsPage() {
                   <span>Driver <span className="text-red-500">*</span></span>
                   <select value={bookingForm.driver_id} onChange={(e) => setBookingForm({ ...bookingForm, driver_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
                     <option value="">Select Driver</option>
-                    {drivers.map((driver) => (
+                    {assignedDrivers.map((driver) => (
                       <option key={driver.id} value={driver.id}>{driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}</option>
                     ))}
                   </select>

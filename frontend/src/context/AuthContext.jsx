@@ -23,18 +23,47 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData) => {
-    const normalizedUser = {
-      ...userData,
-      roles: Array.isArray(userData?.roles) ? userData.roles : userData?.role ? [userData.role] : [],
-      role: userData?.role || userData?.roles?.[0] || null,
-    };
+    setUser((prev) => {
+      const normalizedUser = {
+        ...prev,
+        ...userData,
+        roles: Array.isArray(userData?.roles) ? userData.roles : userData?.role ? [userData.role] : (prev?.roles || []),
+        role: userData?.role || userData?.roles?.[0] || prev?.role || null,
+      };
 
-    setUser(normalizedUser);
-    localStorage.setItem('user', JSON.stringify(normalizedUser));
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
+      return normalizedUser;
+    });
     if (userData?.token) {
       localStorage.setItem('token', userData.token);
     }
   };
+
+  // On load, refresh the cached user from the server so a role granted/revoked
+  // since the last login is reflected immediately (e.g. the role switcher shows
+  // up once a user has 2+ roles) without forcing a manual re-login.
+  const refreshUser = async () => {
+    try {
+      const { data } = await api.get('/auth/me');
+      if (data?.id) {
+        login(data);
+      }
+      return data;
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setUser(null);
+        localStorage.clear();
+      }
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (localStorage.getItem('user') || localStorage.getItem('token')) {
+      refreshUser();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const switchRole = async (role) => {
     const response = await api.post('/auth/switch-role', { role });
@@ -56,7 +85,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, switchRole }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, switchRole, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

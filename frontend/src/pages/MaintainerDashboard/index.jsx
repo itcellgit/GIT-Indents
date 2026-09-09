@@ -11,6 +11,7 @@ import ComplaintTable from '../HODDashboard/ComplaintTable';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import RoleSwitcher from '../../components/RoleSwitcher';
 import logo from '../../assets/logo.png';
 
 const SUMMARY_CARDS = [
@@ -127,6 +128,7 @@ export default function MaintainerDashboard() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
+              <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
                 <span className="text-sm font-medium text-slate-600">Welcome, {user?.name}</span>

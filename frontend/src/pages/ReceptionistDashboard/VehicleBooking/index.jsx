@@ -895,8 +895,8 @@ export default function VehicleBookingsPage() {
                   <span>Driver</span>
                   <select value={bookingForm.driver_id} onChange={(e) => setBookingForm({ ...bookingForm, driver_id: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
                     <option value="">Select Driver</option>
-                    {drivers.map((driver) => (
-                      <option key={driver.id} value={driver.id}>{driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}</option>
+                    {drivers.filter((driver) => driver.driverId).map((driver) => (
+                      <option key={driver.driverId} value={driver.driverId}>{driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}</option>
                     ))}
                   </select>
                 </label>

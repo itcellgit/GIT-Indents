@@ -759,11 +759,18 @@ export default function HallBookingsPage() {
                     const isToday = dateString === today;
 
                     return (
-                      <button
+                      <div
                         key={dateString}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => openBookingModal(dateString)}
-                        className={`min-h-28 rounded-xl border p-3 text-left transition-colors ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : isToday ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-inset ring-indigo-300' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openBookingModal(dateString);
+                          }
+                        }}
+                        className={`min-h-28 rounded-xl border p-3 text-left transition-colors cursor-pointer ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : isToday ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-inset ring-indigo-300' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className={`text-sm font-semibold ${isToday ? 'flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white' : 'text-slate-900'}`}>{day.getDate()}</span>
@@ -791,7 +798,7 @@ export default function HallBookingsPage() {
                             </button>
                           </div>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

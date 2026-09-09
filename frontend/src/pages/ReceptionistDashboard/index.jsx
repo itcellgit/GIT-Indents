@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { LogOut, User, KeyRound, Bell, CalendarRange, CarFront, Building2, ClipboardList } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import RoleSwitcher from '../../components/RoleSwitcher';
 import logo from '../../assets/logo.png';
 
 const quickActions = [
@@ -39,6 +40,7 @@ export default function ReceptionistDashboard() {
             </div>
 
             <div className="flex items-center gap-4">
+              <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity" title="My Profile">
                 <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200">

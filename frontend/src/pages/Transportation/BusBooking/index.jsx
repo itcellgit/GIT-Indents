@@ -993,7 +993,7 @@ export default function BusBookingsPage() {
                   <select value={bookingForm.driver_id} onChange={(e) => setBookingForm({ ...bookingForm, driver_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
                     <option value="">Select Driver</option>
                     {assignedDrivers.map((driver) => (
-                      <option key={driver.id} value={driver.id}>{driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}</option>
+                      <option key={driver.driverId || driver.id} value={driver.driverId || driver.id}>{driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}</option>
                     ))}
                   </select>
                 </label>

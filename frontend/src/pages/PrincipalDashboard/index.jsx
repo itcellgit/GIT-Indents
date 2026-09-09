@@ -12,6 +12,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import RoleSwitcher from '../../components/RoleSwitcher';
 import logo from '../../assets/logo.png';
 
 const PrincipalDashboard = () => {
@@ -199,6 +200,7 @@ const PrincipalDashboard = () => {
             </div>
             
             <div className="flex items-center gap-4">
+              <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="hidden md:flex items-center gap-2 pr-4 border-r border-gray-200 hover:opacity-80 transition-opacity" title="My Profile">
                 <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700">

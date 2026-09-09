@@ -1,6 +1,7 @@
 const prisma = require('../prismaClient');
 const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDate, formatEmailTime } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
+const { resolveDriverId } = require('../utils/resolveDriver');
 
 const DEAN_ADMIN_EMAIL = 'deanadmin@git.edu';
 
@@ -161,13 +162,18 @@ const createBusBooking = async (req, res) => {
       attachmentPath = `/${uploadDir}/${req.file.filename}`;
     }
 
+    const resolvedDriver = await resolveDriverId(driver_id);
+    if (!resolvedDriver.ok) {
+      return res.status(400).json({ message: resolvedDriver.message });
+    }
+
     const bookingRows = await prisma.$queryRawUnsafe(
       `INSERT INTO public.bus_bookings
         (bus_id, driver_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, attachment_path, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'PENDING', NOW(), NOW())
        RETURNING id`,
       bus_id ? Number(bus_id) : null,
-      driver_id ? String(driver_id).trim() : null,
+      resolvedDriver.driverId,
       String(booked_by).trim(),
       String(req.body.booked_by_email).trim().toLowerCase(),
       purpose ? String(purpose).trim() : null,
@@ -282,6 +288,11 @@ const updateBusBooking = async (req, res) => {
       attachmentPath = `/${uploadDir}/${req.file.filename}`;
     }
 
+    const resolvedDriver = await resolveDriverId(driver_id);
+    if (!resolvedDriver.ok) {
+      return res.status(400).json({ message: resolvedDriver.message });
+    }
+
     await prisma.$queryRawUnsafe(
       `UPDATE public.bus_bookings
          SET bus_id = COALESCE($2, bus_id),
@@ -308,7 +319,7 @@ const updateBusBooking = async (req, res) => {
        WHERE id = $1`,
       bookingId,
       bus_id ? Number(bus_id) : null,
-      driver_id ? String(driver_id).trim() : null,
+      resolvedDriver.driverId,
       booked_by ? String(booked_by).trim() : null,
       booked_by_email ? String(booked_by_email).trim().toLowerCase() : null,
       purpose ? String(purpose).trim() : null,

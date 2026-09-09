@@ -2,6 +2,7 @@ const prisma = require('../prismaClient');
 
 const mapDriverRow = (row) => ({
   id: row.id,
+  driverId: row.driverId || null,
   name: row.name || '',
   email: row.email || '',
   staff_phone_no: row.staff_phone_no || '',
@@ -32,7 +33,13 @@ const getDrivers = async (req, res) => {
            SELECT 1
            FROM "Driver" d
            WHERE d."userId" = u.id
-         ) AS "isDriver"
+         ) AS "isDriver",
+         (
+           SELECT d.id
+           FROM "Driver" d
+           WHERE d."userId" = u.id
+           LIMIT 1
+         ) AS "driverId"
        FROM "User" u
        LEFT JOIN public.user_roles ur ON ur.user_id = u.id
        LEFT JOIN public.roles r ON r.id = ur.role_id

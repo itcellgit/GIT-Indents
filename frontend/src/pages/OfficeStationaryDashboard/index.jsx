@@ -5,6 +5,7 @@ import { Shield, User, LogOut, KeyRound, Search, Filter, Plus, ClipboardList, Pa
 import api from '../../api/axios';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import RoleSwitcher from '../../components/RoleSwitcher';
 import logo from '../../assets/logo.png';
 import { formatDate as formatShortDate } from '../../utils/formatDate';
 
@@ -277,6 +278,7 @@ export default function OfficeStationaryDashboard() {
             </div>
 
             <div className="flex items-center space-x-4">
+              <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity animate-in" title="My Profile">
                 <span className="text-sm font-medium text-slate-300">{user?.name || 'Office Stationary'}</span>

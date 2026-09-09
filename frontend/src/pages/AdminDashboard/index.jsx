@@ -15,6 +15,7 @@ import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import api from '../../api/axios';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import RoleSwitcher from '../../components/RoleSwitcher';
 import logo from '../../assets/logo.png';
 
 export default function AdminDashboard() {
@@ -116,6 +117,7 @@ export default function AdminDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
+              <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity animate-in" title="My Profile">
                 <span className="text-sm font-medium text-slate-300">

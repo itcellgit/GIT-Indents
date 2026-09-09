@@ -416,6 +416,41 @@ const logoutUser = (req, res) => {
   res.status(200).json({ success: true, message: 'Logged out successfully' });
 };
 
+// @desc    Return the current user's fresh identity (name, department, active role
+//          and the full list of assigned roles). The frontend calls this on load
+//          so a role added/removed since the last login shows up (e.g. the Profile
+//          role switcher appears) without forcing a re-login.
+// @route   GET /api/auth/me
+// @access  Private
+const getMe = async (req, res) => {
+  try {
+    const user = await getAuthUserById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Keep the active role the token was issued for, as long as it is still one
+    // of the user's assigned roles; otherwise fall back to the normalized default.
+    const activeRole = req.user.role && Array.isArray(user.roles) && user.roles.includes(req.user.role)
+      ? req.user.role
+      : user.role;
+
+    const isCoordinatorStaff = await checkCoordinatorStaff(user);
+
+    res.status(200).json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      department: user.department,
+      role: activeRole,
+      roles: user.roles || [activeRole].filter(Boolean),
+      isCoordinatorStaff,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while loading profile' });
+  }
+};
+
 // @desc    Get Login Page/Info
 // @route   GET /api/auth/login
 // @access  Public
@@ -656,4 +691,5 @@ module.exports = {
   changePassword,
   updateProfile,
   switchUserRole,
+  getMe,
 };

@@ -165,6 +165,169 @@ const sendTokenResponse = (req, user, statusCode, res, effectiveRole = null, ext
   });
 };
 
+// --- Impersonation ("View as user") support -------------------------------
+//
+// An impersonation token is a normal JWT with two differences:
+//   1. a short lifetime (IMPERSONATION_TOKEN_TTL, default 45m) — a troubleshooting
+//      window, not a 30-day session; and
+//   2. an `imp.sid` claim naming a row in public.impersonation_sessions. The claim
+//      is signed with JWT_SECRET (unforgeable), and `protect` re-reads that row on
+//      every request, so a stopped/expired session is rejected immediately.
+// `id`/`role` in the payload are the *target* user's, so `protect` + `authorize`
+// treat the request exactly as if the target had logged in — the admin holds no
+// elevated access while impersonating.
+const IMPERSONATION_TOKEN_TTL = process.env.IMPERSONATION_TOKEN_TTL || '45m';
+const IMPERSONATION_SESSION_MAX_AGE_MS = 45 * 60 * 1000;
+
+// The token only names a session id; the authoritative record (who, target,
+// expiry, whether it is still open) lives in public.impersonation_sessions and
+// is re-checked by `protect` on every request. That is what makes "Stop"
+// an immediate server-side revocation and not just a client-side discard.
+const generateImpersonationToken = (targetId, targetRole, sessionId) =>
+  jwt.sign(
+    { id: targetId, role: targetRole, imp: { sid: sessionId } },
+    process.env.JWT_SECRET,
+    { expiresIn: IMPERSONATION_TOKEN_TTL }
+  );
+
+// Same cookie attributes sendTokenResponse/logoutUser use — derived from the
+// actual request protocol, not NODE_ENV (this backend serves plain-HTTP and
+// HTTPS at once).
+const authCookieOptions = (req) => ({
+  httpOnly: true,
+  secure: req.secure,
+  sameSite: req.secure ? 'none' : 'lax',
+  path: '/',
+  domain: undefined,
+});
+
+// @desc    Start impersonating a user (admin only)
+// @route   POST /api/auth/impersonate/:userId
+// @access  Private (Admin)
+const impersonateUser = async (req, res) => {
+  try {
+    // No nesting: an impersonation token already has a non-Admin role, so
+    // authorize(ADMIN) on the route rejects this first — this is the backstop.
+    if (req.impersonation) {
+      return res.status(409).json({ message: 'Already impersonating. Stop the current session first.' });
+    }
+
+    const { userId } = req.params;
+    if (!userId || userId === req.user.id) {
+      return res.status(400).json({ message: 'Invalid target user' });
+    }
+
+    const target = await getAuthUserById(userId);
+    if (!target) {
+      return res.status(404).json({ message: 'Target user not found' });
+    }
+    if (!target.isActive) {
+      return res.status(403).json({ message: 'Cannot impersonate a disabled user' });
+    }
+
+    const targetRoles = Array.isArray(target.roles) ? target.roles : [];
+    // An admin must not be able to slip into another admin's context.
+    if (targetRoles.includes(ROLES.ADMIN)) {
+      return res.status(403).json({ message: 'Administrator accounts cannot be impersonated' });
+    }
+
+    const impersonator = { id: req.user.id, name: req.user.name };
+    const targetRole = targetRoles[0] || target.role;
+
+    // The session row must exist before the token is usable — if this insert
+    // fails, deliberately let it 500 rather than issue a token with no backing
+    // session (which `protect` would then reject anyway).
+    const sessionId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + IMPERSONATION_SESSION_MAX_AGE_MS);
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.impersonation_sessions
+         (id, admin_id, admin_name, target_id, target_name, target_role, ip, user_agent, expires_at)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      sessionId,
+      String(impersonator.id),
+      impersonator.name || null,
+      String(target.id),
+      target.name || null,
+      targetRole || null,
+      req.ip || null,
+      (req.headers['user-agent'] || '').slice(0, 500) || null,
+      expiresAt
+    );
+
+    const token = generateImpersonationToken(target.id, targetRole, sessionId);
+    const isCoordinatorStaff = await checkCoordinatorStaff(target);
+
+    res
+      .cookie('token', token, {
+        ...authCookieOptions(req),
+        expires: expiresAt,
+      })
+      .status(200)
+      .json({
+        id: target.id,
+        name: target.name,
+        email: target.email,
+        role: targetRole,
+        roles: targetRoles.length ? targetRoles : [targetRole].filter(Boolean),
+        department: target.department,
+        token,
+        isCoordinatorStaff,
+        impersonating: true,
+        impersonator,
+      });
+  } catch (error) {
+    console.error('Impersonation start failed:', error);
+    res.status(500).json({ message: 'Server error starting impersonation' });
+  }
+};
+
+// @desc    Stop impersonating and revert to the original admin session
+// @route   POST /api/auth/impersonate/stop
+// @access  Private (any authenticated user; only meaningful mid-impersonation)
+//
+// Deliberately NOT guarded by authorize(ADMIN): while impersonating, req.user.role
+// is the target's role. Authorization here is the signed `imp` claim plus a live
+// re-check that the original admin still exists, is active, and still holds Admin.
+const stopImpersonation = async (req, res) => {
+  try {
+    if (!req.impersonation) {
+      return res.status(400).json({ message: 'No active impersonation session' });
+    }
+
+    // Revoke the session first — from this point the impersonation token is dead
+    // regardless of what happens below.
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.impersonation_sessions
+       SET ended_at = now(), end_reason = COALESCE(end_reason, 'stopped')
+       WHERE id = $1::uuid AND ended_at IS NULL`,
+      req.impersonation.sessionId
+    );
+
+    const admin = await getAuthUserById(req.impersonation.adminId);
+    const adminRoles = admin && Array.isArray(admin.roles) ? admin.roles : [];
+
+    if (!admin || !admin.isActive || !adminRoles.includes(ROLES.ADMIN)) {
+      // Original admin was deleted / disabled / demoted while impersonating.
+      // Don't hand back an admin token — force a clean re-login.
+      await prisma.$executeRawUnsafe(
+        `UPDATE public.impersonation_sessions SET end_reason = 'admin_invalid' WHERE id = $1::uuid`,
+        req.impersonation.sessionId
+      );
+      res.clearCookie('token', authCookieOptions(req));
+      return res.status(403).json({
+        message: 'Original administrator session is no longer valid. Please log in again.',
+      });
+    }
+
+    const isCoordinatorStaff = await checkCoordinatorStaff(admin);
+    // Fresh, full-lifetime admin token with NO `imp` claim.
+    sendTokenResponse(req, admin, 200, res, ROLES.ADMIN, { isCoordinatorStaff, impersonating: false });
+  } catch (error) {
+    console.error('Impersonation stop failed:', error);
+    res.status(500).json({ message: 'Server error stopping impersonation' });
+  }
+};
+
 // @desc    Register a new user (sends OTP)
 // @route   POST /api/auth/register
 // @access  Public
@@ -445,6 +608,12 @@ const getMe = async (req, res) => {
       role: activeRole,
       roles: user.roles || [activeRole].filter(Boolean),
       isCoordinatorStaff,
+      // So a page reload during impersonation re-hydrates the banner from the
+      // (server-signed) token rather than trusting client-held state.
+      impersonating: Boolean(req.impersonation),
+      impersonator: req.impersonation
+        ? { id: req.impersonation.adminId, name: req.impersonation.adminName }
+        : null,
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error while loading profile' });
@@ -692,4 +861,6 @@ module.exports = {
   updateProfile,
   switchUserRole,
   getMe,
+  impersonateUser,
+  stopImpersonation,
 };

@@ -2,9 +2,20 @@
 const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
-const { registerUser, verifyRegistration, resendRegistrationOtp, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, changePassword, updateProfile, switchUserRole, getMe } = require('../controllers/authController');
-const { protect } = require('../middleware/authMiddleware');
+const rateLimit = require('express-rate-limit');
+const { registerUser, verifyRegistration, resendRegistrationOtp, loginUser, getLogin, getRegister, logoutUser, forgotPassword, resetPassword, changePassword, updateProfile, switchUserRole, getMe, impersonateUser, stopImpersonation } = require('../controllers/authController');
+const { protect, authorize } = require('../middleware/authMiddleware');
+const { ROLES } = require('../utils/roles');
 const { PASSWORD_POLICY_MESSAGE, isPasswordValid } = require('../utils/passwordPolicy');
+
+// Tighter limit for the impersonation endpoints than the global API limiter.
+const impersonationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many impersonation requests, please slow down.',
+});
 
 const passwordCheck = (field) => check(field, PASSWORD_POLICY_MESSAGE).custom(isPasswordValid);
 
@@ -60,5 +71,11 @@ router.put('/change-password', protect, [
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.post('/switch-role', protect, switchUserRole);
+
+// Impersonation. `/stop` must be declared before `/:userId` so it isn't captured
+// as a target id. `/stop` is protect-only on purpose (see controller comment);
+// starting requires a genuine Admin token, which an impersonation token never is.
+router.post('/impersonate/stop', protect, impersonationLimiter, stopImpersonation);
+router.post('/impersonate/:userId', protect, authorize(ROLES.ADMIN), impersonationLimiter, impersonateUser);
 
 module.exports = router;

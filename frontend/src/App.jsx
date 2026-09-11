@@ -22,6 +22,7 @@ import UserGuide from './pages/UserGuide';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import GlobalLoader from './components/GlobalLoader';
+import ImpersonationBanner from './components/ImpersonationBanner';
 import { ROLES } from './constants/roles';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
       <GlobalLoader />
       <Router>
         <div className="App min-h-screen">
+        <ImpersonationBanner />
         <Routes>
           {/* Redirect raw root to login */}
           <Route path="/" element={<Navigate to="/login" />} />

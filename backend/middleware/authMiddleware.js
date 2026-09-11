@@ -73,6 +73,35 @@ const protect = async (req, res, next) => {
       }
     }
 
+    // Surface an active impersonation session. The `imp.sid` claim is part of the
+    // server-signed JWT (cannot be forged), and the session row it points at is
+    // the authority on whether the session is still live — so "Stop Impersonation"
+    // takes effect immediately, server-side, even though the JWT itself is still
+    // within its 45-minute validity window. While impersonating, req.user is the
+    // *impersonated* user (id + role); every downstream authorize() check sees the
+    // target's role, so the admin holds no elevated access.
+    if (decoded.imp && decoded.imp.sid) {
+      const sessionRows = await prisma.$queryRawUnsafe(
+        `SELECT admin_id, admin_name, ended_at, expires_at
+         FROM public.impersonation_sessions
+         WHERE id = $1::uuid
+         LIMIT 1`,
+        decoded.imp.sid
+      );
+
+      const session = sessionRows[0];
+      if (!session || session.ended_at || new Date(session.expires_at) <= new Date()) {
+        return res.status(401).json({ message: 'Impersonation session has ended. Please sign in again.' });
+      }
+
+      req.impersonation = {
+        sessionId: decoded.imp.sid,
+        adminId: session.admin_id,
+        adminName: session.admin_name || null,
+      };
+      req.user.impersonatorId = session.admin_id;
+    }
+
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Not authorized, token failed' });

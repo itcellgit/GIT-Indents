@@ -15,6 +15,17 @@ export const AuthProvider = ({ children }) => {
   
   const [loading, setLoading] = useState(false);
 
+  // Active impersonation session, if any: { active: true, impersonator: { id, name } }.
+  // Persisted so a page reload keeps the banner up until /auth/me confirms state.
+  const [impersonation, setImpersonation] = useState(() => {
+    try {
+      const raw = localStorage.getItem('impersonation');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
   // Setup Axios defaults
   useEffect(() => {
     // Set axios default base URL
@@ -22,13 +33,16 @@ export const AuthProvider = ({ children }) => {
     axios.defaults.withCredentials = true; // Ensure cookies are sent with requests
   }, []);
 
-  const login = (userData) => {
+  // `replace` swaps identity cleanly (used when entering/leaving impersonation)
+  // so fields from the previous identity don't bleed through the object merge.
+  const login = (userData, { replace = false } = {}) => {
     setUser((prev) => {
+      const base = replace ? null : prev;
       const normalizedUser = {
-        ...prev,
+        ...base,
         ...userData,
-        roles: Array.isArray(userData?.roles) ? userData.roles : userData?.role ? [userData.role] : (prev?.roles || []),
-        role: userData?.role || userData?.roles?.[0] || prev?.role || null,
+        roles: Array.isArray(userData?.roles) ? userData.roles : userData?.role ? [userData.role] : (base?.roles || []),
+        role: userData?.role || userData?.roles?.[0] || base?.role || null,
       };
 
       localStorage.setItem('user', JSON.stringify(normalizedUser));
@@ -47,6 +61,16 @@ export const AuthProvider = ({ children }) => {
       const { data } = await api.get('/auth/me');
       if (data?.id) {
         login(data);
+        // /auth/me is the source of truth for impersonation state — it reads the
+        // signed `imp` claim, so a stale localStorage flag is corrected here.
+        if (data.impersonating) {
+          const record = { active: true, impersonator: data.impersonator || null };
+          localStorage.setItem('impersonation', JSON.stringify(record));
+          setImpersonation(record);
+        } else {
+          localStorage.removeItem('impersonation');
+          setImpersonation(null);
+        }
       }
       return data;
     } catch (err) {
@@ -73,6 +97,38 @@ export const AuthProvider = ({ children }) => {
     return response.data;
   };
 
+  // Admin assumes a target user's identity. The backend swaps the auth cookie
+  // for a short-lived impersonation token; we swap the cached identity + bearer
+  // token to match and raise the banner.
+  const startImpersonation = async (userId) => {
+    const { data } = await api.post(`/auth/impersonate/${userId}`);
+    const record = { active: true, impersonator: data.impersonator || null };
+    localStorage.setItem('impersonation', JSON.stringify(record));
+    setImpersonation(record);
+    login(data, { replace: true });
+    return data;
+  };
+
+  // Terminate impersonation and revert to the original admin session. The proof
+  // of "who to revert to" lives in the signed token, not here.
+  const stopImpersonation = async () => {
+    try {
+      const { data } = await api.post('/auth/impersonate/stop');
+      localStorage.removeItem('impersonation');
+      setImpersonation(null);
+      login(data, { replace: true });
+      return data;
+    } catch (err) {
+      // Original admin no longer valid (deleted/disabled/demoted) — hard reset.
+      if (err.response?.status === 403 || err.response?.status === 401) {
+        localStorage.clear();
+        setImpersonation(null);
+        setUser(null);
+      }
+      throw err;
+    }
+  };
+
   const logout = async () => {
     try {
       await axios.post('/auth/logout');
@@ -80,12 +136,13 @@ export const AuthProvider = ({ children }) => {
       console.error('Error logging out on backend:', err);
     } finally {
       setUser(null);
+      setImpersonation(null);
       localStorage.clear(); // Clear all auth and session data
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, switchRole, refreshUser }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, switchRole, refreshUser, impersonation, startImpersonation, stopImpersonation }}>
       {children}
     </AuthContext.Provider>
   );

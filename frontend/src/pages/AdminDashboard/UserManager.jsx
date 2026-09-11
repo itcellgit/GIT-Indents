@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet, PencilLine } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet, PencilLine, UserCog } from 'lucide-react';
 import api from '../../api/axios';
 import * as XLSX from 'xlsx';
 
 import { departments } from '../../utils/departments';
-import { getRoleBadgeStyle } from '../../constants/roles';
+import { getRoleBadgeStyle, ROLES, ROLE_DASHBOARDS } from '../../constants/roles';
+import { useAuth } from '../../context/AuthContext';
 
 const getRoleSortOrder = (role) => {
   return role?.sortOrder ?? role?.id ?? Number.MAX_SAFE_INTEGER;
@@ -39,6 +41,12 @@ const getUserRoleIds = (user) => {
 const getPrimaryRole = (user) => getUserRoles(user)[0] || '';
 
 export default function UserManager({ users, onUserUpdate }) {
+  const { user: currentUser, startImpersonation } = useAuth();
+  const navigate = useNavigate();
+  // UserManager is shared with the Principal dashboard; impersonation is Admin-only.
+  const canImpersonate = currentUser?.role === ROLES.ADMIN;
+  const [impersonatingId, setImpersonatingId] = useState(null);
+
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [loadingActionId, setLoadingActionId] = useState(null);
@@ -170,6 +178,25 @@ export default function UserManager({ users, onUserUpdate }) {
       alert(err.response?.data?.message || "Failed to update user status");
     } finally {
       setLoadingActionId(null);
+    }
+  };
+
+  const handleImpersonate = async (targetUser) => {
+    const roles = getUserRoles(targetUser);
+    if (roles.includes(ROLES.ADMIN) || targetUser.id === currentUser?.id) return;
+    if (!window.confirm(
+      `Impersonate ${targetUser.name}?\n\nYou will browse the system exactly as this user until you click "Stop Impersonation" in the banner at the top of the screen.`
+    )) return;
+
+    try {
+      setImpersonatingId(targetUser.id);
+      const data = await startImpersonation(targetUser.id);
+      navigate(ROLE_DASHBOARDS[data.role] || '/dashboard', { replace: true });
+    } catch (err) {
+      console.error('Failed to start impersonation:', err);
+      alert(err.response?.data?.message || 'Failed to start impersonation');
+    } finally {
+      setImpersonatingId(null);
     }
   };
 
@@ -534,6 +561,20 @@ export default function UserManager({ users, onUserUpdate }) {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right space-x-2">
+                  {canImpersonate && user.id !== currentUser?.id && !getUserRoles(user).includes(ROLES.ADMIN) && (
+                    <button
+                      onClick={() => handleImpersonate(user)}
+                      disabled={impersonatingId === user.id}
+                      className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors disabled:opacity-50"
+                      title={`Impersonate ${user.name}`}
+                    >
+                      {impersonatingId === user.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <UserCog className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={() => openEditModal(user)}
                     className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"

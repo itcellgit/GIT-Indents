@@ -17,3 +17,12 @@ Detailed setup instructions will be added here by the college IT team.
 Currently, the Vehicle Management module does not have fields for Driver Name and Driver Phone Number.
 
 Please update the existing Vehicle Management module to add these two fields and ensure they are properly integrated across the database, backend, and frontend.
+
+
+
+
+
+
+
+
+

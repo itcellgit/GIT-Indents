@@ -385,38 +385,6 @@ const deleteBusBooking = async (req, res) => {
       bookingId
     );
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const cancellationDetails = [
-      `Bus: ${escapeHtml(bookingToDelete.bus_number || bookingToDelete.bus_name || `ID ${bookingToDelete.bus_id}`)}`,
-      `Driver Name: ${escapeHtml(bookingToDelete.driver_name || 'N/A')}`,
-      `Driver Phone: ${escapeHtml(bookingToDelete.driver_phone_no || 'N/A')}`,
-      `Booked By: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
-      `Purpose: ${escapeHtml(bookingToDelete.purpose || 'N/A')}`,
-      `Destination: ${escapeHtml(bookingToDelete.destination || 'N/A')}`,
-      `Start Date: ${formatEmailDate(bookingToDelete.start_date)}`,
-      `End Date: ${formatEmailDate(bookingToDelete.end_date)}`,
-      `Period: ${escapeHtml(humanizeBookingPeriod(bookingToDelete.booking_period))}`,
-      `Start Time: ${formatEmailTime(bookingToDelete.start_time)}`,
-      `End Time: ${formatEmailTime(bookingToDelete.end_time)}`,
-      `Passengers: ${bookingToDelete.passenger_count || 'N/A'}`,
-      `Remarks: ${escapeHtml(bookingToDelete.remarks || 'N/A')}`,
-    ].join('<br>');
-
-    const emailResult = await sendEmailNotificationToRecipients({
-      recipients: recipientEmails,
-      recipientName: bookingToDelete.booked_by_name,
-      message: `We're writing to let you know that your bus booking has been cancelled.<br><br>${cancellationDetails}`,
-      title: 'Bus Booking Cancelled',
-      subject: `Bus Booking Cancelled${bookingToDelete.bus_number ? ` - ${bookingToDelete.bus_number}` : ''}`,
-      actionUrl: `${frontendUrl}/bus-bookings`,
-      label: 'Bus Booking',
-      portalName: 'Bus Booking Portal',
-    });
-
-    if (!emailResult?.success) {
-      console.error('Bus booking cancellation email failed for booking:', bookingId);
-    }
-
     res.json({ success: true, message: 'Bus booking deleted successfully' });
   } catch (error) {
     console.error('Delete bus booking failed:', error.message);

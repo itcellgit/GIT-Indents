@@ -33,13 +33,53 @@ const APPROVAL_QUEUE_STATUSES = [
   'Rejected by Principal'
 ];
 
+const hydrateMaintainerDisplayData = async (indents) => {
+  const maintainerIds = [...new Set(
+    indents.flatMap((indent) => [
+      indent.maintainerId,
+      ...(Array.isArray(indent.maintainerIds) ? indent.maintainerIds : [])
+    ]).filter(Boolean)
+  )];
+
+  if (maintainerIds.length === 0) {
+    return indents;
+  }
+
+  const maintainers = await prisma.user.findMany({
+    where: { id: { in: maintainerIds } },
+    select: { id: true, name: true, email: true }
+  });
+
+  const maintainerMap = new Map(maintainers.map((maintainer) => [maintainer.id, maintainer]));
+
+  return indents.map((indent) => {
+    const ids = [...new Set([
+      indent.maintainerId,
+      ...(Array.isArray(indent.maintainerIds) ? indent.maintainerIds : [])
+    ].filter(Boolean))];
+
+    return {
+      ...indent,
+      maintainerDetails: ids.map((id) => maintainerMap.get(id)).filter(Boolean),
+      maintainerNames: ids.map((id) => maintainerMap.get(id)?.name || maintainerMap.get(id)?.email || id)
+    };
+  });
+};
+
 const getDashboardData = async (req, res) => {
   try {
     const assignedIndents = await prisma.indent.findMany({
-      where: { maintainerId: req.user.id },
+      where: {
+        OR: [
+          { maintainerId: req.user.id },
+          { maintainerIds: { has: req.user.id } }
+        ]
+      },
       include: DASHBOARD_INCLUDE,
       orderBy: { createdAt: 'desc' }
     });
+
+    const assignedIndentsWithNames = await hydrateMaintainerDisplayData(assignedIndents);
 
     const approvalRequests = await prisma.indent.findMany({
       where: { status: { in: APPROVAL_QUEUE_STATUSES } },
@@ -47,10 +87,12 @@ const getDashboardData = async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
+    const approvalRequestsWithNames = await hydrateMaintainerDisplayData(approvalRequests);
+
     res.status(200).json({
       success: true,
-      assignedIndents,
-      approvalRequests
+      assignedIndents: assignedIndentsWithNames,
+      approvalRequests: approvalRequestsWithNames
     });
   } catch (err) {
     res.status(500).json({ message: 'Server Error' });
@@ -79,7 +121,7 @@ const updateComplaint = async (req, res) => {
       return res.status(404).json({ message: 'Indent not found' });
     }
 
-    if (indent.maintainerId !== req.user.id) {
+    if (indent.maintainerId !== req.user.id && !(indent.maintainerIds || []).includes(req.user.id)) {
       return res.status(403).json({ message: 'Forbidden: You are not assigned to this indent.' });
     }
 

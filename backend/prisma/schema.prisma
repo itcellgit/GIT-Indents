@@ -92,6 +92,7 @@ model Indent {
   remarksByCoordinator    String?
   remarksByHOD            String?
   maintainerId            String?
+  maintainerIds           String[] @default([])
   isMaintainerCompleted   Boolean  @default(false)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt

@@ -13,7 +13,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
   const [isMaterialLogOpen, setIsMaterialLogOpen] = useState(false);
   const [isMaintainerModalOpen, setIsMaintainerModalOpen] = useState(false);
   const [maintainers, setMaintainers] = useState([]);
-  const [selectedMaintainerId, setSelectedMaintainerId] = useState('');
+  const [selectedMaintainerIds, setSelectedMaintainerIds] = useState([]);
   
   // Approval Flow States
   const [isEditing, setIsEditing] = useState(false);
@@ -81,6 +81,12 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       setRejectionReason(complaint.rejectionReason || '');
     }
   }, [complaint]);
+
+  useEffect(() => {
+    if (!isMaintainerModalOpen) {
+      setSelectedMaintainerIds([]);
+    }
+  }, [isMaintainerModalOpen]);
 
   useEffect(() => {
     if (isIncharge) {
@@ -202,17 +208,31 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       return;
     }
     if (maintainers.length === 1) {
-      submitMaintainerAssignment(maintainers[0].id);
+      submitMaintainerAssignment([maintainers[0].id]);
     } else {
       setIsMaintainerModalOpen(true);
     }
   };
 
-  const submitMaintainerAssignment = async (mId) => {
+  const toggleMaintainerSelection = (maintainerId) => {
+    setSelectedMaintainerIds((currentSelection) => (
+      currentSelection.includes(maintainerId)
+        ? currentSelection.filter((id) => id !== maintainerId)
+        : [...currentSelection, maintainerId]
+    ));
+  };
+
+  const submitMaintainerAssignment = async (maintainerIds) => {
     try {
-      const res = await api.put(`/hod/complaints/${complaint._id || complaint.id}/assign`, { maintainerId: mId });
-      alert("Indent assigned to maintainer successfully!");
+      if (!Array.isArray(maintainerIds) || maintainerIds.length === 0) {
+        alert('Please select at least one maintainer.');
+        return;
+      }
+
+      const res = await api.put(`/hod/complaints/${complaint._id || complaint.id}/assign`, { maintainerIds });
+      alert('Indent assigned to maintainer successfully!');
       setIsMaintainerModalOpen(false);
+      setSelectedMaintainerIds([]);
       onUpdateStatus(complaint._id || complaint.id, res.data.complaint); // Using this to trigger parent update
       onClose(); // Close the modal since it's now handled by someone else
     } catch (err) {
@@ -224,6 +244,20 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
   const handlePrint = () => {
     window.print();
   };
+
+  const maintainerNameById = new Map(
+    maintainers.map((maintainer) => [maintainer.id, maintainer.name || maintainer.email || maintainer.id])
+  );
+
+  const assignedMaintainerNames = Array.isArray(complaint.maintainerNames) && complaint.maintainerNames.length > 0
+    ? complaint.maintainerNames
+    : Array.isArray(complaint.maintainerDetails) && complaint.maintainerDetails.length > 0
+      ? complaint.maintainerDetails.map((maintainer) => maintainer?.name || maintainer?.email || maintainer?.id).filter(Boolean)
+      : Array.isArray(complaint.maintainerIds) && complaint.maintainerIds.length > 0
+        ? complaint.maintainerIds.map((maintainerId) => maintainerNameById.get(maintainerId) || maintainerId)
+        : complaint.maintainerId
+          ? [maintainerNameById.get(complaint.maintainerId) || complaint.maintainerId]
+          : [];
 
   return (
     <div 
@@ -841,9 +875,11 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   </button>
                 )}
 
-                {complaint.maintainerId && !complaint.isMaintainerCompleted && (
+                {(assignedMaintainerNames.length > 0 && !complaint.isMaintainerCompleted) && (
                   <span className="px-4 py-2 text-sm font-semibold text-amber-700 bg-amber-50 rounded-lg border border-amber-200">
-                    Currently with Maintainer
+                    {assignedMaintainerNames.length === 1
+                      ? `Currently with ${assignedMaintainerNames[0]}`
+                      : `Currently with ${assignedMaintainerNames.length} Maintainers`}
                   </span>
                 )}
 
@@ -900,14 +936,14 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
               
               <div className="space-y-3 max-h-[40vh] overflow-y-auto">
                 {maintainers.map(m => (
-                  <label key={m.id} className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${selectedMaintainerId === m.id ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                  <label key={m.id} className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${selectedMaintainerIds.includes(m.id) ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}>
                     <input 
-                      type="radio" 
+                      type="checkbox" 
                       name="maintainer" 
-                      className="mr-3 text-indigo-600 focus:ring-indigo-500" 
+                      className="mr-3 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" 
                       value={m.id}
-                      checked={selectedMaintainerId === m.id}
-                      onChange={() => setSelectedMaintainerId(m.id)}
+                      checked={selectedMaintainerIds.includes(m.id)}
+                      onChange={() => toggleMaintainerSelection(m.id)}
                     />
                     <div>
                       <p className="font-semibold text-slate-800">{m.name}</p>
@@ -920,8 +956,8 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
               <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-100">
                 <button onClick={() => setIsMaintainerModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">Cancel</button>
                 <button 
-                  onClick={() => submitMaintainerAssignment(selectedMaintainerId)} 
-                  disabled={!selectedMaintainerId}
+                  onClick={() => submitMaintainerAssignment(selectedMaintainerIds)} 
+                  disabled={selectedMaintainerIds.length === 0}
                   className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >
                   Confirm Assignment

@@ -7,6 +7,24 @@ const STATUS_COLORS = {
   "Pending Verification": "bg-amber-100 text-amber-800 border-amber-200"
 };
 
+const getAssignedMaintainerNames = (complaint) => {
+  const uniqueValues = (values) => [...new Set((values || []).filter(Boolean))];
+
+  if (Array.isArray(complaint.maintainerNames) && complaint.maintainerNames.length > 0) {
+    return uniqueValues(complaint.maintainerNames);
+  }
+
+  if (Array.isArray(complaint.maintainerDetails) && complaint.maintainerDetails.length > 0) {
+    return uniqueValues(complaint.maintainerDetails.map((maintainer) => maintainer.name || maintainer.email || maintainer.id));
+  }
+
+  if (Array.isArray(complaint.maintainerIds) && complaint.maintainerIds.length > 0) {
+    return uniqueValues(complaint.maintainerIds);
+  }
+
+  return complaint.maintainerId ? [complaint.maintainerId] : [];
+};
+
 const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
@@ -39,6 +57,7 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
             <th className="px-6 py-4 font-medium">Raised By</th>
             <th className="px-6 py-4 font-medium">Type</th>
             <th className="px-6 py-4 font-medium">Location</th>
+            <th className="px-6 py-4 font-medium">Maintainer(s)</th>
             <th className="px-6 py-4 font-medium max-w-[200px]">Status</th>
             <th className="px-6 py-4 font-medium text-right">Action</th>
           </tr>
@@ -46,6 +65,7 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
         <tbody className="divide-y divide-slate-200">
           {paginatedComplaints.length > 0 ? paginatedComplaints.map((complaint) => {
             const displayStatus = getDisplayStatus(complaint);
+            const assignedMaintainers = getAssignedMaintainerNames(complaint);
             return (
               <tr 
                 key={complaint.id} 
@@ -66,6 +86,24 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
                   {complaint.natureOfWork || 'Maintenance/Repair'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{complaint.location}</td>
+                <td className="px-6 py-4 text-sm text-slate-600">
+                  {assignedMaintainers.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {assignedMaintainers.slice(0, 2).map((maintainer, index) => (
+                        <span key={`${complaint.id}-maintainer-${index}`} className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
+                          {maintainer}
+                        </span>
+                      ))}
+                      {assignedMaintainers.length > 2 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100">
+                          +{assignedMaintainers.length - 2} more
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${STATUS_COLORS[displayStatus] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
                     {displayStatus}

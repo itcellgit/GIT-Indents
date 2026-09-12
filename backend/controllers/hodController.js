@@ -676,9 +676,13 @@ const addMaintainer = async (req, res) => {
 // @access  Private (HOD view)
 const assignMaintainer = async (req, res) => {
   try {
-    const { maintainerId } = req.body;
-    if (!maintainerId) {
-      return res.status(400).json({ message: 'Maintainer ID is required' });
+    const { maintainerId, maintainerIds } = req.body;
+    const selectedMaintainerIds = Array.isArray(maintainerIds)
+      ? maintainerIds.filter(Boolean)
+      : (maintainerId ? [maintainerId] : []);
+
+    if (selectedMaintainerIds.length === 0) {
+      return res.status(400).json({ message: 'At least one maintainer ID is required' });
     }
 
     const indent = await prisma.indent.findUnique({
@@ -697,16 +701,27 @@ const assignMaintainer = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You are not authorized to assign a maintainer for this indent.' });
     }
 
-    // Validate if the maintainer exists
-    const maintainer = await prisma.user.findUnique({ where: { id: maintainerId } });
-    const maintainerRole = maintainer ? await getPrimaryRoleByUserId(prisma, maintainer.id) : null;
-    if (!maintainer || maintainerRole !== ROLES.MAINTAINER) {
-      return res.status(400).json({ message: 'Invalid maintainer selected' });
+    const maintainers = await prisma.user.findMany({
+      where: { id: { in: selectedMaintainerIds } }
+    });
+
+    if (maintainers.length !== selectedMaintainerIds.length) {
+      return res.status(400).json({ message: 'One or more selected maintainers are invalid' });
+    }
+
+    for (const maintainer of maintainers) {
+      const maintainerRole = await getPrimaryRoleByUserId(prisma, maintainer.id);
+      if (maintainerRole !== ROLES.MAINTAINER) {
+        return res.status(400).json({ message: 'One or more selected users are not maintainers' });
+      }
     }
 
     const updatedIndent = await prisma.indent.update({
       where: { id: indent.id },
-      data: { maintainerId: maintainerId },
+      data: {
+        maintainerId: selectedMaintainerIds[0],
+        maintainerIds: selectedMaintainerIds
+      },
       include: {
         category: { select: { name: true, inchargeId: true } },
         requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
@@ -715,14 +730,14 @@ const assignMaintainer = async (req, res) => {
       }
     });
 
-    // Notify Maintainer
-    await sendNotification(
-      maintainerId,
+    // Notify all assigned maintainers
+    await Promise.all(selectedMaintainerIds.map((id) => sendNotification(
+      id,
       `You have been assigned to Indent ${indent.indentNumber} by your HOD.`,
       req.user.id,
       indent.id,
       indent.indentNumber
-    );
+    )));
 
     res.status(200).json({ success: true, complaint: updatedIndent });
   } catch (err) {

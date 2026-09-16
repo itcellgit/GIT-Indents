@@ -21,7 +21,8 @@ const mapVehicleBookingRow = (row) => ({
   id: Number(row.id),
   vehicle_id: row.vehicle_id === null || row.vehicle_id === undefined ? null : Number(row.vehicle_id),
   vehicle_number: row.vehicle_number || '',
-  vehicle_name: row.vehicle_name || '',
+  vehicle_driver_name: row.vehicle_driver_name || '',
+  vehicle_driver_phone_no: row.vehicle_driver_phone_no || '',
   vehicle_type: row.vehicle_type || '',
   driver_id: row.driver_id || null,
   driver_name: row.driver_name || '',
@@ -83,7 +84,7 @@ const conflictMessage = (conflict, resourceLabel) =>
 
 const fetchVehicleBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
-    `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+    `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.driver_name AS vehicle_driver_name, v.driver_phone_no AS vehicle_driver_phone_no, v.vehicle_type,
             vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
             vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
             vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
@@ -103,7 +104,7 @@ const fetchVehicleBookingById = async (bookingId) => {
 const getVehicleBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.driver_name AS vehicle_driver_name, v.driver_phone_no AS vehicle_driver_phone_no, v.vehicle_type,
             vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
               vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
               vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
@@ -188,7 +189,7 @@ const createVehicleBooking = async (req, res) => {
     );
 
     const createdBookingRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, v.vehicle_type,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.driver_name AS vehicle_driver_name, v.driver_phone_no AS vehicle_driver_phone_no, v.vehicle_type,
             vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
               vb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time,
               vb.passenger_count, vb.status, vb.approved_by, vb.approved_at, vb.remarks,
@@ -208,7 +209,7 @@ const createVehicleBooking = async (req, res) => {
     try {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       const details = [
-        `Vehicle: ${escapeHtml(createdBooking.vehicle_number || createdBooking.vehicle_name || (createdBooking.vehicle_id ? `ID ${createdBooking.vehicle_id}` : 'To be assigned'))}`,
+        `Vehicle: ${escapeHtml(createdBooking.vehicle_number || createdBooking.vehicle_driver_name || (createdBooking.vehicle_id ? `ID ${createdBooking.vehicle_id}` : 'To be assigned'))}`,
         `Booked By: ${escapeHtml(createdBooking.booked_by_name || 'N/A')}`,
         `Purpose: ${escapeHtml(createdBooking.purpose || 'N/A')}`,
         `Destination: ${escapeHtml(createdBooking.destination || 'N/A')}`,
@@ -227,6 +228,31 @@ const createVehicleBooking = async (req, res) => {
       });
     } catch (notifyError) {
       console.error('Vehicle booking creation notification failed:', notifyError.message);
+    }
+
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const details = [
+        `Vehicle: ${escapeHtml(createdBooking.vehicle_number || createdBooking.vehicle_driver_name || (createdBooking.vehicle_id ? `ID ${createdBooking.vehicle_id}` : 'To be assigned'))}`,
+        `Purpose: ${escapeHtml(createdBooking.purpose || 'N/A')}`,
+        `Destination: ${escapeHtml(createdBooking.destination || 'N/A')}`,
+        `Start Date: ${formatEmailDate(createdBooking.start_date)}`,
+        `End Date: ${formatEmailDate(createdBooking.end_date)}`,
+        `Period: ${escapeHtml(humanizeBookingPeriod(createdBooking.booking_period))}`,
+      ].join('<br>');
+
+      await sendEmailNotificationToRecipients({
+        recipients: [createdBooking.booked_by_email],
+        recipientName: createdBooking.booked_by_name,
+        message: `Your vehicle booking request has been received and is pending approval. Please find the details below.<br><br>${details}`,
+        title: 'Vehicle Booking Received',
+        subject: `Vehicle Booking Received${createdBooking.vehicle_number ? ` - ${createdBooking.vehicle_number}` : ''}`,
+        actionUrl: `${frontendUrl}/vehicle-bookings`,
+        label: 'Vehicle Booking',
+        portalName: 'Vehicle Booking Portal',
+      });
+    } catch (notifyError) {
+      console.error('Vehicle booking creation booker confirmation failed:', notifyError.message);
     }
 
     res.status(201).json({ success: true, booking: createdBooking });
@@ -387,7 +413,7 @@ const deleteVehicleBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.vehicle_name, vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
+      `SELECT vb.id, vb.vehicle_id, v.vehicle_number, v.driver_name AS vehicle_driver_name, v.driver_phone_no AS vehicle_driver_phone_no, vb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no, vb.booked_by, u.name AS booked_by_name, vb.booked_by_email,
               vb.purpose, vb.destination, vb.start_date, vb.end_date, vb.booking_period, vb.start_time, vb.end_time, vb.passenger_count, vb.remarks,
               vb.status, vb.approved_by, vb.created_at, vb.updated_at, u.department AS booked_by_department
          FROM public.vehicle_bookings vb
@@ -430,7 +456,7 @@ const deleteVehicleBooking = async (req, res) => {
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const cancellationDetails = [
-      `Vehicle: ${escapeHtml(bookingToDelete.vehicle_number || bookingToDelete.vehicle_name || `ID ${bookingToDelete.vehicle_id}`)}`,
+      `Vehicle: ${escapeHtml(bookingToDelete.vehicle_number || bookingToDelete.vehicle_driver_name || `ID ${bookingToDelete.vehicle_id}`)}`,
       `Driver Name: ${escapeHtml(bookingToDelete.driver_name || 'N/A')}`,
       `Driver Phone: ${escapeHtml(bookingToDelete.driver_phone_no || 'N/A')}`,
       `Booked By: ${escapeHtml(bookingToDelete.booked_by_name || 'N/A')}`,
@@ -582,7 +608,7 @@ const sendVehicleBookingStatusNotification = async (booking, action) => {
     : upperAction === 'CANCELLED' ? 'Cancelled'
     : 'Updated';
   const details = [
-    `Vehicle: ${escapeHtml(booking.vehicle_number || booking.vehicle_name || `ID ${booking.vehicle_id}`)}`,
+    `Vehicle: ${escapeHtml(booking.vehicle_number || booking.vehicle_driver_name || `ID ${booking.vehicle_id}`)}`,
     `Driver Name: ${escapeHtml(booking.driver_name || 'N/A')}`,
     `Driver Phone: ${escapeHtml(booking.driver_phone_no || 'N/A')}`,
     `Booked By: ${escapeHtml(booking.booked_by_name || 'N/A')}`,

@@ -1,5 +1,5 @@
 const prisma = require('../prismaClient');
-const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDateTime } = require('../utils/notificationService');
+const { sendEmailNotificationToRecipients, sendRoleNotification, escapeHtml, formatEmailDateTime } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 
 const DEAN_ADMIN_EMAIL = 'deanadmin@git.edu';
@@ -143,6 +143,29 @@ const createHallBooking = async (req, res) => {
     );
 
     const createdBooking = mapHallBookingRow(createdBookingRows[0] || bookingRows[0]);
+
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const details = [
+        `Hall: ${escapeHtml(createdBooking.hall_name || `ID ${createdBooking.hall_id}`)}`,
+        `Booked By: ${escapeHtml(createdBooking.booked_by_name || 'N/A')}`,
+        `Purpose: ${escapeHtml(createdBooking.purpose || 'N/A')}`,
+        `Start: ${formatEmailDateTime(createdBooking.start_datetime)}`,
+        `End: ${formatEmailDateTime(createdBooking.end_datetime)}`,
+      ].join('<br>');
+
+      await sendRoleNotification({
+        roleName: ROLES.RECEPTIONIST,
+        message: `A new hall booking request has been raised and requires your action.<br><br>${details}`,
+        title: 'New Hall Booking Request',
+        subject: `New Hall Booking Request${createdBooking.hall_name ? ` - ${createdBooking.hall_name}` : ''}`,
+        actionUrl: `${frontendUrl}/hall-bookings`,
+        label: 'Hall Booking',
+        portalName: 'Hall Booking Portal',
+      });
+    } catch (notifyError) {
+      console.error('Hall booking creation notification failed:', notifyError.message);
+    }
 
     res.status(201).json({ success: true, booking: createdBooking });
   } catch (error) {

@@ -1,5 +1,5 @@
 const prisma = require('../prismaClient');
-const { sendEmailNotificationToRecipients, escapeHtml, formatEmailDate, formatEmailTime } = require('../utils/notificationService');
+const { sendEmailNotificationToRecipients, sendRoleNotification, escapeHtml, formatEmailDate, formatEmailTime } = require('../utils/notificationService');
 const { ROLES } = require('../utils/roles');
 const { resolveDriverId } = require('../utils/resolveDriver');
 
@@ -204,6 +204,30 @@ const createVehicleBooking = async (req, res) => {
     );
 
     const createdBooking = mapVehicleBookingRow(createdBookingRows[0] || bookingRows[0]);
+
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const details = [
+        `Vehicle: ${escapeHtml(createdBooking.vehicle_number || createdBooking.vehicle_name || (createdBooking.vehicle_id ? `ID ${createdBooking.vehicle_id}` : 'To be assigned'))}`,
+        `Booked By: ${escapeHtml(createdBooking.booked_by_name || 'N/A')}`,
+        `Purpose: ${escapeHtml(createdBooking.purpose || 'N/A')}`,
+        `Destination: ${escapeHtml(createdBooking.destination || 'N/A')}`,
+        `Start Date: ${formatEmailDate(createdBooking.start_date)}`,
+        `End Date: ${formatEmailDate(createdBooking.end_date)}`,
+      ].join('<br>');
+
+      await sendRoleNotification({
+        roleName: ROLES.RECEPTIONIST,
+        message: `A new vehicle booking request has been raised and requires your action.<br><br>${details}`,
+        title: 'New Vehicle Booking Request',
+        subject: `New Vehicle Booking Request${createdBooking.vehicle_number ? ` - ${createdBooking.vehicle_number}` : ''}`,
+        actionUrl: `${frontendUrl}/vehicle-bookings`,
+        label: 'Vehicle Booking',
+        portalName: 'Vehicle Booking Portal',
+      });
+    } catch (notifyError) {
+      console.error('Vehicle booking creation notification failed:', notifyError.message);
+    }
 
     res.status(201).json({ success: true, booking: createdBooking });
   } catch (error) {

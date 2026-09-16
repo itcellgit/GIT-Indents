@@ -1,6 +1,12 @@
 const prisma = require('../prismaClient');
 const generateBookIndentSerialNo = require('../utils/generateBookIndentSerialNo');
-const { sendNotification } = require('../utils/notificationService');
+const { sendNotification, escapeHtml } = require('../utils/notificationService');
+
+// The Library "HOD" login is a normal HOD account identified by this fixed
+// email (same constant the frontend gates its library-only tabs on, see
+// LIBRARY_HOD_EMAIL in HODDashboard/index.jsx) rather than a distinct role,
+// so new requisitions are notified by looking this user up directly.
+const LIBRARIAN_EMAIL = 'librarian@git.edu';
 
 const BOOK_TYPES = ['Reference', 'Textbook', 'General'];
 const BOOKS_REQUIRED_FOR = ['UG', 'PG', 'Doctoral', 'Common to all/General Reading'];
@@ -146,8 +152,27 @@ const createBookIndent = async (req, res) => {
     );
 
     const created = await prisma.$queryRawUnsafe(`${SELECT_JOIN} WHERE f.id = $1`, rows[0].id);
+    const bookIndent = mapRow(created[0]);
 
-    res.status(201).json({ success: true, bookIndent: mapRow(created[0]) });
+    try {
+      const librarianRows = await prisma.$queryRawUnsafe(
+        `SELECT id FROM "User" WHERE lower(email) = $1 LIMIT 1`,
+        LIBRARIAN_EMAIL
+      );
+      if (librarianRows.length) {
+        await sendNotification(
+          librarianRows[0].id,
+          `A new book requisition has been raised by ${escapeHtml(bookIndent.facultyName)} for "${escapeHtml(bookIndent.bookTitle)}". Please review it.`,
+          req.user.id,
+          null,
+          bookIndent.serialNo
+        );
+      }
+    } catch (notifyError) {
+      console.error('Book indent creation notification failed:', notifyError.message);
+    }
+
+    res.status(201).json({ success: true, bookIndent });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }

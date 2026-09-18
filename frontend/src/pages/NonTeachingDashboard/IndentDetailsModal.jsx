@@ -49,8 +49,11 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                 <span className="block text-xs font-semibold text-slate-400 uppercase">Raised By</span>
-                <span className="block mt-1 font-medium text-slate-800">{selectedComplaint.requester?.name || 'Unknown'}</span>
-                <span className="block mt-1 text-sm text-slate-500">{selectedComplaint.requester?.staff_phone_no || 'Phone not available'}</span>
+                <span className="block mt-1 font-medium text-slate-800">{selectedComplaint.requester?.name || selectedComplaint.raisedBy || 'Unknown'}</span>
+                <span className="block mt-1 text-sm text-slate-500">{selectedComplaint.requester?.email || selectedComplaint.requester?.staff_phone_no || 'Login not available'}</span>
+                {selectedComplaint.requester?.department && (
+                  <span className="block mt-1 text-xs text-slate-400">{selectedComplaint.requester.department}</span>
+                )}
               </div>
               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                 <span className="block text-xs font-semibold text-slate-400 uppercase">Nature of Work</span>
@@ -124,6 +127,9 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
                       <tr>
                         <th className="px-4 py-2 text-left font-medium text-slate-600">Item</th>
                         <th className="px-4 py-2 text-right font-medium text-slate-600">Quantity</th>
+                        <th className="px-4 py-2 text-right font-medium text-slate-600">Unit</th>
+                        <th className="px-4 py-2 text-right font-medium text-slate-600">Approx. Amount</th>
+                        <th className="px-4 py-2 text-left font-medium text-slate-600">Quotation</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -131,6 +137,22 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
                         <tr key={i}>
                           <td className="px-4 py-2 text-slate-800">{m.itemName || m.item}</td>
                           <td className="px-4 py-2 text-right text-slate-600 bg-slate-50 font-medium">{m.quantity}</td>
+                          <td className="px-4 py-2 text-right text-slate-600">{m.unit || '-'}</td>
+                          <td className="px-4 py-2 text-right text-slate-600 bg-slate-50 font-medium">{m.approximatelyAmount ?? '-'}</td>
+                          <td className="px-4 py-2 text-slate-600">
+                            {m.materialQuotation ? (
+                              <a
+                                href={m.materialQuotation.startsWith('http') ? m.materialQuotation : `${baseUrl}${m.materialQuotation}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
+                              >
+                                View
+                              </a>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

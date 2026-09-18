@@ -123,7 +123,21 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
     onUpdateStatus(complaint._id || complaint.id, { status: 'In Progress' });
   };
 
-  const handleSaveDetails = () => {
+  const handleSaveDetails = (materialsToSave = materials) => {
+    const materialsList = Array.isArray(materialsToSave) ? materialsToSave : materials;
+    const sanitizedMaterials = materialsList
+      .filter(m => (m.itemName && m.itemName.trim() !== '') || (m.quantity && m.quantity.toString().trim() !== ''))
+      .map((m) => ({
+        itemName: m.itemName,
+        quantity: parseFloat(m.quantity) || 0,
+        unit: m.unit || '',
+        approximatelyAmount: m.approximatelyAmount !== '' && m.approximatelyAmount !== undefined
+          ? parseFloat(m.approximatelyAmount)
+          : undefined,
+        materialQuotation: m.materialQuotation || undefined,
+        materialQuotationFile: m.materialQuotationFile || null,
+      }));
+
     const updates = {
       assignedWorkerNames: workerList,
       durationRequiredHours: duration ? parseFloat(duration) : null,
@@ -131,24 +145,17 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       remarksByIncharge: inchargeRemarks,
       remarksByCoordinator: coordinatorRemarks,
       remarksByHOD: remarks,
-      materialsUsed: materials
-        .filter(m => (m.itemName && m.itemName.trim() !== '') || (m.quantity && m.quantity.toString().trim() !== ''))
-        .map(m => ({
-          ...m,
-          quantity: parseFloat(m.quantity) || 0,
-          approximatelyAmount: m.approximatelyAmount !== '' && m.approximatelyAmount !== undefined
-            ? parseFloat(m.approximatelyAmount)
-            : undefined
-        }))
+      materialsUsed: sanitizedMaterials
     };
 
     if (complaint.status === 'Approved by Maintenance HOD' && isIncharge) {
       updates.status = 'In Progress';
     }
 
-    onUpdateStatus(complaint._id || complaint.id, updates);
-    alert('Maintenance logs and progress saved to indent successfully!');
-    if (isMaterialLogOpen) setIsMaterialLogOpen(false);
+    return onUpdateStatus(complaint._id || complaint.id, updates).then(() => {
+      alert('Maintenance logs and progress saved to indent successfully!');
+      if (isMaterialLogOpen) setIsMaterialLogOpen(false);
+    });
   };
 
   const handleResolve = () => {
@@ -642,18 +649,21 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Material Usage Log</span>
                   <span className="text-sm font-bold text-indigo-700">{materials.filter(m => (m.itemName && m.itemName.trim() !== '') || (m.quantity && m.quantity.toString().trim() !== '')).length} Items Recorded</span>
                 </div>
-                <button
-                  onClick={() => setIsMaterialLogOpen(true)}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-all border border-indigo-500 shadow-md shadow-indigo-100"
-                >
-                  <Wrench className="w-4 h-4" />
-                  Open Material Log
-                </button>
+                <div className="flex flex-wrap gap-3 items-center justify-end">
+                  <button
+                    onClick={() => setIsMaterialLogOpen(true)}
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-all border border-indigo-500 shadow-md shadow-indigo-100"
+                    type="button"
+                  >
+                    <Wrench className="w-4 h-4" />
+                    Open Material Log
+                  </button>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
-                  onClick={handleSaveDetails}
+                  onClick={() => handleSaveDetails()}
                   className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md transform active:scale-95"
                 >
                   {(isIncharge && complaint.status === 'Approved by Maintenance HOD') ? 'Finalize Assignment & Save' : 'Save All Progress'}
@@ -917,20 +927,22 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
         {/* Material Log Modal Overlay */}
         {isMaterialLogOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in zoom-in duration-200">
-            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 relative">
+            <div className="bg-white w-full max-w-7xl rounded-2xl shadow-2xl p-6 relative">
               <button onClick={() => setIsMaterialLogOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 bg-slate-100 rounded-full transition-colors">
                 <X className="w-5 h-5" />
               </button>
               <div className="mb-4">
                 <h2 className="text-xl font-bold text-slate-800">Material Usage Log</h2>
                 <p className="text-sm text-slate-500">Add or edit materials consumed for this maintenance work.</p>
+                <p className="text-sm text-slate-500"><span className='text-red-500'>Note:- </span>Approx Amount and Quotation  fields are optional for this maintenance work.</p>
+              
               </div>
-              <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="max-h-[72vh] overflow-y-auto pr-2 custom-scrollbar">
                 <MaterialForm materials={materials} setMaterials={setMaterials} />
               </div>
               <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-slate-100">
                 <button onClick={() => setIsMaterialLogOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">Cancel</button>
-                <button onClick={handleSaveDetails} className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Save Materials to Indent</button>
+                <button onClick={() => handleSaveDetails()} className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Save Materials to Indent</button>
               </div>
             </div>
           </div>
@@ -980,6 +992,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

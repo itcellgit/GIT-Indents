@@ -190,18 +190,60 @@ const HODDashboard = () => {
 
   const handleUpdateStatus = async (id, updateData) => {
     try {
-      const payload = { ...updateData };
+      const materialsUsed = Array.isArray(updateData.materialsUsed) ? updateData.materialsUsed : null;
+      const hasMaterialFiles = Boolean(materialsUsed && materialsUsed.some(material => material?.materialQuotationFile));
+
+      let payload = { ...updateData };
       if (payload.worker) {
         payload.assignedWorkerNames = payload.worker.split(',').map(n => n.trim());
         delete payload.worker;
       }
-      
+
+      if (hasMaterialFiles) {
+        const formData = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (key === 'materialsUsed') {
+            formData.append(key, JSON.stringify(
+              value.map((material) => ({
+                itemName: material.itemName,
+                quantity: material.quantity,
+                unit: material.unit,
+                approximatelyAmount: material.approximatelyAmount,
+                materialQuotation: material.materialQuotation,
+              }))
+            ));
+            materialFilesAppend(value, formData);
+            return;
+          }
+
+          if (value === undefined || value === null) return;
+          if (Array.isArray(value) || typeof value === 'object') {
+            formData.append(key, JSON.stringify(value));
+          } else {
+            formData.append(key, String(value));
+          }
+        });
+
+        const res = await api.put(`/hod/complaints/${id}/status`, formData);
+        updateIndentList(res.data.complaint);
+        return;
+      }
+
       const res = await api.put(`/hod/complaints/${id}/status`, payload);
       updateIndentList(res.data.complaint);
     } catch (error) {
       console.error("Failed to update status:", error);
       alert(error.response?.data?.message || "Error updating status");
     }
+  };
+
+  const materialFilesAppend = (materialsUsed, formData) => {
+    materialsUsed.forEach((material, index) => {
+      if (material?.materialQuotationFile) {
+        formData.append(`materialQuotationFiles`, material.materialQuotationFile);
+        formData.append(`materialQuotationIndexes`, String(index));
+      }
+    });
   };
 
   const handleResolve = async (id, resolveData) => {

@@ -8,6 +8,16 @@ const { PASSWORD_POLICY_MESSAGE, isPasswordValid } = require('../utils/passwordP
 
 const setUserRole = (tx, userId, roleName) => setUserRoleShared(tx, userId, roleName);
 
+const parseJsonField = (value, fallback) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    return fallback;
+  }
+};
+
 const HOD_DASHBOARD_INCLUDE = {
   category: { select: { name: true, incharge: { select: { id: true } } } },
   requester: { select: { name: true, email: true, department: true, staff_phone_no: true } },
@@ -186,6 +196,19 @@ const updateComplaintStatus = async (req, res) => {
       location,
       description
     } = req.body;
+
+    const uploadedFiles = Array.isArray(req.files) ? req.files : [];
+    const uploadedQuotationFiles = uploadedFiles.filter((file) => file.fieldname === 'materialQuotationFiles');
+    const rawQuotationIndexes = req.body.materialQuotationIndexes;
+    const uploadedQuotationIndexes = rawQuotationIndexes === undefined
+      ? []
+      : Array.isArray(rawQuotationIndexes)
+        ? rawQuotationIndexes
+        : [rawQuotationIndexes];
+    const parsedAssignedWorkerNames = parseJsonField(assignedWorkerNames, assignedWorkerNames);
+    const parsedDurationRequiredHours = durationRequiredHours === undefined || durationRequiredHours === ''
+      ? durationRequiredHours
+      : parseFloat(durationRequiredHours);
     
     // Ensure the indent exists
     const indent = await prisma.indent.findUnique({ 
@@ -234,22 +257,35 @@ const updateComplaintStatus = async (req, res) => {
       // Also add to statusHistory
       updateData.statusHistory = { create: [{ status }] };
     }
-    if (assignedWorkerNames) updateData.assignedWorkerNames = assignedWorkerNames;
-    if (durationRequiredHours !== undefined) updateData.durationRequiredHours = durationRequiredHours;
+    if (parsedAssignedWorkerNames) updateData.assignedWorkerNames = parsedAssignedWorkerNames;
+    if (parsedDurationRequiredHours !== undefined) updateData.durationRequiredHours = parsedDurationRequiredHours;
     
     // Handle materialsUsed creation if provided. (Assuming it replaces existing or just adds)
     if (materialsUsed !== undefined) {
       // In Prisma, we delete existing materials and recreate if list is non-empty
       await prisma.materialUsed.deleteMany({ where: { indentId: indent.id } });
-      if (materialsUsed.length > 0) {
+      const parsedMaterials = parseJsonField(materialsUsed, []);
+      const quotationByIndex = new Map();
+      uploadedQuotationFiles.forEach((file, fileIndex) => {
+        const rawIndex = uploadedQuotationIndexes[fileIndex];
+        const materialIndex = Number.parseInt(rawIndex, 10);
+        if (!Number.isNaN(materialIndex)) {
+          quotationByIndex.set(materialIndex, file);
+        }
+      });
+
+      if (parsedMaterials.length > 0) {
         updateData.materialsUsed = {
-          create: materialsUsed.map(m => ({
+          create: parsedMaterials.map((m, index) => ({
             itemName: m.itemName,
             quantity: m.quantity,
             unit: m.unit,
             approximatelyAmount: m.approximatelyAmount !== undefined && m.approximatelyAmount !== ''
               ? parseFloat(m.approximatelyAmount)
-              : undefined
+              : undefined,
+            materialQuotation: quotationByIndex.get(index)
+              ? `/${process.env.UPLOAD_DIR || 'uploads'}/${quotationByIndex.get(index).filename}`
+              : m.materialQuotation || undefined
           }))
         };
       }
@@ -319,6 +355,7 @@ const updateComplaintStatus = async (req, res) => {
       complaint: updatedIndent
     });
   } catch (err) {
+    console.error('updateComplaintStatus failed:', err);
     res.status(500).json({ message: 'Server Error' });
   }
 };

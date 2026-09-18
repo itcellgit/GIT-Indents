@@ -11,7 +11,7 @@ const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint,
   const [duration, setDuration] = useState(selectedComplaint?.durationRequiredHours || '');
   const [materials, setMaterials] = useState(
     selectedComplaint?.materialsUsed?.length > 0
-      ? selectedComplaint.materialsUsed.map(m => ({ itemName: m.itemName, quantity: m.quantity }))
+      ? selectedComplaint.materialsUsed.map(m => ({ itemName: m.itemName, quantity: m.quantity, approximatelyAmount: m.approximatelyAmount || '' }))
       : []
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,7 +20,7 @@ const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint,
   const baseUrl = api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api\/?$/, '') : '';
 
   const handleAddMaterial = () => {
-    setMaterials([...materials, { itemName: '', quantity: '' }]);
+    setMaterials([...materials, { itemName: '', quantity: '', approximatelyAmount: '' }]);
   };
 
   const handleRemoveMaterial = (index) => {
@@ -41,7 +41,13 @@ const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint,
       const payload = {
         assignedWorkerNames: workers.split(',').map(w => w.trim()).filter(Boolean),
         durationRequiredHours: duration ? parseFloat(duration) : undefined,
-        materialsUsed: materials.filter(m => m.itemName && m.quantity).map(m => ({ ...m, quantity: parseFloat(m.quantity) })),
+        materialsUsed: materials.filter(m => m.itemName && m.quantity).map(m => ({
+          ...m,
+          quantity: parseFloat(m.quantity),
+          approximatelyAmount: m.approximatelyAmount !== '' && m.approximatelyAmount !== undefined
+            ? parseFloat(m.approximatelyAmount)
+            : undefined
+        })),
         isMaintainerCompleted: markComplete ? true : undefined
       };
 
@@ -157,20 +163,28 @@ const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint,
                     </button>
                   </div>
                   {materials.map((material, index) => (
-                    <div key={index} className="flex space-x-2 mb-2 items-center">
+                    <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2 items-center">
                       <input
                         type="text"
                         placeholder="Item Name"
                         value={material.itemName}
                         onChange={(e) => handleMaterialChange(index, 'itemName', e.target.value)}
-                        className="flex-1 px-3 py-1.5 border border-slate-300 rounded-md shadow-sm text-sm"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-md shadow-sm text-sm"
                       />
                       <input
                         type="number"
                         placeholder="Qty"
                         value={material.quantity}
                         onChange={(e) => handleMaterialChange(index, 'quantity', e.target.value)}
-                        className="w-20 px-3 py-1.5 border border-slate-300 rounded-md shadow-sm text-sm"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-md shadow-sm text-sm"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Approx. Amount"
+                        value={material.approximatelyAmount}
+                        onChange={(e) => handleMaterialChange(index, 'approximatelyAmount', e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-md shadow-sm text-sm"
                       />
                       <button onClick={() => handleRemoveMaterial(index)} className="text-red-500 hover:text-red-700 p-1">
                         <Trash2 className="w-4 h-4" />

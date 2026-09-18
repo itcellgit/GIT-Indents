@@ -133,7 +133,13 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       remarksByHOD: remarks,
       materialsUsed: materials
         .filter(m => (m.itemName && m.itemName.trim() !== '') || (m.quantity && m.quantity.toString().trim() !== ''))
-        .map(m => ({ ...m, quantity: parseFloat(m.quantity) || 0 }))
+        .map(m => ({
+          ...m,
+          quantity: parseFloat(m.quantity) || 0,
+          approximatelyAmount: m.approximatelyAmount !== '' && m.approximatelyAmount !== undefined
+            ? parseFloat(m.approximatelyAmount)
+            : undefined
+        }))
     };
 
     if (complaint.status === 'Approved by Maintenance HOD' && isIncharge) {
@@ -154,7 +160,13 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
     onResolve(complaint._id || complaint.id, {
       materials: materials
         .filter(m => (m.itemName && m.itemName.trim() !== '') || (m.quantity && m.quantity.toString().trim() !== ''))
-        .map(m => ({ ...m, quantity: parseFloat(m.quantity) || 0 })),
+        .map(m => ({
+          ...m,
+          quantity: parseFloat(m.quantity) || 0,
+          approximatelyAmount: m.approximatelyAmount !== '' && m.approximatelyAmount !== undefined
+            ? parseFloat(m.approximatelyAmount)
+            : undefined
+        })),
       remarks,
       remarksByIncharge: inchargeRemarks,
       remarksByCoordinator: coordinatorRemarks,
@@ -537,6 +549,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-4 py-2 border-r border-gray-200 text-gray-600 font-semibold">Item Name</th>
                     <th className="px-4 py-2 border-r border-gray-200 text-gray-600 font-semibold">Quantity Used</th>
+                    <th className="px-4 py-2 border-r border-gray-200 text-gray-600 font-semibold">Approx. Amount</th>
                     <th className="px-4 py-2 text-gray-600 font-semibold">Unit</th>
                   </tr>
                 </thead>
@@ -545,6 +558,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                     <tr key={i} className="border-b border-gray-200">
                       <td className="px-4 py-2 border-r border-gray-200 text-gray-800">{m.itemName}</td>
                       <td className="px-4 py-2 border-r border-gray-200 text-gray-800">{m.quantity}</td>
+                      <td className="px-4 py-2 border-r border-gray-200 text-gray-800">{m.approximatelyAmount ?? '-'}</td>
                       <td className="px-4 py-2 text-gray-800">{m.unit || '-'}</td>
                     </tr>
                   ))}

@@ -112,6 +112,7 @@ model MaterialUsed {
   itemName String
   quantity Float
   unit     String?
+  approximatelyAmount Float? @map("approximately_amount")
   
   indent   Indent @relation("IndentMaterials", fields: [indentId], references: [id], onDelete: Cascade)
 }

@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 const MaterialForm = ({ materials, setMaterials }) => {
   
   const handleAddRow = () => {
-    setMaterials([...materials, { itemName: '', quantity: '', unit: '' }]);
+    setMaterials([...materials, { itemName: '', quantity: '', unit: '', approximatelyAmount: '' }]);
   };
 
   const handleRemoveRow = (index) => {
@@ -44,6 +44,7 @@ const MaterialForm = ({ materials, setMaterials }) => {
                 <th className="px-4 py-3">Item Name</th>
                 <th className="px-4 py-3 w-1/4">Quantity</th>
                 <th className="px-4 py-3 w-1/4">Unit</th>
+                <th className="px-4 py-3 w-1/4">Approx. Amount</th>
                 <th className="px-4 py-3 w-16 text-center">Action</th>
               </tr>
             </thead>
@@ -75,6 +76,16 @@ const MaterialForm = ({ materials, setMaterials }) => {
                       placeholder="e.g. kg, m, no"
                       value={row.unit || ''}
                       onChange={(e) => handleChange(index, 'unit', e.target.value)}
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                      placeholder="e.g. 125.50"
+                      value={row.approximatelyAmount || ''}
+                      onChange={(e) => handleChange(index, 'approximatelyAmount', e.target.value)}
                     />
                   </td>
                   <td className="px-4 py-2 text-center">

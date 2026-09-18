@@ -135,7 +135,14 @@ const updateComplaint = async (req, res) => {
       await prisma.materialUsed.deleteMany({ where: { indentId: indent.id } });
       if (materialsUsed.length > 0) {
         updateData.materialsUsed = {
-          create: materialsUsed.map(m => ({ itemName: m.itemName, quantity: m.quantity, unit: m.unit }))
+          create: materialsUsed.map(m => ({
+            itemName: m.itemName,
+            quantity: m.quantity,
+            unit: m.unit,
+            approximatelyAmount: m.approximatelyAmount !== undefined && m.approximatelyAmount !== ''
+              ? parseFloat(m.approximatelyAmount)
+              : undefined
+          }))
         };
       }
     }
@@ -169,6 +176,7 @@ const updateComplaint = async (req, res) => {
       complaint: updatedIndent
     });
   } catch (err) {
+    console.error('updateMaintainerComplaint failed:', err);
     res.status(500).json({ message: 'Server Error' });
   }
 };

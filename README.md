@@ -29,3 +29,8 @@ WHERE "maintainerIds" = '{}'::text[] AND "maintainerId" IS NOT NULL;
 
 
 
+
+
+
+ALTER TABLE "MaterialUsed"
+ADD COLUMN "approximately_amount" NUMERIC(12,2);

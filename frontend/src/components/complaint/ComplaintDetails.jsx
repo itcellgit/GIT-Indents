@@ -54,7 +54,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
   const isPrincipal = user && user.role === ROLES.PRINCIPAL;
 
   // Check if current user is the Maintainer
-  const isMaintainer = user && user.role === ROLES.MAINTAINER && complaint.maintainerId === user.id;
+  const isMaintainer = user && user.role === ROLES.MAINTAINER && (complaint.maintainerId === user.id || (Array.isArray(complaint.maintainerIds) && complaint.maintainerIds.includes(user.id)));
 
   // Check if current user is any Maintainer acting on the Approval Queue (not necessarily assigned to this indent)
   const isMaintainerRole = user && user.role === ROLES.MAINTAINER;
@@ -226,11 +226,17 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       alert("No maintainers found. Please ask your Facility Provider to add one first.");
       return;
     }
-    if (maintainers.length === 1) {
+    if (maintainers.length === 1 && assignedMaintainers.length === 0) {
       submitMaintainerAssignment([maintainers[0].id]);
     } else {
       setIsMaintainerModalOpen(true);
     }
+  };
+
+  // Opens the picker pre-selected with the maintainers currently on this indent
+  const handleManageMaintainers = () => {
+    setSelectedMaintainerIds(assignedMaintainers.map((m) => m.id));
+    setIsMaintainerModalOpen(true);
   };
 
   const toggleMaintainerSelection = (maintainerId) => {
@@ -243,13 +249,17 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
   const submitMaintainerAssignment = async (maintainerIds) => {
     try {
-      if (!Array.isArray(maintainerIds) || maintainerIds.length === 0) {
+      if (!Array.isArray(maintainerIds)) return;
+      if (maintainerIds.length === 0 && assignedMaintainers.length === 0) {
         alert('Please select at least one maintainer.');
+        return;
+      }
+      if (maintainerIds.length === 0 && !window.confirm('This will remove all maintainers from this indent. Continue?')) {
         return;
       }
 
       const res = await api.put(`/hod/complaints/${complaint._id || complaint.id}/assign`, { maintainerIds });
-      alert('Indent assigned to maintainer successfully!');
+      alert(assignedMaintainers.length > 0 ? 'Assigned maintainers updated successfully!' : 'Indent assigned to maintainer successfully!');
       setIsMaintainerModalOpen(false);
       setSelectedMaintainerIds([]);
       onUpdateStatus(complaint._id || complaint.id, res.data.complaint); // Using this to trigger parent update
@@ -278,8 +288,31 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
           ? [maintainerNameById.get(complaint.maintainerId) || complaint.maintainerId]
           : [];
 
+  // Currently assigned maintainers as {id, name}
+  const assignedMaintainers = (() => {
+    const ids = [...new Set([
+      complaint.maintainerId,
+      ...(Array.isArray(complaint.maintainerIds) ? complaint.maintainerIds : [])
+    ].filter(Boolean))];
+    const detailsById = new Map(
+      (Array.isArray(complaint.maintainerDetails) ? complaint.maintainerDetails : []).map((m) => [m.id, m])
+    );
+    return ids.map((id) => {
+      const detail = detailsById.get(id);
+      return { id, name: detail?.name || detail?.email || maintainerNameById.get(id) || id };
+    });
+  })();
+
+  // Picker options: department maintainers plus anyone already assigned from elsewhere
+  const maintainerOptions = [
+    ...maintainers,
+    ...assignedMaintainers
+      .filter((a) => !maintainers.some((m) => m.id === a.id))
+      .map((a) => ({ id: a.id, name: a.name, email: '' }))
+  ];
+
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto print-overlay"
       onClick={onClose}
     >
@@ -578,6 +611,36 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
             )}
           </div>
 
+          {/* Assigned Maintainers */}
+          {(assignedMaintainers.length > 0 || (isIncharge && (complaint.status === 'Approved by Maintenance HOD' || complaint.status === 'In Progress'))) && (
+            <div className="mb-8 p-5 bg-white rounded-xl border border-slate-200 shadow-sm no-print">
+              <div className="flex flex-wrap justify-between items-center gap-3">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <Wrench className="w-5 h-5 text-indigo-600" />
+                  Assigned Maintainer(s)
+                </h3>
+                {isIncharge && complaint.status !== 'Completed' && (complaint.status === 'Approved by Maintenance HOD' || complaint.status === 'In Progress') && (
+                  <button
+                    type="button"
+                    onClick={assignedMaintainers.length > 0 ? handleManageMaintainers : handleAssignToMaintainer}
+                    className="px-4 py-1.5 text-sm font-bold text-indigo-700 bg-indigo-100 border border-indigo-300 rounded-lg hover:bg-indigo-200 transition-colors"
+                  >
+                    {assignedMaintainers.length > 0 ? 'Add / Remove Maintainers' : 'Assign Maintainer'}
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {assignedMaintainers.length > 0 ? assignedMaintainers.map((m) => (
+                  <span key={m.id} className="inline-flex items-center px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-full text-xs font-semibold">
+                    {m.name}
+                  </span>
+                )) : (
+                  <span className="text-xs text-slate-400 italic">No maintainer assigned yet.</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Assignment Section (Show if Pending or Assigned AND User is Incharge or Maintainer) */}
           {(isIncharge || isMaintainer) && complaint.status !== 'Completed' && (complaint.status === 'Approved by Maintenance HOD' || complaint.status === 'In Progress' || complaint.isMaintainerCompleted) && (
             <div className="mb-8 p-5 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-4 shadow-sm no-print">
@@ -634,7 +697,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Action Taken / Remarks by Incharge</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Action Taken / Remarks</label>
                 <textarea
                   rows={2}
                   value={inchargeRemarks}
@@ -761,7 +824,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
 
               {inchargeRemarks && (
                 <div className="pt-2">
-                  <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Action Taken / Remarks by Incharge</span>
+                  <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Action Taken / Remarks</span>
                   <p className="text-sm text-gray-700 italic mt-1 bg-white p-3 rounded-lg border border-slate-100">"{inchargeRemarks}"</p>
                 </div>
               )}
@@ -890,7 +953,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   </button>
                 )}
 
-                {(complaint.status === 'Approved by Maintenance HOD' || complaint.status === 'In Progress') && !complaint.maintainerId && (
+                {(complaint.status === 'Approved by Maintenance HOD' || complaint.status === 'In Progress') && assignedMaintainers.length === 0 && (
                   <button
                     onClick={handleAssignToMaintainer}
                     className="px-6 py-2 text-sm font-bold text-indigo-700 bg-indigo-100 border border-indigo-300 rounded-lg hover:bg-indigo-200 transition-colors shadow-sm"
@@ -956,12 +1019,16 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                 <X className="w-5 h-5" />
               </button>
               <div className="mb-6">
-                <h2 className="text-xl font-bold text-slate-800">Select Maintainer</h2>
-                <p className="text-sm text-slate-500 mt-1">Choose a maintainer to assign this indent to.</p>
+                <h2 className="text-xl font-bold text-slate-800">{assignedMaintainers.length > 0 ? 'Add / Remove Maintainers' : 'Select Maintainer'}</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  {assignedMaintainers.length > 0
+                    ? 'Tick the maintainers who should work on this indent; untick to remove.'
+                    : 'Choose a maintainer to assign this indent to.'}
+                </p>
               </div>
               
               <div className="space-y-3 max-h-[40vh] overflow-y-auto">
-                {maintainers.map(m => (
+                {maintainerOptions.map(m => (
                   <label key={m.id} className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${selectedMaintainerIds.includes(m.id) ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:bg-slate-50'}`}>
                     <input 
                       type="checkbox" 
@@ -983,10 +1050,10 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                 <button onClick={() => setIsMaintainerModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">Cancel</button>
                 <button 
                   onClick={() => submitMaintainerAssignment(selectedMaintainerIds)} 
-                  disabled={selectedMaintainerIds.length === 0}
+                  disabled={selectedMaintainerIds.length === 0 && assignedMaintainers.length === 0}
                   className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >
-                  Confirm Assignment
+                  {assignedMaintainers.length > 0 ? 'Save Changes' : 'Confirm Assignment'}
                 </button>
               </div>
             </div>

@@ -129,7 +129,12 @@ const updateComplaint = async (req, res) => {
     if (assignedWorkerNames) updateData.assignedWorkerNames = assignedWorkerNames;
     if (durationRequiredHours !== undefined) updateData.durationRequiredHours = durationRequiredHours;
     if (isMaintainerCompleted !== undefined) updateData.isMaintainerCompleted = isMaintainerCompleted;
-    
+
+    // Action taken / remarks the maintainer keeps adding while the work is in progress
+    ['remarksByIncharge', 'remarksByCoordinator', 'reasonForDelayedWork'].forEach((field) => {
+      if (typeof req.body[field] === 'string') updateData[field] = req.body[field];
+    });
+
     // Handle materialsUsed creation if provided
     if (materialsUsed !== undefined) {
       await prisma.materialUsed.deleteMany({ where: { indentId: indent.id } });
@@ -255,7 +260,7 @@ const completeIndent = async (req, res) => {
       return res.status(404).json({ message: 'Indent not found' });
     }
 
-    if (indent.maintainerId !== req.user.id) {
+    if (indent.maintainerId !== req.user.id && !(indent.maintainerIds || []).includes(req.user.id)) {
       return res.status(403).json({ message: 'Forbidden: You are not assigned to this indent.' });
     }
 

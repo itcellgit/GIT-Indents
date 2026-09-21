@@ -99,7 +99,7 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
 
             {selectedComplaint.remarksByIncharge && (
               <div className="bg-indigo-50/30 p-4 rounded-lg border border-indigo-100/50">
-                <h4 className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-2">Initial Action / Incharge Remarks</h4>
+                <h4 className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-2">Action Taken / Remarks</h4>
                 <p className="text-slate-700 text-sm">{selectedComplaint.remarksByIncharge}</p>
               </div>
             )}

@@ -35,6 +35,33 @@ const MAINTENANCE_APPROVAL_STATUSES = [
 ];
 const ACTIVE_MAINTENANCE_STATUSES = ['Approved by Maintenance HOD', 'In Progress'];
 
+// Attach maintainerDetails (id/name/email) so the UI can show who an indent is assigned to
+const hydrateMaintainerDetails = async (indentLists) => {
+  const allIndents = indentLists.flat();
+  const ids = [...new Set(allIndents.flatMap((indent) => [
+    indent.maintainerId,
+    ...(Array.isArray(indent.maintainerIds) ? indent.maintainerIds : [])
+  ]).filter(Boolean))];
+
+  if (ids.length === 0) return indentLists;
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true, email: true }
+  });
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  const hydrate = (indent) => {
+    const indentIds = [...new Set([
+      indent.maintainerId,
+      ...(Array.isArray(indent.maintainerIds) ? indent.maintainerIds : [])
+    ].filter(Boolean))];
+    return { ...indent, maintainerDetails: indentIds.map((id) => userMap.get(id)).filter(Boolean) };
+  };
+
+  return indentLists.map((list) => list.map(hydrate));
+};
+
 // @desc    Get dashboard indents for HOD
 // @route   GET /api/hod/complaints
 // @access  Private (HOD view)
@@ -158,14 +185,30 @@ const getHODComplaints = async (req, res) => {
     myRaisedIndents.sort(sortFn);
     deptFacilityProviderIndents.sort(sortFn);
 
-    res.status(200).json({
-      success: true,
-      departmentIndents: maintenanceIndents,
+    const [
+      hydratedMaintenanceIndents,
+      hydratedApprovalRequests,
+      hydratedMyRaisedIndents,
+      hydratedDeptTrackIndents,
+      hydratedDeptFacilityProviderIndents,
+      hydratedMaintenanceStatsIndents
+    ] = await hydrateMaintainerDetails([
+      maintenanceIndents,
       approvalRequests,
       myRaisedIndents,
       deptTrackIndents,
       deptFacilityProviderIndents,
-      maintenanceStatsIndents,
+      maintenanceStatsIndents
+    ]);
+
+    res.status(200).json({
+      success: true,
+      departmentIndents: hydratedMaintenanceIndents,
+      approvalRequests: hydratedApprovalRequests,
+      myRaisedIndents: hydratedMyRaisedIndents,
+      deptTrackIndents: hydratedDeptTrackIndents,
+      deptFacilityProviderIndents: hydratedDeptFacilityProviderIndents,
+      maintenanceStatsIndents: hydratedMaintenanceStatsIndents,
       hasDeptFacilityProvider,
       isCategoryIncharge
     });
@@ -726,7 +769,8 @@ const assignMaintainer = async (req, res) => {
       ? maintainerIds.filter(Boolean)
       : (maintainerId ? [maintainerId] : []);
 
-    if (selectedMaintainerIds.length === 0) {
+    // An explicit empty maintainerIds array means "unassign everyone"
+    if (selectedMaintainerIds.length === 0 && !Array.isArray(maintainerIds)) {
       return res.status(400).json({ message: 'At least one maintainer ID is required' });
     }
 
@@ -764,7 +808,7 @@ const assignMaintainer = async (req, res) => {
     const updatedIndent = await prisma.indent.update({
       where: { id: indent.id },
       data: {
-        maintainerId: selectedMaintainerIds[0],
+        maintainerId: selectedMaintainerIds[0] || null,
         maintainerIds: selectedMaintainerIds
       },
       include: {
@@ -775,16 +819,31 @@ const assignMaintainer = async (req, res) => {
       }
     });
 
-    // Notify all assigned maintainers
-    await Promise.all(selectedMaintainerIds.map((id) => sendNotification(
-      id,
-      `You have been assigned to Indent ${indent.indentNumber} by your HOD.`,
-      req.user.id,
-      indent.id,
-      indent.indentNumber
-    )));
+    // Notify newly assigned maintainers, and those removed from the indent
+    const previousIds = [...new Set([indent.maintainerId, ...(indent.maintainerIds || [])].filter(Boolean))];
+    const addedIds = selectedMaintainerIds.filter((id) => !previousIds.includes(id));
+    const removedIds = previousIds.filter((id) => !selectedMaintainerIds.includes(id));
 
-    res.status(200).json({ success: true, complaint: updatedIndent });
+    await Promise.all([
+      ...addedIds.map((id) => sendNotification(
+        id,
+        `You have been assigned to Indent ${indent.indentNumber} by your HOD.`,
+        req.user.id,
+        indent.id,
+        indent.indentNumber
+      )),
+      ...removedIds.map((id) => sendNotification(
+        id,
+        `You have been removed from Indent ${indent.indentNumber} by your HOD.`,
+        req.user.id,
+        indent.id,
+        indent.indentNumber
+      ))
+    ]);
+
+    const [[hydratedIndent]] = await hydrateMaintainerDetails([[updatedIndent]]);
+
+    res.status(200).json({ success: true, complaint: hydratedIndent });
   } catch (err) {
     console.error('Assign maintainer failed:', err);
     res.status(500).json({ message: 'Server Error' });

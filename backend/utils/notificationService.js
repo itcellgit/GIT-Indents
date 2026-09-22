@@ -300,6 +300,7 @@ const sendEmailNotificationToRecipients = async ({
 };
 
 module.exports = {
+  transporter,
   sendNotification,
   sendRoleNotification,
   sendEmailNotificationToRecipients,

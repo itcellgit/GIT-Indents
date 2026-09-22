@@ -4,6 +4,7 @@ const { ROLES } = require('../utils/roles');
 const { resolveDriverId } = require('../utils/resolveDriver');
 
 const DEAN_ADMIN_EMAIL = 'deanadmin@git.edu';
+const TRANSPORT_EMAIL = 'transportation@git.edu';
 
 const BUS_BOOKING_EMAILS = [];
 
@@ -202,14 +203,15 @@ const createBusBooking = async (req, res) => {
         `End Date: ${formatEmailDate(createdBooking.end_date)}`,
       ].join('<br>');
 
-      await sendRoleNotification({
-        roleName: ROLES.TRANSPORT,
+      await sendEmailNotificationToRecipients({
+        recipients: [TRANSPORT_EMAIL],
         message: `A new bus booking request has been raised and requires your action.<br><br>${details}`,
         title: 'New Bus Booking Request',
         subject: `New Bus Booking Request${createdBooking.bus_number ? ` - ${createdBooking.bus_number}` : ''}`,
         actionUrl: `${frontendUrl}/bus-bookings`,
         label: 'Bus Booking',
         portalName: 'Bus Booking Portal',
+        recipientName: 'Transport Team',
       });
     } catch (notifyError) {
       console.error('Bus booking creation notification failed:', notifyError.message);
@@ -400,6 +402,7 @@ const deleteBusBooking = async (req, res) => {
 
     const bookingToDelete = mapBusBookingRow(existingRows[0]);
     const recipientEmails = [...new Set([
+      TRANSPORT_EMAIL,
       ...BUS_BOOKING_EMAILS,
       String(bookingToDelete.booked_by_email || '').trim().toLowerCase(),
     ].filter(isValidEmail))];
@@ -521,6 +524,7 @@ const sendBusBookingStatusNotification = async (booking, action) => {
   }
 
   const recipientEmails = [...new Set([
+    TRANSPORT_EMAIL,
     ...BUS_BOOKING_EMAILS,
     String(booking.booked_by_email || '').trim().toLowerCase(),
   ].filter(isValidEmail))];

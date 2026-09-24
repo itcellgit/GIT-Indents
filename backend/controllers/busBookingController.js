@@ -10,6 +10,39 @@ const BUS_BOOKING_EMAILS = [];
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 
+// Accepts a JSON-stringified array (as sent via FormData), a real array, a
+// single scalar value, or nothing - always returns an array.
+const parseIdArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null || value === '') return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [value];
+    } catch {
+      return [value];
+    }
+  }
+  return [value];
+};
+
+const toUniqueBusIds = (value) => [...new Set(
+  parseIdArray(value).map(Number).filter((n) => Number.isFinite(n))
+)];
+
+// Resolves a list of raw driver values (Driver.id or User.id, possibly with
+// duplicates) into a deduped list of real Driver.id values. Returns
+// { ok:false, message } on the first invalid entry.
+const resolveDriverIds = async (rawValues) => {
+  const driverIds = [];
+  for (const rawValue of parseIdArray(rawValues)) {
+    const resolved = await resolveDriverId(rawValue);
+    if (!resolved.ok) return { ok: false, message: resolved.message };
+    if (resolved.driverId && !driverIds.includes(resolved.driverId)) driverIds.push(resolved.driverId);
+  }
+  return { ok: true, driverIds };
+};
+
 const BOOKING_PERIOD_LABELS = {
   MORNING: 'Morning',
   SECOND_HALF: 'Second Half',
@@ -18,15 +51,28 @@ const BOOKING_PERIOD_LABELS = {
 };
 const humanizeBookingPeriod = (period) => BOOKING_PERIOD_LABELS[period] || period || 'N/A';
 
-const mapBusBookingRow = (row) => ({
+const mapBusBookingRow = (row) => {
+  const buses = Array.isArray(row.buses_json) && row.buses_json.length > 0
+    ? row.buses_json.map((b) => ({ id: Number(b.id), bus_number: b.bus_number || '', bus_name: b.bus_name || '' }))
+    : (row.bus_id ? [{ id: Number(row.bus_id), bus_number: row.bus_number || '', bus_name: row.bus_name || '' }] : []);
+
+  const drivers = Array.isArray(row.drivers_json) && row.drivers_json.length > 0
+    ? row.drivers_json.map((d) => ({ id: d.id, name: d.name || '', phone: d.phone || '' }))
+    : (row.driver_id ? [{ id: row.driver_id, name: row.driver_name || '', phone: row.driver_phone_no || '' }] : []);
+
+  return {
   id: Number(row.id),
   bus_id: row.bus_id === null || row.bus_id === undefined ? null : Number(row.bus_id),
   bus_number: row.bus_number || '',
   bus_name: row.bus_name || '',
   bus_type: row.bus_type || '',
+  bus_ids: buses.map((b) => b.id),
+  buses,
   driver_id: row.driver_id || null,
   driver_name: row.driver_name || '',
   driver_phone_no: row.driver_phone_no || '',
+  driver_ids: drivers.map((d) => d.id),
+  drivers,
   attachment_path: row.attachment_path || null,
   booked_by: row.booked_by,
   booked_by_name: row.booked_by_name || '',
@@ -45,25 +91,28 @@ const mapBusBookingRow = (row) => ({
   remarks: row.remarks || '',
   createdAt: row.created_at,
   updatedAt: row.updated_at,
-});
+  };
+};
 
 // A bus booking "holds" its slot while PENDING or APPROVED; REJECTED/CANCELLED
-// bookings never block a new request for the same slot. No bus assigned yet
-// (busId null) means nothing to conflict against.
-const findBusBookingConflict = async (busId, startDate, endDate, startTime, endTime, excludeId = null) => {
-  if (!busId) return null;
+// bookings never block a new request for the same slot. No buses assigned yet
+// means nothing to conflict against. A conflict is any other booking that
+// shares at least one bus (array overlap) with an overlapping time window.
+const findBusBookingConflict = async (busIds, startDate, endDate, startTime, endTime, excludeId = null) => {
+  const ids = (Array.isArray(busIds) ? busIds : [busIds]).filter((id) => id !== null && id !== undefined);
+  if (ids.length === 0) return null;
   const rows = await prisma.$queryRawUnsafe(
     `SELECT bb.id, bb.purpose, bb.start_date, bb.end_date, u.name AS booked_by_name
      FROM public.bus_bookings bb
      LEFT JOIN public."User" u ON u.id = bb.booked_by
-     WHERE bb.bus_id = $1
+     WHERE bb.bus_ids && $1::bigint[]
        AND bb.status IN ('PENDING', 'APPROVED')
        AND ($6::bigint IS NULL OR bb.id <> $6)
        AND (bb.start_date + bb.start_time) < ($3::date + $5::time)
        AND (bb.end_date + bb.end_time) > ($2::date + $4::time)
      ORDER BY bb.start_date ASC, bb.start_time ASC
      LIMIT 1`,
-    busId,
+    ids,
     startDate,
     endDate,
     startTime,
@@ -76,10 +125,19 @@ const findBusBookingConflict = async (busId, startDate, endDate, startTime, endT
 const conflictMessage = (conflict, resourceLabel) =>
   `${resourceLabel} is already booked for the requested time (conflicts with a booking by ${conflict.booked_by_name || 'another user'}).`;
 
+// Aggregates the full list of assigned buses / drivers as JSON arrays,
+// alongside the legacy single bus_id/driver_id columns for back-compat.
+const BUS_DRIVER_SELECT = `
+       bb.bus_id, b.bus_number, b.bus_name, b.bus_type, bb.bus_ids,
+       bb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no, bb.driver_ids,
+       (SELECT COALESCE(json_agg(json_build_object('id', b2.id, 'bus_number', b2.bus_number, 'bus_name', b2.bus_name) ORDER BY b2.bus_number), '[]'::json)
+          FROM public.buses b2 WHERE b2.id = ANY(bb.bus_ids)) AS buses_json,
+       (SELECT COALESCE(json_agg(json_build_object('id', d2.id, 'name', du2.name, 'phone', du2.staff_phone_no) ORDER BY du2.name), '[]'::json)
+          FROM "Driver" d2 JOIN "User" du2 ON du2.id = d2."userId" WHERE d2.id = ANY(bb.driver_ids)) AS drivers_json`;
+
 const fetchBusBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
-    `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
-            bb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
+    `SELECT bb.id, ${BUS_DRIVER_SELECT},
             bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
             bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks, bb.attachment_path,
             bb.created_at, bb.updated_at, u.department AS booked_by_department
@@ -98,8 +156,7 @@ const fetchBusBookingById = async (bookingId) => {
 const getBusBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
-      `SELECT bb.id, bb.bus_id, b.bus_number, b.bus_name, b.bus_type,
-              bb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no,
+      `SELECT bb.id, ${BUS_DRIVER_SELECT},
               bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
               bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks, bb.attachment_path,
               bb.created_at, bb.updated_at
@@ -120,8 +177,6 @@ const getBusBookings = async (req, res) => {
 const createBusBooking = async (req, res) => {
   try {
     const {
-      bus_id,
-      driver_id,
       booked_by,
       purpose,
       destination,
@@ -146,15 +201,17 @@ const createBusBooking = async (req, res) => {
       return res.status(400).json({ message: 'Start date is required' });
     }
 
+    const busIds = toUniqueBusIds(req.body.bus_ids !== undefined ? req.body.bus_ids : req.body.bus_id);
+
     const conflict = await findBusBookingConflict(
-      bus_id ? Number(bus_id) : null,
+      busIds,
       start_date,
       end_date || start_date,
       start_time || '00:00',
       end_time || '23:59:59',
     );
     if (conflict) {
-      return res.status(409).json({ message: conflictMessage(conflict, 'This bus') });
+      return res.status(409).json({ message: conflictMessage(conflict, 'One of the selected buses') });
     }
 
     let attachmentPath = null;
@@ -163,18 +220,20 @@ const createBusBooking = async (req, res) => {
       attachmentPath = `/${uploadDir}/${req.file.filename}`;
     }
 
-    const resolvedDriver = await resolveDriverId(driver_id);
-    if (!resolvedDriver.ok) {
-      return res.status(400).json({ message: resolvedDriver.message });
+    const resolvedDrivers = await resolveDriverIds(req.body.driver_ids !== undefined ? req.body.driver_ids : req.body.driver_id);
+    if (!resolvedDrivers.ok) {
+      return res.status(400).json({ message: resolvedDrivers.message });
     }
 
     const bookingRows = await prisma.$queryRawUnsafe(
       `INSERT INTO public.bus_bookings
-        (bus_id, driver_id, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, attachment_path, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'PENDING', NOW(), NOW())
+        (bus_id, bus_ids, driver_id, driver_ids, booked_by, booked_by_email, purpose, destination, start_date, end_date, booking_period, start_time, end_time, passenger_count, remarks, attachment_path, status, created_at, updated_at)
+       VALUES ($1, $2::bigint[], $3, $4::text[], $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'PENDING', NOW(), NOW())
        RETURNING id`,
-      bus_id ? Number(bus_id) : null,
-      resolvedDriver.driverId,
+      busIds[0] ?? null,
+      busIds,
+      resolvedDrivers.driverIds[0] ?? null,
+      resolvedDrivers.driverIds,
       String(booked_by).trim(),
       String(req.body.booked_by_email).trim().toLowerCase(),
       purpose ? String(purpose).trim() : null,
@@ -194,8 +253,11 @@ const createBusBooking = async (req, res) => {
 
     try {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const busSummary = createdBooking.buses.length > 0
+        ? createdBooking.buses.map((b) => b.bus_number || b.bus_name).filter(Boolean).join(', ')
+        : 'To be assigned';
       const details = [
-        `Bus: ${escapeHtml(createdBooking.bus_number || createdBooking.bus_name || (createdBooking.bus_id ? `ID ${createdBooking.bus_id}` : 'To be assigned'))}`,
+        `Bus(es): ${escapeHtml(busSummary)}`,
         `Booked By: ${escapeHtml(createdBooking.booked_by_name || 'N/A')}`,
         `Purpose: ${escapeHtml(createdBooking.purpose || 'N/A')}`,
         `Destination: ${escapeHtml(createdBooking.destination || 'N/A')}`,
@@ -229,8 +291,6 @@ const updateBusBooking = async (req, res) => {
     const { id } = req.params;
     const bookingId = Number(id);
     const {
-      bus_id,
-      driver_id,
       booked_by,
       booked_by_email,
       purpose,
@@ -246,7 +306,7 @@ const updateBusBooking = async (req, res) => {
     } = req.body;
 
     const beforeRows = await prisma.$queryRawUnsafe(
-      `SELECT bb.status, bb.booked_by, bb.bus_id, bb.start_date, bb.end_date, bb.start_time, bb.end_time, u.department AS booked_by_department
+      `SELECT bb.status, bb.booked_by, bb.bus_id, bb.bus_ids, bb.start_date, bb.end_date, bb.start_time, bb.end_time, u.department AS booked_by_department
        FROM public.bus_bookings bb
        LEFT JOIN public."User" u ON u.id = bb.booked_by
        WHERE bb.id = $1 LIMIT 1`,
@@ -283,16 +343,21 @@ const updateBusBooking = async (req, res) => {
       return res.status(403).json({ message: `Your role cannot set status to ${normalizedStatus}` });
     }
 
+    // undefined = "field not sent, leave assignment untouched"; a sent (possibly
+    // empty) list means "replace the assignment with exactly this"
+    const busIdsProvided = req.body.bus_ids !== undefined || req.body.bus_id !== undefined;
+    const busIds = busIdsProvided ? toUniqueBusIds(req.body.bus_ids !== undefined ? req.body.bus_ids : req.body.bus_id) : null;
+
     const effectiveStatus = normalizedStatus || previousStatus;
     if (['PENDING', 'APPROVED'].includes(effectiveStatus)) {
-      const effectiveBusId = bus_id ? Number(bus_id) : beforeRows[0].bus_id;
+      const effectiveBusIds = busIdsProvided ? busIds : (beforeRows[0].bus_ids?.length ? beforeRows[0].bus_ids : (beforeRows[0].bus_id ? [beforeRows[0].bus_id] : []));
       const effectiveStartDate = start_date || beforeRows[0].start_date;
       const effectiveEndDate = end_date || beforeRows[0].end_date;
       const effectiveStartTime = start_time || beforeRows[0].start_time;
       const effectiveEndTime = end_time || beforeRows[0].end_time;
 
       const conflict = await findBusBookingConflict(
-        effectiveBusId,
+        effectiveBusIds,
         effectiveStartDate,
         effectiveEndDate,
         effectiveStartTime,
@@ -300,7 +365,7 @@ const updateBusBooking = async (req, res) => {
         bookingId
       );
       if (conflict) {
-        return res.status(409).json({ message: conflictMessage(conflict, 'This bus') });
+        return res.status(409).json({ message: conflictMessage(conflict, 'One of the selected buses') });
       }
     }
 
@@ -314,15 +379,22 @@ const updateBusBooking = async (req, res) => {
       attachmentPath = `/${uploadDir}/${req.file.filename}`;
     }
 
-    const resolvedDriver = await resolveDriverId(driver_id);
-    if (!resolvedDriver.ok) {
-      return res.status(400).json({ message: resolvedDriver.message });
+    const driverIdsProvided = req.body.driver_ids !== undefined || req.body.driver_id !== undefined;
+    let driverIds = null;
+    if (driverIdsProvided) {
+      const resolvedDrivers = await resolveDriverIds(req.body.driver_ids !== undefined ? req.body.driver_ids : req.body.driver_id);
+      if (!resolvedDrivers.ok) {
+        return res.status(400).json({ message: resolvedDrivers.message });
+      }
+      driverIds = resolvedDrivers.driverIds;
     }
 
     await prisma.$queryRawUnsafe(
       `UPDATE public.bus_bookings
-         SET bus_id = COALESCE($2, bus_id),
-             driver_id = COALESCE($3, driver_id),
+         SET bus_ids = COALESCE($2::bigint[], bus_ids),
+             bus_id = CASE WHEN $2::bigint[] IS NULL THEN bus_id ELSE ($2::bigint[])[1] END,
+             driver_ids = COALESCE($3::text[], driver_ids),
+             driver_id = CASE WHEN $3::text[] IS NULL THEN driver_id ELSE ($3::text[])[1] END,
              booked_by = COALESCE($4, booked_by),
              booked_by_email = COALESCE($5, booked_by_email),
              purpose = $6,
@@ -344,8 +416,8 @@ const updateBusBooking = async (req, res) => {
              updated_at = NOW()
        WHERE id = $1`,
       bookingId,
-      bus_id ? Number(bus_id) : null,
-      resolvedDriver.driverId,
+      busIds,
+      driverIds,
       booked_by ? String(booked_by).trim() : null,
       booked_by_email ? String(booked_by_email).trim().toLowerCase() : null,
       purpose ? String(purpose).trim() : null,
@@ -425,7 +497,7 @@ const approveBusBooking = async (req, res) => {
     const bookingId = Number(id);
 
     const existingRows = await prisma.$queryRawUnsafe(
-      `SELECT id, bus_id, start_date, end_date, start_time, end_time FROM public.bus_bookings WHERE id = $1 LIMIT 1`,
+      `SELECT id, bus_id, bus_ids, start_date, end_date, start_time, end_time FROM public.bus_bookings WHERE id = $1 LIMIT 1`,
       bookingId
     );
 
@@ -433,12 +505,13 @@ const approveBusBooking = async (req, res) => {
       return res.status(404).json({ message: 'Bus booking not found' });
     }
 
-    if (!existingRows[0].bus_id) {
-      return res.status(400).json({ message: 'Assign a bus to this booking before approving it' });
+    const existingBusIds = existingRows[0].bus_ids?.length ? existingRows[0].bus_ids : (existingRows[0].bus_id ? [existingRows[0].bus_id] : []);
+    if (existingBusIds.length === 0) {
+      return res.status(400).json({ message: 'Assign at least one bus to this booking before approving it' });
     }
 
     const conflict = await findBusBookingConflict(
-      existingRows[0].bus_id,
+      existingBusIds,
       existingRows[0].start_date,
       existingRows[0].end_date,
       existingRows[0].start_time,
@@ -446,7 +519,7 @@ const approveBusBooking = async (req, res) => {
       bookingId
     );
     if (conflict) {
-      return res.status(409).json({ message: conflictMessage(conflict, 'This bus') });
+      return res.status(409).json({ message: conflictMessage(conflict, 'One of the selected buses') });
     }
 
     const approverId = String(req.user?.id || '').trim();
@@ -534,10 +607,15 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     : upperAction === 'REJECTED' ? 'Rejected'
     : upperAction === 'CANCELLED' ? 'Cancelled'
     : 'Updated';
+  const busSummary = booking.buses?.length > 0
+    ? booking.buses.map((b) => b.bus_number || b.bus_name).filter(Boolean).join(', ')
+    : (booking.bus_id ? `ID ${booking.bus_id}` : 'N/A');
+  const driverSummary = booking.drivers?.length > 0
+    ? booking.drivers.map((d) => d.name).filter(Boolean).join(', ')
+    : (booking.driver_name || 'N/A');
   const details = [
-    `Bus: ${escapeHtml(booking.bus_number || booking.bus_name || `ID ${booking.bus_id}`)}`,
-    `Driver Name: ${escapeHtml(booking.driver_name || 'N/A')}`,
-    `Driver Phone: ${escapeHtml(booking.driver_phone_no || 'N/A')}`,
+    `Bus(es): ${escapeHtml(busSummary)}`,
+    `Driver(s): ${escapeHtml(driverSummary)}`,
     `Booked By: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Destination: ${escapeHtml(booking.destination || 'N/A')}`,

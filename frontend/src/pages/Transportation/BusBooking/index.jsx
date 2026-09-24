@@ -17,8 +17,8 @@ const initialBusForm = {
 };
 
 const initialBookingForm = {
-  bus_id: '',
-  driver_id: '',
+  bus_ids: [],
+  driver_ids: [],
   booked_by: '',
   booked_by_name: '',
   booked_by_email: '',
@@ -112,11 +112,33 @@ const formatTimeWithAmPm = (value) => {
 
 const getBusLabel = (booking) => {
   if (!booking) return 'Bus';
-  const number = booking.bus_number || '';
-  const name = booking.bus_name || '';
-  if (number && name) return `${number} - ${name}`;
-  return number || name || 'Bus';
+  const buses = Array.isArray(booking.buses) && booking.buses.length > 0
+    ? booking.buses
+    : (booking.bus_number || booking.bus_name ? [{ bus_number: booking.bus_number, bus_name: booking.bus_name }] : []);
+  if (buses.length === 0) return 'Bus to be assigned';
+  return buses
+    .map((b) => (b.bus_number && b.bus_name ? `${b.bus_number} - ${b.bus_name}` : (b.bus_number || b.bus_name || 'Bus')))
+    .join(', ');
 };
+
+const getDriverLabel = (booking) => {
+  if (!booking) return '-';
+  const drivers = Array.isArray(booking.drivers) && booking.drivers.length > 0
+    ? booking.drivers
+    : (booking.driver_name ? [{ name: booking.driver_name }] : []);
+  if (drivers.length === 0) return '-';
+  return drivers.map((d) => d.name).filter(Boolean).join(', ') || '-';
+};
+
+const getBookingBusIds = (booking) => (
+  Array.isArray(booking.bus_ids) && booking.bus_ids.length > 0
+    ? booking.bus_ids
+    : (booking.bus_id ? [booking.bus_id] : [])
+);
+
+const toggleArrayValue = (array, value) => (
+  array.includes(value) ? array.filter((v) => v !== value) : [...array, value]
+);
 
 const formatBookingDateRange = (startDate, endDate) => {
   const startLabel = formatDate(startDate);
@@ -163,7 +185,10 @@ const detectConflicts = (bookings) => {
     for (let j = i + 1; j < bookings.length; j += 1) {
       const a = bookings[i];
       const b = bookings[j];
-      if (a.bus_id !== b.bus_id) continue;
+      const aBusIds = getBookingBusIds(a);
+      const bBusIds = getBookingBusIds(b);
+      if (aBusIds.length === 0 || bBusIds.length === 0) continue;
+      if (!aBusIds.some((busId) => bBusIds.includes(busId))) continue;
 
       const startA = new Date(`${a.start_date}T${toTimeLocalValue(a.start_time) || '00:00'}`);
       const endA = new Date(`${a.start_date}T${toTimeLocalValue(a.end_time) || '23:59'}`);
@@ -358,8 +383,8 @@ export default function BusBookingsPage() {
     setError('');
     setBookingForm({
       ...initialBookingForm,
-      bus_id: '',
-      driver_id: '',
+      bus_ids: [],
+      driver_ids: [],
       booked_by: user?.id || '',
       booked_by_name: user?.name || '',
       booked_by_email: user?.email || '',
@@ -439,9 +464,20 @@ export default function BusBookingsPage() {
   const handleBookingSubmit = async (event) => {
     event.preventDefault();
 
+    if (canSelectBus) {
+      if (bookingForm.bus_ids.length === 0) {
+        setError('Please select at least one bus.');
+        return;
+      }
+      if (bookingForm.driver_ids.length === 0) {
+        setError('Please select at least one driver.');
+        return;
+      }
+    }
+
     const formDataToSend = new FormData();
-    formDataToSend.append('bus_id', bookingForm.bus_id);
-    formDataToSend.append('driver_id', bookingForm.driver_id);
+    formDataToSend.append('bus_ids', JSON.stringify(bookingForm.bus_ids));
+    formDataToSend.append('driver_ids', JSON.stringify(bookingForm.driver_ids));
     formDataToSend.append('booked_by', bookingForm.booked_by);
     formDataToSend.append('booked_by_email', bookingForm.booked_by_email);
     formDataToSend.append('purpose', bookingForm.purpose);
@@ -477,8 +513,10 @@ export default function BusBookingsPage() {
   const openEditBusBooking = (booking) => {
     setError('');
     setBookingForm({
-      bus_id: String(booking.bus_id || ''),
-      driver_id: String(booking.driver_id || ''),
+      bus_ids: getBookingBusIds(booking).map(String),
+      driver_ids: (Array.isArray(booking.driver_ids) && booking.driver_ids.length > 0
+        ? booking.driver_ids
+        : (booking.driver_id ? [booking.driver_id] : [])).map(String),
       booked_by: String(booking.booked_by || ''),
       booked_by_name: String(booking.booked_by_name || booking.booked_by || ''),
       booked_by_email: String(booking.booked_by_email || ''),
@@ -970,15 +1008,29 @@ export default function BusBookingsPage() {
 
             <form onSubmit={handleBookingSubmit} className="p-6 grid gap-4 md:grid-cols-2">
               {canSelectBus ? (
-                <label className="grid gap-1 text-sm font-medium text-slate-700">
-                  <span>Bus <span className="text-red-500">*</span></span>
-                  <select value={bookingForm.bus_id} onChange={(e) => setBookingForm({ ...bookingForm, bus_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
-                    <option value="">Select Bus</option>
-                    {buses.map((bus) => (
-                      <option key={bus.id} value={bus.id}>{bus.bus_number} - {bus.bus_name}</option>
-                    ))}
-                  </select>
-                </label>
+                <div className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Bus(es) <span className="text-red-500">*</span></span>
+                  <div className="rounded-lg border border-slate-300 bg-white max-h-40 overflow-y-auto divide-y divide-slate-100">
+                    {buses.length === 0 ? (
+                      <p className="px-3 py-2.5 text-sm text-slate-400">No buses available.</p>
+                    ) : (
+                      buses.map((bus) => (
+                        <label key={bus.id} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={bookingForm.bus_ids.includes(String(bus.id))}
+                            onChange={() => setBookingForm({ ...bookingForm, bus_ids: toggleArrayValue(bookingForm.bus_ids, String(bus.id)) })}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          {bus.bus_number} - {bus.bus_name}
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {bookingForm.bus_ids.length > 0 && (
+                    <span className="text-xs text-slate-500">{bookingForm.bus_ids.length} bus{bookingForm.bus_ids.length > 1 ? 'es' : ''} selected</span>
+                  )}
+                </div>
               ) : (
                 <div className="grid gap-1 text-sm font-medium text-slate-700">
                   <span>Bus</span>
@@ -988,15 +1040,32 @@ export default function BusBookingsPage() {
                 </div>
               )}
               {canSelectBus ? (
-                <label className="grid gap-1 text-sm font-medium text-slate-700">
-                  <span>Driver <span className="text-red-500">*</span></span>
-                  <select value={bookingForm.driver_id} onChange={(e) => setBookingForm({ ...bookingForm, driver_id: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm bg-white">
-                    <option value="">Select Driver</option>
-                    {assignedDrivers.map((driver) => (
-                      <option key={driver.driverId || driver.id} value={driver.driverId || driver.id}>{driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}</option>
-                    ))}
-                  </select>
-                </label>
+                <div className="grid gap-1 text-sm font-medium text-slate-700">
+                  <span>Driver(s) <span className="text-red-500">*</span></span>
+                  <div className="rounded-lg border border-slate-300 bg-white max-h-40 overflow-y-auto divide-y divide-slate-100">
+                    {assignedDrivers.length === 0 ? (
+                      <p className="px-3 py-2.5 text-sm text-slate-400">No drivers available.</p>
+                    ) : (
+                      assignedDrivers.map((driver) => {
+                        const value = String(driver.driverId || driver.id);
+                        return (
+                          <label key={value} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={bookingForm.driver_ids.includes(value)}
+                              onChange={() => setBookingForm({ ...bookingForm, driver_ids: toggleArrayValue(bookingForm.driver_ids, value) })}
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            {driver.name}{driver.staff_phone_no ? ` - ${driver.staff_phone_no}` : ''}
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                  {bookingForm.driver_ids.length > 0 && (
+                    <span className="text-xs text-slate-500">{bookingForm.driver_ids.length} driver{bookingForm.driver_ids.length > 1 ? 's' : ''} selected</span>
+                  )}
+                </div>
               ) : (
                 <div className="grid gap-1 text-sm font-medium text-slate-700">
                   <span>Driver</span>
@@ -1168,7 +1237,7 @@ export default function BusBookingsPage() {
                       <tr key={booking.id} className="hover:bg-slate-50">
                         <td className="px-4 py-4 text-sm text-slate-700">{index + 1}</td>
                         <td className="px-4 py-4 text-sm font-medium text-slate-900">{getBusLabel(booking)}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.driver_name || '-'}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">{getDriverLabel(booking)}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>
@@ -1203,7 +1272,7 @@ export default function BusBookingsPage() {
                          <td className="px-4 py-4 text-sm text-slate-700">
                             <div className="flex items-center gap-2">
                               {isAdminOrTransport && (() => {
-                                const isBusUnassigned = !booking.bus_id;
+                                const isBusUnassigned = getBookingBusIds(booking).length === 0;
                                 return (
                                   <>
                                     {booking.status !== 'APPROVED' && booking.status !== 'CANCELLED' && (

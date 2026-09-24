@@ -77,6 +77,7 @@ const PrincipalDashboard = () => {
 
   const stats = useMemo(() => {
     return {
+      total: departmentIndents.length,
       pending: departmentIndents.filter(c => c.status === 'Approved by Principal' || c.status === 'Approved by Dept HOD').length,
       inProgress: departmentIndents.filter(c => c.status === 'In Progress').length,
       resolved: departmentIndents.filter(c => c.status === 'Completed').length,

@@ -136,6 +136,7 @@ const HODDashboard = () => {
 
   const stats = useMemo(() => {
     return {
+      total: maintenanceStatsIndents.length,
       approvals: approvalRequests.length,
       pending: maintenanceStatsIndents.filter(c => c.status === 'Indent Created').length,
       inProgress: maintenanceStatsIndents.filter(c => c.status === 'In Progress').length,
@@ -619,7 +620,7 @@ const HODDashboard = () => {
               <DeptStatsCards
                 stats={deptFacilityProviderStats}
                 activeFilter={deptFilterStatus}
-                view="summary"
+                view="full"
                 onCardClick={(val) => setDeptFilterStatus(val)}
               />
               <ComplaintTable

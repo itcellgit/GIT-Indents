@@ -1,8 +1,17 @@
 import React from 'react';
-import { Clock, Users, Wrench, CheckCircle } from 'lucide-react';
+import { ClipboardList, Clock, Users, Wrench, CheckCircle } from 'lucide-react';
 
 const StatsCards = ({ stats, activeFilter, onCardClick }) => {
   const cards = [
+    {
+      title: 'Total Indents',
+      value: stats.total,
+      icon: ClipboardList,
+      color: 'bg-indigo-500',
+      bgColor: 'bg-indigo-50',
+      textColor: 'text-indigo-700',
+      filterValue: 'All',
+    },
     {
       title: 'Pending Approval',
       value: stats.pending,
@@ -34,7 +43,7 @@ const StatsCards = ({ stats, activeFilter, onCardClick }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {cards.map((card, index) => {
         const isActive = activeFilter === card.filterValue;
         return (

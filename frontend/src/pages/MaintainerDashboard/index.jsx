@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, Search, Filter, LogOut, ShoppingCart, KeyRound
+  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, Search, Filter, LogOut, ShoppingCart, KeyRound, ClipboardList
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ import RoleSwitcher from '../../components/RoleSwitcher';
 import logo from '../../assets/logo.png';
 
 const SUMMARY_CARDS = [
+  { title: "Total Indents", icon: ClipboardList, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-200" },
   { title: "In Progress", icon: Clock, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
   { title: "Pending Verification", icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
   { title: "Completed", icon: CheckCircle, color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
@@ -53,6 +54,7 @@ export default function MaintainerDashboard() {
 
   const statsCounts = React.useMemo(() => {
     return {
+      "Total Indents": complaints.length,
       "In Progress": complaints.filter(c => !c.isMaintainerCompleted && c.status !== 'Completed').length,
       "Pending Verification": complaints.filter(c => c.isMaintainerCompleted && c.status !== 'Completed').length,
       "Completed": complaints.filter(c => c.status === 'Completed').length,
@@ -200,7 +202,7 @@ export default function MaintainerDashboard() {
             <StatsCards
               statsCards={SUMMARY_CARDS}
               statsCounts={statsCounts}
-              onCardClick={(title) => setFilterStatus(prev => prev === title ? 'All' : title)}
+              onCardClick={(title) => setFilterStatus(prev => (title === 'Total Indents' || prev === title) ? 'All' : title)}
               activeFilter={filterStatus}
             />
 

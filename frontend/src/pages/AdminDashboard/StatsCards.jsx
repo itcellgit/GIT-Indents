@@ -1,27 +1,36 @@
 import React from 'react';
-import { Building2, Users, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Building2, Users, ClipboardList, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function StatsCards({ stats, activeFilter, onCardClick }) {
   const cards = [
-    { 
-      title: "Total Departments", 
-      value: stats.totalDepartments, 
-      icon: Building2, 
-      color: "text-indigo-600", 
-      bg: "bg-indigo-50", 
+    {
+      title: "Total Departments",
+      value: stats.totalDepartments,
+      icon: Building2,
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
       borderColor: "border-indigo-100",
       filterValue: 'departmentsTab'
     },
-    { 
-      title: "Total Users", 
-      value: stats.totalUsers, 
-      icon: Users, 
-      color: "text-blue-600", 
-      bg: "bg-blue-50", 
+    {
+      title: "Total Users",
+      value: stats.totalUsers,
+      icon: Users,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
       borderColor: "border-blue-100",
       filterValue: 'usersTab'
     },
-    { 
+    {
+      title: "Total Indents",
+      value: stats.totalIndents,
+      icon: ClipboardList,
+      color: "text-violet-600",
+      bg: "bg-violet-50",
+      borderColor: "border-violet-100",
+      filterValue: 'All'
+    },
+    {
       title: "Active Indents",  
       value: stats.activeComplaints, 
       icon: AlertCircle, 
@@ -42,7 +51,7 @@ export default function StatsCards({ stats, activeFilter, onCardClick }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
       {cards.map((card, idx) => {
         const Icon = card.icon;
         const isActive = activeFilter === card.filterValue;

@@ -191,7 +191,8 @@ const getSystemStats = async (req, res) => {
   try {
     const totalDepartments = await prisma.category.count();
     const totalUsers = await prisma.user.count();
-    
+    const totalIndents = await prisma.indent.count();
+
     // Active: Not Completed and not Rejected
     const activeComplaints = await prisma.indent.count({ 
       where: { 
@@ -212,6 +213,7 @@ const getSystemStats = async (req, res) => {
       stats: {
         totalDepartments,
         totalUsers,
+        totalIndents,
         activeComplaints,
         resolvedComplaints
       }

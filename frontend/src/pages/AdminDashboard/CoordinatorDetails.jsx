@@ -28,7 +28,7 @@ export default function CoordinatorDetails() {
   const [assignments, setAssignments] = useState([]);
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [stats, setStats] = useState({ totalDepartments: 0, totalUsers: 0, activeComplaints: 0, resolvedComplaints: 0 });
+  const [stats, setStats] = useState({ totalDepartments: 0, totalUsers: 0, totalIndents: 0, activeComplaints: 0, resolvedComplaints: 0 });
   const [assignmentForm, setAssignmentForm] = useState(emptyAssignmentForm);
   const [editingAssignment, setEditingAssignment] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,7 +75,7 @@ export default function CoordinatorDetails() {
           setDepartments(departmentsRes.value.data.departments || []);
         }
         if (statsRes.status === 'fulfilled') {
-          setStats(statsRes.value.data.stats || { totalDepartments: 0, totalUsers: 0, activeComplaints: 0, resolvedComplaints: 0 });
+          setStats(statsRes.value.data.stats || { totalDepartments: 0, totalUsers: 0, totalIndents: 0, activeComplaints: 0, resolvedComplaints: 0 });
         }
         setAssignmentForm({ ...emptyAssignmentForm, start_date: new Date().toISOString().slice(0, 10) });
       } catch (err) {

@@ -2,7 +2,7 @@ import React from 'react';
 
 const StatsCards = ({ statsCards, statsCounts, onCardClick, activeFilter }) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
       {statsCards.map((card, idx) => {
         const Icon = card.icon;
         const isActive = activeFilter === card.title;

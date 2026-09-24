@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, XCircle, Search, Filter, LogOut, KeyRound, Building2, Car, Bus
+  User, Plus, Wrench, AlertCircle, Clock, CheckCircle, XCircle, Search, Filter, LogOut, KeyRound, Building2, Car, Bus, ClipboardList
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ import RoleSwitcher from '../../components/RoleSwitcher';
 import logo from '../../assets/logo.png';
 
 const SUMMARY_CARDS = [
+  { title: "Total Indents", icon: ClipboardList, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-200" },
   { title: "Indent Created", icon: AlertCircle, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-200" },
   { title: "Approved", icon: CheckCircle, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
   { title: "In Progress", icon: Clock, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
@@ -35,6 +36,7 @@ export default function NonTeachingDashboard() {
 
   const statsCounts = React.useMemo(() => {
     return {
+      "Total Indents": complaints.length,
       "Indent Created": complaints.filter(c => c.status === 'Indent Created').length,
       "Approved": complaints.filter(c => c.status === 'Approved by Dept HOD' || c.status === 'Approved by Principal').length,
       "In Progress": complaints.filter(c => c.status === 'Approved by Maintenance HOD' || c.status === 'In Progress').length,
@@ -214,7 +216,7 @@ export default function NonTeachingDashboard() {
         <StatsCards 
           statsCards={SUMMARY_CARDS} 
           statsCounts={statsCounts} 
-          onCardClick={(title) => setFilterStatus(prev => prev === title ? 'All' : title)}
+          onCardClick={(title) => setFilterStatus(prev => (title === 'Total Indents' || prev === title) ? 'All' : title)}
           activeFilter={filterStatus}
         />
 

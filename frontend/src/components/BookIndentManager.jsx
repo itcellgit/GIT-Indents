@@ -39,7 +39,7 @@ const monthLabelOf = (monthKey) => {
   return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 };
 
-export default function BookIndentManager() {
+export default function BookIndentManager({ readOnly = false } = {}) {
   const [bookIndents, setBookIndents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -326,7 +326,7 @@ export default function BookIndentManager() {
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Qty</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Action</th>
+              {!readOnly && <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Action</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -369,49 +369,51 @@ export default function BookIndentManager() {
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-end gap-2">
-                      {statusKey === 'pending' && (
-                        <>
+                  {!readOnly && (
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end gap-2">
+                        {statusKey === 'pending' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openReview(item)}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                            >
+                              <Pencil className="w-3.5 h-3.5" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openReject(item)}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                            >
+                              <X className="w-3.5 h-3.5" /> Reject
+                            </button>
+                          </>
+                        )}
+                        {statusKey === 'in progress' && (
                           <button
                             type="button"
-                            onClick={() => openReview(item)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                            onClick={() => markArrived(item)}
+                            disabled={arrivingId === item.id}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                           >
-                            <Pencil className="w-3.5 h-3.5" /> Edit
+                            {arrivingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PackageCheck className="w-3.5 h-3.5" />}
+                            Mark Books Arrived
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => openReject(item)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                          >
-                            <X className="w-3.5 h-3.5" /> Reject
-                          </button>
-                        </>
-                      )}
-                      {statusKey === 'in progress' && (
-                        <button
-                          type="button"
-                          onClick={() => markArrived(item)}
-                          disabled={arrivingId === item.id}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                        >
-                          {arrivingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PackageCheck className="w-3.5 h-3.5" />}
-                          Mark Books Arrived
-                        </button>
-                      )}
-                      {(statusKey === 'rejected' || statusKey === 'books arrived') && (
-                        <span className="text-xs text-slate-400">
-                          {item.hodReviewedAt ? formatDateTime(item.hodReviewedAt) : '-'}
-                        </span>
-                      )}
-                    </div>
-                  </td>
+                        )}
+                        {(statusKey === 'rejected' || statusKey === 'books arrived') && (
+                          <span className="text-xs text-slate-400">
+                            {item.hodReviewedAt ? formatDateTime(item.hodReviewedAt) : '-'}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             }) : (
               <tr>
-                <td colSpan="10" className="px-6 py-10 text-center text-slate-500">
+                <td colSpan={readOnly ? "9" : "10"} className="px-6 py-10 text-center text-slate-500">
                   No book indents found.
                 </td>
               </tr>

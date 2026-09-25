@@ -5,8 +5,8 @@ const { getBranches, createBranch, updateBranch, deleteBranch } = require('../co
 const { ROLES } = require('../utils/roles');
 
 router.get('/', protect, getBranches);
-router.post('/', protect, authorize(ROLES.ADMIN, ROLES.HOD, ROLES.FACILITY_PROVIDER), createBranch);
-router.put('/:id', protect, authorize(ROLES.ADMIN, ROLES.HOD, ROLES.FACILITY_PROVIDER), updateBranch);
-router.delete('/:id', protect, authorize(ROLES.ADMIN, ROLES.HOD, ROLES.FACILITY_PROVIDER), deleteBranch);
+router.post('/', protect, authorize(ROLES.ADMIN, ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.NON_TEACHING), createBranch);
+router.put('/:id', protect, authorize(ROLES.ADMIN, ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.NON_TEACHING), updateBranch);
+router.delete('/:id', protect, authorize(ROLES.ADMIN, ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.NON_TEACHING), deleteBranch);
 
 module.exports = router;

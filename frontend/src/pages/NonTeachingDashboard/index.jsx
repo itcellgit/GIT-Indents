@@ -12,7 +12,11 @@ import IndentDetailsModal from './IndentDetailsModal';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
 import RoleSwitcher from '../../components/RoleSwitcher';
+import BranchManager from '../../components/BranchManager';
+import BookIndentManager from '../../components/BookIndentManager';
 import logo from '../../assets/logo.png';
+
+const LIBRARY_EMAILS = ['librarian@git.edu', 'assistantlibrarian@git.edu'];
 
 const SUMMARY_CARDS = [
   { title: "Total Indents", icon: ClipboardList, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-200" },
@@ -26,6 +30,7 @@ export default function NonTeachingDashboard() {
   const { user, logout } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const isCoordinatorStaff = Boolean(user?.isCoordinatorStaff);
+  const isLibraryStaff = user?.role === 'Non-Teaching' && LIBRARY_EMAILS.includes(String(user?.email || '').toLowerCase());
   const [isLoadingData, setIsLoadingData] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,6 +38,7 @@ export default function NonTeachingDashboard() {
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   const statsCounts = React.useMemo(() => {
     return {
@@ -172,6 +178,24 @@ export default function NonTeachingDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
           <h2 className="text-2xl font-semibold text-slate-800">Dashboard</h2>
           <div className="flex items-center space-x-3">
+            {isLibraryStaff && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('branches')}
+                  className={`flex items-center px-4 py-2.5 font-medium rounded-lg shadow-sm transition-all ${activeTab === 'branches' ? 'bg-indigo-600 text-white' : 'border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
+                >
+                  Branches
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('bookIndents')}
+                  className={`flex items-center px-4 py-2.5 font-medium rounded-lg shadow-sm transition-all ${activeTab === 'bookIndents' ? 'bg-indigo-600 text-white' : 'border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
+                >
+                  Book Indents
+                </button>
+              </>
+            )}
             {isCoordinatorStaff && (
               <Link
                 to="/stationary-indent-create"
@@ -212,55 +236,71 @@ export default function NonTeachingDashboard() {
           </div>
         </div>
 
-        {/* Dashboard Summary Cards */}
-        <StatsCards 
-          statsCards={SUMMARY_CARDS} 
-          statsCounts={statsCounts} 
-          onCardClick={(title) => setFilterStatus(prev => (title === 'Total Indents' || prev === title) ? 'All' : title)}
-          activeFilter={filterStatus}
-        />
+        {activeTab === 'dashboard' && (
+          <>
+            {/* Dashboard Summary Cards */}
+            <StatsCards 
+              statsCards={SUMMARY_CARDS} 
+              statsCounts={statsCounts} 
+              onCardClick={(title) => setFilterStatus(prev => (title === 'Total Indents' || prev === title) ? 'All' : title)}
+              activeFilter={filterStatus}
+            />
 
-        {/* Active Complaints Table Section */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-4 lg:space-y-0">
-            <h3 className="text-lg font-semibold text-slate-800">Your Indents</h3>
-            
-            {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search by ID, location..." 
-                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-full lg:w-64"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            {/* Active Complaints Table Section */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-4 lg:space-y-0">
+                <h3 className="text-lg font-semibold text-slate-800">Your Indents</h3>
+                
+                {/* Search and Filter */}
+                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Search by ID, location..." 
+                      className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-full lg:w-64"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="relative">
+                    <Filter className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                    <select 
+                      className="pl-9 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white w-full sm:w-auto"
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                      <option value="All">All Status</option>
+                      <option value="Indent Created">Indent Created</option>
+                      <option value="Approved">Approved</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Rejected by Maintenance HOD">Rejected by Maintenance HOD</option>
+                      <option value="Rejected by Principal">Rejected by Principal</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div className="relative">
-                <Filter className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <select 
-                  className="pl-9 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white w-full sm:w-auto"
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                >
-                  <option value="All">All Status</option>
-                  <option value="Indent Created">Indent Created</option>
-                  <option value="Approved">Approved</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Rejected by Maintenance HOD">Rejected by Maintenance HOD</option>
-                  <option value="Rejected by Principal">Rejected by Principal</option>
-                </select>
-              </div>
+
+              <IndentTable 
+                filteredComplaints={filteredComplaints} 
+                setSelectedComplaint={setSelectedComplaint} 
+              />
             </div>
-          </div>
+          </>
+        )}
 
-          <IndentTable 
-            filteredComplaints={filteredComplaints} 
-            setSelectedComplaint={setSelectedComplaint} 
-          />
-        </div>
+        {isLibraryStaff && activeTab === 'branches' && (
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <BranchManager />
+          </div>
+        )}
+
+        {isLibraryStaff && activeTab === 'bookIndents' && (
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <BookIndentManager />
+          </div>
+        )}
       </main>
 
       {isRaiseModalOpen && (

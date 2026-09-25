@@ -2,11 +2,14 @@ const prisma = require('../prismaClient');
 const generateBookIndentSerialNo = require('../utils/generateBookIndentSerialNo');
 const { sendNotification, escapeHtml } = require('../utils/notificationService');
 
-// The Library "HOD" login is a normal HOD account identified by this fixed
-// email (same constant the frontend gates its library-only tabs on, see
-// LIBRARY_HOD_EMAIL in HODDashboard/index.jsx) rather than a distinct role,
+// The Library "HOD" login is a normal HOD account identified by a fixed
+// email list (same gate the frontend uses for the library-only tabs, see
+// LIBRARY_HOD_EMAILS in HODDashboard/index.jsx) rather than a distinct role,
 // so new requisitions are notified by looking this user up directly.
-const LIBRARIAN_EMAIL = 'librarian@git.edu';
+const LIBRARIAN_EMAILS = ['librarian@git.edu', 'assistantlibrarian@git.edu'];
+
+const isLibraryAccount = (user) =>
+  user?.role === 'Non-Teaching' && LIBRARIAN_EMAILS.includes(String(user?.email || '').toLowerCase());
 
 const BOOK_TYPES = ['Reference', 'Textbook', 'General'];
 const BOOKS_REQUIRED_FOR = ['UG', 'PG', 'Doctoral', 'Common to all/General Reading'];
@@ -192,6 +195,10 @@ const getMyBookIndents = async (req, res) => {
 
 const getAllBookIndents = async (req, res) => {
   try {
+    if (!isLibraryAccount(req.user) && !['Admin', 'HOD', 'Facility Provider'].includes(req.user?.role)) {
+      return res.status(403).json({ message: `User role '${req.user ? req.user.role : 'unknown'}' is not authorized to access this route` });
+    }
+
     const rows = await prisma.$queryRawUnsafe(`${SELECT_JOIN} ORDER BY f.created_at DESC`);
     res.json({ success: true, bookIndents: rows.map(mapRow) });
   } catch (error) {
@@ -340,6 +347,10 @@ const deleteBookIndent = async (req, res) => {
 // reject requires a remark, which is emailed to the requester.
 const reviewBookIndent = async (req, res) => {
   try {
+    if (!isLibraryAccount(req.user) && !['Admin', 'HOD'].includes(req.user?.role)) {
+      return res.status(403).json({ message: `User role '${req.user ? req.user.role : 'unknown'}' is not authorized to access this route` });
+    }
+
     const { id } = req.params;
     const action = String(req.body.action || '').trim().toLowerCase();
     const remark = String(req.body.remark || '').trim();
@@ -411,6 +422,10 @@ const reviewBookIndent = async (req, res) => {
 // "Books Arrived" so the requesting faculty is notified to collect the books.
 const markBookIndentArrived = async (req, res) => {
   try {
+    if (!isLibraryAccount(req.user) && !['Admin', 'HOD'].includes(req.user?.role)) {
+      return res.status(403).json({ message: `User role '${req.user ? req.user.role : 'unknown'}' is not authorized to access this route` });
+    }
+
     const { id } = req.params;
 
     const existing = await prisma.$queryRawUnsafe(

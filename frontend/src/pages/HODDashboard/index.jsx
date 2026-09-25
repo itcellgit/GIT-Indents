@@ -14,7 +14,7 @@ import BookIndentManager from '../../components/BookIndentManager';
 import Analytics from '../../components/Analytics';
 import api from '../../api/axios';
 
-const LIBRARY_HOD_EMAIL = 'librarian@git.edu';
+const LIBRARY_HOD_EMAILS = ['librarian@git.edu', 'assistantlibrarian@git.edu'];
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
@@ -24,7 +24,7 @@ import { ROLES } from '../../constants/roles';
 
 const HODDashboard = () => {
   const { user, logout } = useAuth();
-  const isLibraryHod = user?.role === ROLES.HOD && String(user?.email || '').toLowerCase() === LIBRARY_HOD_EMAIL;
+  const isLibraryHod = user?.role === ROLES.HOD && LIBRARY_HOD_EMAILS.includes(String(user?.email || '').toLowerCase());
   const isFacilityProvider = user?.role === ROLES.FACILITY_PROVIDER;
   const [departmentIndents, setDepartmentIndents] = useState([]);
   const [approvalRequests, setApprovalRequests] = useState([]);

@@ -15,18 +15,19 @@ const BOOK_TYPES = ['Reference', 'Textbook', 'General'];
 const BOOKS_REQUIRED_FOR = ['UG', 'PG', 'Doctoral', 'Common to all/General Reading'];
 const SEMESTERS = ['1st', '2nd', '3rd', '5th', '6th', '7th', '8th', 'Common to all'];
 
-// status flow: Pending -> "In Progress" | "Rejected" -> (procured) -> "Books Arrived"
+// status flow: Pending -> "In Progress" | "Rejected" -> "Partially Arrived" (0..N times) -> "Books Arrived"
 const STATUS = Object.freeze({
   PENDING: 'Pending',
   IN_PROGRESS: 'In Progress',
   REJECTED: 'Rejected',
+  PARTIALLY_ARRIVED: 'Partially Arrived',
   ARRIVED: 'Books Arrived',
 });
 
 const SELECT_JOIN = `
   SELECT f.id, f.requested_by, f.requested_by_email, f.faculty_name, f.library_id_no,
          f.branch_id, b.branch_name, f.books_required_for, f.semester, f.book_author,
-         f.book_title, f.book_edition, f.isbn, f.publisher, f.required_quantity, f.student_strength, f.book_type,
+         f.book_title, f.book_edition, f.isbn, f.publisher, f.required_quantity, f.received_quantity, f.student_strength, f.book_type,
          f.remarks, f.status, f.serial_no, f.hod_remark, f.hod_reviewed_by, f.hod_reviewed_at,
          f.created_at, f.updated_at
   FROM public.faculty_book_indent_forms f
@@ -49,6 +50,7 @@ const mapRow = (row) => ({
   isbn: row.isbn,
   publisher: row.publisher,
   requiredQuantity: Number(row.required_quantity),
+  receivedQuantity: Number(row.received_quantity || 0),
   studentStrength: Number(row.student_strength),
   bookType: row.book_type,
   remarks: row.remarks || '',
@@ -369,9 +371,20 @@ const reviewBookIndent = async (req, res) => {
     if (!existing.length) {
       return res.status(404).json({ message: 'Book indent not found' });
     }
-    if (existing[0].status !== STATUS.PENDING) {
-      return res.status(409).json({ message: 'This book indent has already been reviewed.' });
+
+    const currentStatus = existing[0].status;
+    if (currentStatus === STATUS.ARRIVED) {
+      return res.status(409).json({ message: 'This book indent has already arrived and can no longer be edited.' });
     }
+    // Reject is only a Pending->Rejected transition, so it stays gated to Pending.
+    // Approve, once the indent has moved past Pending, is reused by the librarian's
+    // "Edit" action below to revise the quantity/remark only - it never re-triggers
+    // the approve/reject transition or changes the status again.
+    if (action === 'reject' && currentStatus !== STATUS.PENDING) {
+      return res.status(409).json({ message: 'Only a pending book indent can be rejected.' });
+    }
+
+    const isPending = currentStatus === STATUS.PENDING;
 
     let finalQuantity = Number(existing[0].required_quantity);
     if (action === 'approve' && req.body.requiredQuantity !== undefined) {
@@ -382,7 +395,7 @@ const reviewBookIndent = async (req, res) => {
       finalQuantity = quantity;
     }
 
-    const nextStatus = action === 'approve' ? STATUS.IN_PROGRESS : STATUS.REJECTED;
+    const nextStatus = isPending ? (action === 'approve' ? STATUS.IN_PROGRESS : STATUS.REJECTED) : currentStatus;
 
     await prisma.$queryRawUnsafe(
       `UPDATE public.faculty_book_indent_forms
@@ -418,8 +431,10 @@ const reviewBookIndent = async (req, res) => {
   }
 };
 
-// Once procurement completes, the HOD marks an "In Progress" indent as
-// "Books Arrived" so the requesting faculty is notified to collect the books.
+// Once procurement starts, the HOD/librarian records how many copies have
+// shown up so far - books often arrive in batches rather than all at once.
+// Reaching the full required quantity moves it to "Books Arrived"; anything
+// less keeps it at "Partially Arrived" so it can be updated again later.
 const markBookIndentArrived = async (req, res) => {
   try {
     if (!isLibraryAccount(req.user) && !['Admin', 'HOD'].includes(req.user?.role)) {
@@ -429,22 +444,43 @@ const markBookIndentArrived = async (req, res) => {
     const { id } = req.params;
 
     const existing = await prisma.$queryRawUnsafe(
-      `SELECT id, requested_by, status, book_title FROM public.faculty_book_indent_forms WHERE id = $1 LIMIT 1`,
+      `SELECT id, requested_by, status, book_title, required_quantity, received_quantity FROM public.faculty_book_indent_forms WHERE id = $1 LIMIT 1`,
       Number(id)
     );
     if (!existing.length) {
       return res.status(404).json({ message: 'Book indent not found' });
     }
-    if (existing[0].status !== STATUS.IN_PROGRESS) {
+    if (existing[0].status !== STATUS.IN_PROGRESS && existing[0].status !== STATUS.PARTIALLY_ARRIVED) {
       return res.status(409).json({ message: 'Only book indents that are in progress can be marked as arrived.' });
     }
 
+    const requiredQuantity = Number(existing[0].required_quantity);
+    const previousReceivedQuantity = Number(existing[0].received_quantity || 0);
+
+    // receivedQuantity is the running total of copies received so far, not just
+    // this batch, so the librarian always sees/enters the full picture.
+    const receivedQuantity = req.body.receivedQuantity !== undefined
+      ? Number(req.body.receivedQuantity)
+      : requiredQuantity; // no body sent (older client) - treat as "all arrived", same as the old endpoint behavior
+
+    if (!Number.isFinite(receivedQuantity) || receivedQuantity < 0) {
+      return res.status(400).json({ message: 'Received quantity must be a non-negative number' });
+    }
+    if (receivedQuantity < previousReceivedQuantity) {
+      return res.status(400).json({ message: 'Received quantity cannot be lower than what has already been recorded.' });
+    }
+
+    const clampedQuantity = Math.min(receivedQuantity, requiredQuantity);
+    const isFullyArrived = clampedQuantity >= requiredQuantity;
+    const nextStatus = isFullyArrived ? STATUS.ARRIVED : STATUS.PARTIALLY_ARRIVED;
+
     await prisma.$queryRawUnsafe(
       `UPDATE public.faculty_book_indent_forms
-       SET status = $2, hod_reviewed_by = $3, hod_reviewed_at = NOW(), updated_at = NOW()
+       SET status = $2, received_quantity = $3, hod_reviewed_by = $4, hod_reviewed_at = NOW(), updated_at = NOW()
        WHERE id = $1`,
       Number(id),
-      STATUS.ARRIVED,
+      nextStatus,
+      clampedQuantity,
       req.user.id
     );
 
@@ -452,9 +488,13 @@ const markBookIndentArrived = async (req, res) => {
     const bookIndent = mapRow(updated[0]);
 
     try {
+      const remainingQuantity = requiredQuantity - clampedQuantity;
+      const arrivalMessage = isFullyArrived
+        ? `The book(s) you requested, "${existing[0].book_title}" (Sl. No. ${bookIndent.serialNo || bookIndent.id}), have arrived and are available for collection from the library.`
+        : `${clampedQuantity} of ${requiredQuantity} cop${requiredQuantity === 1 ? 'y' : 'ies'} of "${existing[0].book_title}" (Sl. No. ${bookIndent.serialNo || bookIndent.id}) have arrived at the library; ${remainingQuantity} remaining.`;
       await sendNotification(
         existing[0].requested_by,
-        `The book(s) you requested, "${existing[0].book_title}" (Sl. No. ${bookIndent.serialNo || bookIndent.id}), have arrived and are available for collection from the library.`,
+        arrivalMessage,
         req.user.id,
         null,
         bookIndent.serialNo

@@ -13,6 +13,7 @@ const STATUS_STYLES = {
   'pending': 'border-amber-200 bg-amber-50 text-amber-700',
   'in progress': 'border-indigo-200 bg-indigo-50 text-indigo-700',
   'rejected': 'border-red-200 bg-red-50 text-red-700',
+  'partially arrived': 'border-sky-200 bg-sky-50 text-sky-700',
   'books arrived': 'border-emerald-200 bg-emerald-50 text-emerald-700',
 };
 
@@ -60,7 +61,10 @@ export default function BookIndentManager({ readOnly = false } = {}) {
   const [rejectError, setRejectError] = useState('');
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
 
-  const [arrivingId, setArrivingId] = useState(null);
+  const [arriveTarget, setArriveTarget] = useState(null);
+  const [arriveQty, setArriveQty] = useState('');
+  const [arriveError, setArriveError] = useState('');
+  const [arriveSubmitting, setArriveSubmitting] = useState(false);
 
   const loadBookIndents = async () => {
     try {
@@ -132,7 +136,9 @@ export default function BookIndentManager({ readOnly = false } = {}) {
   const openReview = (item) => {
     setReviewTarget(item);
     setReviewQty(String(item.requiredQuantity));
-    setReviewRemark('');
+    // Pre-fill with the existing remark so re-opening Edit on an already-reviewed
+    // indent doesn't silently blank it out if the librarian doesn't retype it.
+    setReviewRemark(item.hodRemark || '');
     setReviewError('');
   };
 
@@ -203,15 +209,48 @@ export default function BookIndentManager({ readOnly = false } = {}) {
     }
   };
 
-  const markArrived = async (item) => {
+  // Books often arrive in batches, so this opens a modal to record how many
+  // copies have shown up so far rather than flipping straight to "Arrived".
+  const openArrive = (item) => {
+    setArriveTarget(item);
+    setArriveQty(String(item.receivedQuantity || 0));
+    setArriveError('');
+  };
+
+  const closeArrive = () => {
+    setArriveTarget(null);
+    setArriveQty('');
+    setArriveError('');
+    setArriveSubmitting(false);
+  };
+
+  const submitArrive = async () => {
+    if (!arriveTarget) return;
+    const quantity = Number(arriveQty);
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      setArriveError('Please enter a valid quantity.');
+      return;
+    }
+    if (quantity > arriveTarget.requiredQuantity) {
+      setArriveError(`Cannot exceed the required quantity (${arriveTarget.requiredQuantity}).`);
+      return;
+    }
+    if (quantity < (arriveTarget.receivedQuantity || 0)) {
+      setArriveError('Received quantity cannot be lower than what was already recorded.');
+      return;
+    }
     try {
-      setArrivingId(item.id);
-      const res = await api.put(`/faculty-book-indents/${item.id}/arrived`, {});
+      setArriveSubmitting(true);
+      setArriveError('');
+      const res = await api.put(`/faculty-book-indents/${arriveTarget.id}/arrived`, {
+        receivedQuantity: quantity,
+      });
       applyUpdatedIndent(res.data.bookIndent);
+      closeArrive();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to mark the book indent as arrived.');
+      setArriveError(err.response?.data?.message || 'Failed to update book arrival.');
     } finally {
-      setArrivingId(null);
+      setArriveSubmitting(false);
     }
   };
 
@@ -233,6 +272,7 @@ export default function BookIndentManager({ readOnly = false } = {}) {
       'Semester': item.semester,
       'Type': item.bookType,
       'Qty': item.requiredQuantity,
+      'Received Qty': item.receivedQuantity || 0,
       'Status': item.status,
       'HOD Remark': item.hodRemark,
     })));
@@ -360,7 +400,14 @@ export default function BookIndentManager({ readOnly = false } = {}) {
                     <div className="text-xs text-slate-500">Sem: {item.semester} &bull; Strength: {item.studentStrength}</div>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-700">{item.bookType}</td>
-                  <td className="px-6 py-4 text-sm text-slate-700">{item.requiredQuantity}</td>
+                  <td className="px-6 py-4 text-sm text-slate-700">
+                    {item.requiredQuantity}
+                    {statusKey === 'partially arrived' && (
+                      <div className="text-xs text-sky-600 mt-0.5 whitespace-nowrap">
+                        {item.receivedQuantity} received &bull; {item.requiredQuantity - item.receivedQuantity} remaining
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <StatusBadge status={item.status} />
                     {item.hodRemark && (
@@ -372,37 +419,36 @@ export default function BookIndentManager({ readOnly = false } = {}) {
                   {!readOnly && (
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
-                        {statusKey === 'pending' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => openReview(item)}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
-                            >
-                              <Pencil className="w-3.5 h-3.5" /> Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openReject(item)}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                            >
-                              <X className="w-3.5 h-3.5" /> Reject
-                            </button>
-                          </>
-                        )}
-                        {statusKey === 'in progress' && (
+                        {statusKey !== 'books arrived' && (
                           <button
                             type="button"
-                            onClick={() => markArrived(item)}
-                            disabled={arrivingId === item.id}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                            onClick={() => openReview(item)}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
                           >
-                            {arrivingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PackageCheck className="w-3.5 h-3.5" />}
-                            Mark Books Arrived
+                            <Pencil className="w-3.5 h-3.5" /> Edit
+                          </button>
+                        )}
+                        {statusKey === 'pending' && (
+                          <button
+                            type="button"
+                            onClick={() => openReject(item)}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                          >
+                            <X className="w-3.5 h-3.5" /> Reject
+                          </button>
+                        )}
+                        {(statusKey === 'in progress' || statusKey === 'partially arrived') && (
+                          <button
+                            type="button"
+                            onClick={() => openArrive(item)}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                          >
+                            <PackageCheck className="w-3.5 h-3.5" />
+                            {statusKey === 'partially arrived' ? 'Update Arrival' : 'Mark Books Arrived'}
                           </button>
                         )}
                         {(statusKey === 'rejected' || statusKey === 'books arrived') && (
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-slate-400 self-center">
                             {item.hodReviewedAt ? formatDateTime(item.hodReviewedAt) : '-'}
                           </span>
                         )}
@@ -476,15 +522,20 @@ export default function BookIndentManager({ readOnly = false } = {}) {
         </div>
       )}
 
-      {reviewTarget && (
+      {reviewTarget && (() => {
+        const isReviewTargetPending = String(reviewTarget.status || '').trim().toLowerCase() === 'pending';
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto">
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-y-auto max-h-[90vh]">
             <div className="p-6 border-b border-slate-200 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-800 flex items-center">
-                  <FileText className="w-5 h-5 mr-2 text-indigo-600" /> Review Book Indent
+                  <FileText className="w-5 h-5 mr-2 text-indigo-600" /> {isReviewTargetPending ? 'Review Book Indent' : 'Edit Book Indent'}
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">{reviewTarget.bookTitle}</p>
+                {!isReviewTargetPending && (
+                  <p className="text-xs text-slate-400 mt-1">Status stays "{reviewTarget.status}" — this only updates the quantity and remark.</p>
+                )}
               </div>
               <button
                 onClick={closeReview}
@@ -558,12 +609,13 @@ export default function BookIndentManager({ readOnly = false } = {}) {
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {reviewSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Save &amp; Approve
+                {isReviewTargetPending ? 'Save & Approve' : 'Save Changes'}
               </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {rejectTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto">
@@ -623,6 +675,78 @@ export default function BookIndentManager({ readOnly = false } = {}) {
           </div>
         </div>
       )}
+
+      {arriveTarget && (() => {
+        const remaining = Math.max(0, arriveTarget.requiredQuantity - (Number(arriveQty) || 0));
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-y-auto max-h-[90vh]">
+            <div className="p-6 border-b border-slate-200 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 flex items-center">
+                  <PackageCheck className="w-5 h-5 mr-2 text-emerald-600" /> Record Book Arrival
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">{arriveTarget.bookTitle}</p>
+              </div>
+              <button
+                onClick={closeArrive}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-500">
+                Required: <span className="font-medium text-slate-700">{arriveTarget.requiredQuantity}</span>
+                {' '}&bull;{' '}
+                Already recorded: <span className="font-medium text-slate-700">{arriveTarget.receivedQuantity || 0}</span>
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Copies Received So Far</label>
+                <input
+                  type="number"
+                  min={arriveTarget.receivedQuantity || 0}
+                  max={arriveTarget.requiredQuantity}
+                  value={arriveQty}
+                  onChange={(e) => setArriveQty(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="mt-1.5 text-xs text-slate-500">
+                  {remaining > 0
+                    ? <>Books partially given — <span className="font-medium text-sky-600">{remaining}</span> copies remaining.</>
+                    : 'All copies received — this will mark the indent as "Books Arrived".'}
+                </p>
+              </div>
+
+              {arriveError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{arriveError}</div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={closeArrive}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitArrive}
+                disabled={arriveSubmitting}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {arriveSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                {remaining > 0 ? 'Save Partial Arrival' : 'Mark Books Arrived'}
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
     </div>
   );
 }

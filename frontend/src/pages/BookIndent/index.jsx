@@ -32,6 +32,7 @@ const initialForm = {
 const statusConfig = {
   Pending: 'text-amber-600 bg-amber-50 border border-amber-200',
   'In Progress': 'text-indigo-600 bg-indigo-50 border border-indigo-200',
+  'Partially Arrived': 'text-sky-600 bg-sky-50 border border-sky-200',
   'Books Arrived': 'text-green-600 bg-green-50 border border-green-200',
   Rejected: 'text-red-600 bg-red-50 border border-red-200',
 };
@@ -279,6 +280,11 @@ export default function BookIndentPage() {
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusConfig[item.status] || statusConfig.Pending}`}>
                         {item.status}
                       </span>
+                      {item.status === 'Partially Arrived' && (
+                        <div className="mt-1 text-xs text-sky-600 whitespace-nowrap">
+                          {item.receivedQuantity || 0} of {item.requiredQuantity} received
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500 max-w-[200px] truncate" title={item.hodRemark || ''}>
                       {item.hodRemark || '-'}

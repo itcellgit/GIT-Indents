@@ -1,7 +1,9 @@
 import React from 'react';
-import { Building2, Users, ClipboardList, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Building2, Users, ClipboardList, AlertCircle, CheckCircle2, Timer } from 'lucide-react';
+import { formatDuration } from '../../utils/completionTime';
 
-export default function StatsCards({ stats, activeFilter, onCardClick }) {
+// avgCompletion ({ hours, count }) is optional; when passed, an info-only Avg Completion Time card is appended.
+export default function StatsCards({ stats, activeFilter, onCardClick, avgCompletion }) {
   const cards = [
     {
       title: "Total Departments",
@@ -47,23 +49,37 @@ export default function StatsCards({ stats, activeFilter, onCardClick }) {
       bg: "bg-emerald-50", 
       borderColor: "border-emerald-100",
       filterValue: 'Completed'
-    }
+    },
+    ...(avgCompletion ? [{
+      title: "Avg Completion Time",
+      value: formatDuration(avgCompletion.hours),
+      subtitle: `based on ${avgCompletion.count} completed indent${avgCompletion.count !== 1 ? 's' : ''}`,
+      icon: Timer,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+      borderColor: "border-purple-100",
+      filterValue: null // info-only card, not a filter
+    }] : [])
   ];
 
+  const gridCols = cards.length > 5 ? 'lg:grid-cols-3 xl:grid-cols-6' : 'lg:grid-cols-5';
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+    <div className={`grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-6`}>
       {cards.map((card, idx) => {
         const Icon = card.icon;
-        const isActive = activeFilter === card.filterValue;
+        const isClickable = card.filterValue !== null;
+        const isActive = isClickable && activeFilter === card.filterValue;
         return (
-          <div 
-            key={idx} 
-            onClick={() => onCardClick && onCardClick(card.filterValue)}
-            className={`bg-white rounded-xl shadow-sm border ${isActive ? 'ring-2 ring-indigo-500 border-indigo-400 bg-indigo-50/10' : card.borderColor} p-6 flex items-center justify-between transition-transform hover:-translate-y-1 hover:shadow-md cursor-pointer`}
+          <div
+            key={idx}
+            onClick={() => isClickable && onCardClick && onCardClick(card.filterValue)}
+            className={`bg-white rounded-xl shadow-sm border ${isActive ? 'ring-2 ring-indigo-500 border-indigo-400 bg-indigo-50/10' : card.borderColor} p-6 flex items-center justify-between transition-transform hover:-translate-y-1 hover:shadow-md ${isClickable ? 'cursor-pointer' : ''}`}
           >
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">{card.title}</p>
               <h3 className="text-3xl font-bold text-slate-800">{card.value}</h3>
+              {card.subtitle && <p className="text-xs text-slate-400 mt-1">{card.subtitle}</p>}
             </div>
             <div className={`p-4 rounded-xl ${card.bg}`}>
               <Icon className={`w-7 h-7 ${card.color}`} />

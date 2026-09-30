@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, User, LogOut, KeyRound } from 'lucide-react';
+import { getAverageCompletion } from '../../utils/completionTime';
 import StatsCards from './StatsCards';
 import DepartmentManager from './DepartmentManager';
 import CoordinatorManager from './CoordinatorManager';
@@ -32,6 +33,9 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+
+  // Computed from the full complaints list so the card keeps its value when a status filter is selected.
+  const avgCompletion = React.useMemo(() => getAverageCompletion(complaints), [complaints]);
 
   const fetchAdminData = async () => {
     try {
@@ -232,6 +236,7 @@ export default function AdminDashboard() {
           <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">System Overview</h2>
           <StatsCards 
             stats={stats} 
+            avgCompletion={avgCompletion}
             activeFilter={filterStatus}
             onCardClick={handleStatsClick}
           />
@@ -256,6 +261,7 @@ export default function AdminDashboard() {
                 complaints={displayedComplaints}
                 departments={departments}
                 onOpenDetails={(complaint) => setSelectedComplaint(complaint)} 
+                showAverageBanner={false}
               />
             </div>
           )}

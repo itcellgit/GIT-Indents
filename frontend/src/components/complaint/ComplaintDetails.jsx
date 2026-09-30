@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import api, { BACKEND_BASE_URL } from '../../api/axios';
 import { ROLES } from '../../constants/roles';
 import { formatDate } from '../../utils/formatDate';
+import { getCompletionHours, formatDuration } from '../../utils/completionTime';
 const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => {
   const { user } = useAuth();
   const [workerList, setWorkerList] = useState(complaint.assignedWorkerNames || []);
@@ -809,13 +810,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                     <div className="mt-3">
                       <span className="block text-xs font-bold text-green-500 uppercase tracking-widest mb-1">Actual Completion Time</span>
                       <p className="text-sm font-semibold text-slate-800 mt-1">
-                        {(() => {
-                          const start = new Date(complaint.createdAt);
-                          const end = complaint.resolvedDetails?.resolvedAt ? new Date(complaint.resolvedDetails.resolvedAt) : new Date(complaint.updatedAt);
-                          const diffTime = Math.abs(end - start);
-                          const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                          return `${diffDays} Day${diffDays !== 1 ? 's' : ''}`;
-                        })()}
+                        {formatDuration(getCompletionHours(complaint))}
                       </p>
                     </div>
                   )}

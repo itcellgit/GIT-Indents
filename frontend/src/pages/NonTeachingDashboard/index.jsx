@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { getAverageCompletion } from '../../utils/completionTime';
 import StatsCards from './StatsCards';
 import IndentTable from './IndentTable';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
@@ -39,6 +40,9 @@ export default function NonTeachingDashboard() {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Computed from the unfiltered list so the card keeps its value when a status filter is selected.
+  const avgCompletion = React.useMemo(() => getAverageCompletion(complaints), [complaints]);
 
   const statsCounts = React.useMemo(() => {
     return {
@@ -241,7 +245,8 @@ export default function NonTeachingDashboard() {
             {/* Dashboard Summary Cards */}
             <StatsCards 
               statsCards={SUMMARY_CARDS} 
-              statsCounts={statsCounts} 
+              statsCounts={statsCounts}
+              avgCompletion={avgCompletion} 
               onCardClick={(title) => setFilterStatus(prev => (title === 'Total Indents' || prev === title) ? 'All' : title)}
               activeFilter={filterStatus}
             />
@@ -283,7 +288,8 @@ export default function NonTeachingDashboard() {
               </div>
 
               <IndentTable 
-                filteredComplaints={filteredComplaints} 
+                filteredComplaints={filteredComplaints}
+                showAverageBanner={false} 
                 setSelectedComplaint={setSelectedComplaint} 
               />
             </div>

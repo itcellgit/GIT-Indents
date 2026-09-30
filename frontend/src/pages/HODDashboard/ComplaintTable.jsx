@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Eye, Clock, AlertCircle, Search, X } from 'lucide-react';
+import { getCompletionHours, formatDuration, getAverageCompletion } from '../../utils/completionTime';
 
-const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) => {
+// showAverageBanner: set false where the stats cards already show the Avg Completion Time card.
+const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true, showAverageBanner = true }) => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
@@ -69,6 +71,8 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
     currentPage * ITEMS_PER_PAGE
   );
 
+  const { hours: globalAverageHours, count: completedCount } = getAverageCompletion(sortedComplaints);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-5 border-b border-gray-100 flex flex-col lg:flex-row justify-between lg:items-center gap-4">
@@ -135,6 +139,12 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
         </div>
       </div>
 
+      {showAverageBanner && globalAverageHours !== null && (
+        <div className="px-6 py-3 bg-indigo-50/50 border-b border-gray-100 text-sm text-indigo-700 font-medium">
+          Overall Average Completion Time: {formatDuration(globalAverageHours)} (based on {completedCount} completed indent{completedCount !== 1 ? 's' : ''})
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -146,6 +156,7 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
               <th className="px-6 py-4">Location</th>
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4">Assigned Dept</th>
+              <th className="px-6 py-4">Avg Time Resolved</th>
               <th className="px-6 py-4 text-center">Action</th>
             </tr>
           </thead>
@@ -171,6 +182,9 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">{complaint.category?.name || complaint.category}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {formatDuration(getCompletionHours(complaint))}
+                  </td>
                   <td className="px-6 py-4 text-center">
                     <button 
                       onClick={(e) => {
@@ -186,7 +200,7 @@ const ComplaintTable = ({ complaints, onOpenDetails, showStatusFilter = true }) 
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                   <div className="flex flex-col items-center justify-center gap-2">
                      <AlertCircle className="w-8 h-8 text-gray-300 mb-2" />
                      <p className="font-semibold text-gray-900">

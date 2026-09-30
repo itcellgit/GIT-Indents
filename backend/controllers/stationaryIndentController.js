@@ -1,6 +1,6 @@
 const prisma = require('../prismaClient');
 const { ROLES } = require('../utils/roles');
-const { sendNotification, sendRoleNotification } = require('../utils/notificationService');
+const { sendNotification, sendRoleNotification, escapeHtml } = require('../utils/notificationService');
 
 // status flow: Pending -> "HOD Approved" | "HOD Rejected" -> (grant recorded) -> Received
 const STATUS = Object.freeze({
@@ -132,8 +132,8 @@ const loadStationaryIndents = async (whereClause, params = []) => {
 const canAccessAllStationaryIndents = (userRole) =>
   userRole === ROLES.ADMIN || userRole === ROLES.OFFICE_STATIONARY;
 
-// Best-effort: tell the department HOD(s) a new indent is waiting for approval.
-const notifyDepartmentHods = async (department, senderId, indentId) => {
+// Best-effort: send a bell notification + email to every active HOD of a department.
+const notifyDepartmentHods = async (department, senderId, message) => {
   try {
     const dept = String(department || '').trim();
     if (!dept) return;
@@ -147,11 +147,7 @@ const notifyDepartmentHods = async (department, senderId, indentId) => {
       dept
     );
     for (const hod of hods) {
-      await sendNotification(
-        hod.id,
-        `A new stationary indent (#${indentId}) from your department is waiting for your approval.`,
-        senderId
-      );
+      await sendNotification(hod.id, message, senderId);
     }
   } catch (error) {
     console.error('Stationary HOD notification failed:', error.message);
@@ -230,7 +226,11 @@ const createStationaryIndent = async (req, res) => {
       return indent;
     });
 
-    await notifyDepartmentHods(req.user.department, req.user.id, Number(result.id));
+    await notifyDepartmentHods(
+      req.user.department,
+      req.user.id,
+      `A new stationary indent (#${Number(result.id)}) from your department is waiting for your approval.`
+    );
 
     const indents = await loadStationaryIndents('WHERE id = $1', [Number(result.id)]);
     res.status(201).json({ success: true, indent: indents[0] });
@@ -307,6 +307,18 @@ const updateStationaryIndent = async (req, res) => {
       nextStatus = STATUS.RECEIVED;
     }
 
+    // Remember whether anything was granted before this save, so the HOD is
+    // notified only on the first grant, not on every later correction.
+    let wasGrantedBefore = false;
+    if (canManageAll && Array.isArray(items)) {
+      const priorGrantRows = await prisma.$queryRawUnsafe(
+        `SELECT 1 FROM public.stationary_indent_and_grants
+         WHERE dept_stationary_indent_id = $1 AND grant_quantity > 0 LIMIT 1`,
+        indentId
+      );
+      wasGrantedBefore = priorGrantRows.length > 0;
+    }
+
     await prisma.$transaction(async (tx) => {
       if (reason !== undefined) {
         await tx.$queryRawUnsafe(
@@ -355,7 +367,34 @@ const updateStationaryIndent = async (req, res) => {
     });
 
     const indents = await loadStationaryIndents('WHERE id = $1', [indentId]);
-    res.json({ success: true, indent: indents[0] });
+    const updatedIndent = indents[0];
+
+    // First grant by Office_Stationary/Admin -> ask the department HOD to acknowledge.
+    const grantedItems = (updatedIndent?.items || []).filter((item) => item.grantQuantity > 0);
+    if (canManageAll && Array.isArray(items) && !wasGrantedBefore && grantedItems.length > 0) {
+      try {
+        const creatorRows = await prisma.$queryRawUnsafe(
+          `SELECT department FROM public."User" WHERE id = $1 LIMIT 1`,
+          existing.department_id
+        );
+        // The message is also the email body (rendered as HTML), so escape
+        // catalog/user-provided text. The bell shows it as plain text.
+        const itemSummary = grantedItems
+          .map((item) => `${escapeHtml(item.stationaryName || `Item ${item.stationaryId}`)} x ${item.grantQuantity}`)
+          .join(', ');
+        const raisedBy = updatedIndent.raisedByName ? ` raised by ${escapeHtml(updatedIndent.raisedByName)}` : '';
+        await notifyDepartmentHods(
+          creatorRows[0]?.department,
+          req.user.id,
+          `Stationary items for indent #${indentId}${raisedBy} have been granted by Office Stationary: ${itemSummary}. ` +
+          'Please log in to the Indents Management Portal and acknowledge receipt of these stationary items.'
+        );
+      } catch (notifyError) {
+        console.error('Stationary grant notification failed:', notifyError.message);
+      }
+    }
+
+    res.json({ success: true, indent: updatedIndent });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { getAverageCompletion } from '../../utils/completionTime';
 import StatsCards from '../FacultyDashboard/StatsCards';
 import MaintainerIndentTable from './MaintainerIndentTable';
 import ComplaintTable from '../HODDashboard/ComplaintTable';
@@ -51,6 +52,9 @@ export default function MaintainerDashboard() {
   useEffect(() => {
     refreshData();
   }, []);
+
+  // Computed from the unfiltered list so the card keeps its value when a status filter is selected.
+  const avgCompletion = React.useMemo(() => getAverageCompletion(complaints), [complaints]);
 
   const statsCounts = React.useMemo(() => {
     return {
@@ -202,6 +206,7 @@ export default function MaintainerDashboard() {
             <StatsCards
               statsCards={SUMMARY_CARDS}
               statsCounts={statsCounts}
+              avgCompletion={avgCompletion}
               onCardClick={(title) => setFilterStatus(prev => (title === 'Total Indents' || prev === title) ? 'All' : title)}
               activeFilter={filterStatus}
             />
@@ -235,6 +240,7 @@ export default function MaintainerDashboard() {
 
               <MaintainerIndentTable
                 filteredComplaints={filteredComplaints}
+                showAverageBanner={false}
                 setSelectedComplaint={setSelectedComplaint}
               />
             </div>

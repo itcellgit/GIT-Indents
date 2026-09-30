@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, FileText } from 'lucide-react';
+import { getCompletionHours, formatDuration, getAverageCompletion } from '../../utils/completionTime';
 
 const STATUS_COLORS = {
   "Indent Created": "bg-cyan-100 text-cyan-800 border-cyan-200",
@@ -14,7 +15,7 @@ const STATUS_COLORS = {
   "Pending": "bg-yellow-100 text-yellow-800 border-yellow-200"
 };
 
-const IndentTable = ({ filteredComplaints, setSelectedComplaint }) => {
+const IndentTable = ({ filteredComplaints, setSelectedComplaint, showAverageBanner = true }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
@@ -29,8 +30,15 @@ const IndentTable = ({ filteredComplaints, setSelectedComplaint }) => {
     currentPage * ITEMS_PER_PAGE
   );
 
+  const { hours: globalAverageHours, count: completedCount } = getAverageCompletion(sortedComplaints);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      {showAverageBanner && globalAverageHours !== null && (
+        <div className="px-6 py-3 bg-indigo-50/50 border-b border-slate-200 text-sm text-indigo-700 font-medium">
+          Overall Average Completion Time: {formatDuration(globalAverageHours)} (based on {completedCount} completed indent{completedCount !== 1 ? 's' : ''})
+        </div>
+      )}
       <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse">
         <thead>
@@ -42,6 +50,7 @@ const IndentTable = ({ filteredComplaints, setSelectedComplaint }) => {
             <th className="px-6 py-4 font-medium">Location</th>
             <th className="px-6 py-4 font-medium max-w-[200px]">Status</th>
             <th className="px-6 py-4 font-medium">Assigned Dept</th>
+            <th className="px-6 py-4 font-medium">Avg Time Resolved</th>
             <th className="px-6 py-4 font-medium text-right">Action</th>
           </tr>
         </thead>
@@ -74,6 +83,9 @@ const IndentTable = ({ filteredComplaints, setSelectedComplaint }) => {
               <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                 {complaint.category?.name || complaint.category}
               </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                {formatDuration(getCompletionHours(complaint))}
+              </td>
               <td className="px-6 py-4 whitespace-nowrap text-right">
                 <button 
                   onClick={(e) => {
@@ -89,7 +101,7 @@ const IndentTable = ({ filteredComplaints, setSelectedComplaint }) => {
             </tr>
           )) : (
             <tr>
-              <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+              <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
                 <div className="flex flex-col items-center justify-center">
                   <FileText className="w-12 h-12 text-slate-300 mb-3" />
                   <p className="text-base font-medium text-slate-600">No indents found</p>

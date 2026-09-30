@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ClipboardList, Filter, Search, Eye } from 'lucide-react';
+import { getCompletionHours, formatDuration, getAverageCompletion } from '../../utils/completionTime';
 
 const STATUS_COLORS = {
   "Indent Created": "bg-cyan-100 text-cyan-800 border-cyan-200",
@@ -14,7 +15,7 @@ const STATUS_COLORS = {
   "Pending": "bg-yellow-100 text-yellow-800 border-yellow-200"
 };
 
-export default function ComplaintTable({ complaints, departments, onOpenDetails }) {
+export default function ComplaintTable({ complaints, departments, onOpenDetails, showAverageBanner = true }) {
   const [filterDept, setFilterDept] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +39,8 @@ export default function ComplaintTable({ complaints, departments, onOpenDetails 
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
+  const { hours: globalAverageHours, count: completedCount } = getAverageCompletion(sortedComplaints);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -87,6 +90,12 @@ export default function ComplaintTable({ complaints, departments, onOpenDetails 
         </div>
       </div>
 
+      {showAverageBanner && globalAverageHours !== null && (
+        <div className="px-6 py-3 bg-indigo-50/50 border-b border-slate-200 text-sm text-indigo-700 font-medium">
+          Overall Average Completion Time: {formatDuration(globalAverageHours)} (based on {completedCount} completed indent{completedCount !== 1 ? 's' : ''})
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-200">
@@ -98,6 +107,7 @@ export default function ComplaintTable({ complaints, departments, onOpenDetails 
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Location</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned Dept</th>
+              <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Avg Time Resolved</th>
               <th className="px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Action</th>
             </tr>
           </thead>
@@ -131,6 +141,11 @@ export default function ComplaintTable({ complaints, departments, onOpenDetails 
                 </td>
                 <td className="px-6 py-4">
                   <span className="text-sm font-medium text-slate-800">{complaint.category?.name || 'Unassigned'}</span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="text-sm text-slate-600">
+                    {formatDuration(getCompletionHours(complaint))}
+                  </span>
                 </td>
                 <td className="px-6 py-4 text-right">
                   <button 

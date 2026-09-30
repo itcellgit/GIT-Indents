@@ -4,6 +4,7 @@ import { LogOut, User as UserIcon, Plus, KeyRound, Building2, Car, Bus, ChevronD
 import StatsCards from './StatsCards';
 import DeptStatsCards from './DeptStatsCards';
 import ComplaintTable from './ComplaintTable';
+import { getAverageCompletion } from '../../utils/completionTime';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
 import ManageMaintainers from './ManageMaintainers';
@@ -134,31 +135,42 @@ const HODDashboard = () => {
     return Array.from(merged.values());
   }, [deptTrackIndents, departmentIndents, approvalRequests, deptFacilityProviderIndents, myRaisedIndents]);
 
+  // Avg completion time is computed from the unfiltered lists so the card keeps its
+  // value when a status card/filter is selected (the table banner used the filtered list).
   const stats = useMemo(() => {
+    const avgCompletion = getAverageCompletion(maintenanceStatsIndents);
     return {
       total: maintenanceStatsIndents.length,
       approvals: approvalRequests.length,
       pending: maintenanceStatsIndents.filter(c => c.status === 'Indent Created').length,
       inProgress: maintenanceStatsIndents.filter(c => c.status === 'In Progress').length,
       resolved: maintenanceStatsIndents.filter(c => c.status === 'Completed').length,
+      avgCompletionHours: avgCompletion.hours,
+      avgCompletionCount: avgCompletion.count,
     };
   }, [maintenanceStatsIndents, approvalRequests]);
 
   const deptStats = useMemo(() => {
+    const avgCompletion = getAverageCompletion(deptTrackIndents);
     return {
       total: deptTrackIndents.length,
       pendingApproval: deptTrackIndents.filter(c => c.status === 'Indent Created').length,
       active: deptTrackIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
       completed: deptTrackIndents.filter(c => c.status === 'Completed').length,
+      avgCompletionHours: avgCompletion.hours,
+      avgCompletionCount: avgCompletion.count,
     };
   }, [deptTrackIndents, deptFacilityProviderIndents]);
 
   const deptFacilityProviderStats = useMemo(() => {
+    const avgCompletion = getAverageCompletion(deptFacilityProviderIndents);
     return {
       total: deptFacilityProviderIndents.length,
       pendingApproval: deptFacilityProviderIndents.filter(c => c.status === 'Indent Created').length,
       active: deptFacilityProviderIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
       completed: deptFacilityProviderIndents.filter(c => c.status === 'Completed').length,
+      avgCompletionHours: avgCompletion.hours,
+      avgCompletionCount: avgCompletion.count,
     };
   }, [deptFacilityProviderIndents]);
 
@@ -590,6 +602,7 @@ const HODDashboard = () => {
                   complaints={filteredMaintenanceIndents}
                   onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
                   showStatusFilter={true}
+                  showAverageBanner={false}
                 />
               </div>
             </div>
@@ -610,6 +623,7 @@ const HODDashboard = () => {
                 complaints={filteredDeptTrackIndents}
                 onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
                 showStatusFilter={true}
+                showAverageBanner={false}
               />
             </div>
           )}
@@ -627,6 +641,7 @@ const HODDashboard = () => {
                 complaints={deptFacilityProviderIndents}
                 onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
                 showStatusFilter={true}
+                showAverageBanner={false}
               />
             </div>
           )}

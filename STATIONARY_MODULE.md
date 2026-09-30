@@ -98,6 +98,8 @@ Lists every stationery request from every department, showing reason, request da
 2. Enters a **Grant Quantity** for each requested item (visible only while the request is still Pending).
 3. Selects **Grant Request** to save.
 
+When a request is granted for the first time, the department HOD receives an in-app notification (bell) and an email listing the granted items and quantities, asking them to acknowledge receipt of the stationary items in the portal. Correcting the grant quantities later does not send the notification again.
+
 Once a request has at least one granted quantity, the requester can mark it received from their own page; the review modal for an already-processed request shows the granted quantities read-only (no grant-quantity column).
 
 ## What You See in the Page Header

@@ -2,6 +2,7 @@ import React from 'react';
 import { XCircle, Clock, CheckCircle } from 'lucide-react';
 import api from '../../api/axios';
 import { formatDateTime } from '../../utils/formatDate';
+import { getCompletionHours, formatDuration } from '../../utils/completionTime';
 
 const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
   if (!selectedComplaint) return null;
@@ -85,13 +86,7 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
                 <div className="bg-green-50 p-3 rounded-lg border border-green-100">
                   <span className="block text-xs font-semibold text-green-600 uppercase">Actual Duration</span>
                   <span className="block mt-1 font-medium text-green-800">
-                    {(() => {
-                      const start = new Date(selectedComplaint.createdAt);
-                      const end = selectedComplaint.resolvedDetails?.resolvedAt ? new Date(selectedComplaint.resolvedDetails.resolvedAt) : new Date(selectedComplaint.updatedAt);
-                      const diffTime = Math.abs(end - start);
-                      const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-                      return `${diffDays} Day${diffDays !== 1 ? 's' : ''}`;
-                    })()}
+                    {formatDuration(getCompletionHours(selectedComplaint))}
                   </span>
                 </div>
               )}

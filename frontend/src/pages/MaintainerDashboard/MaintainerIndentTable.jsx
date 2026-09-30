@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, FileText } from 'lucide-react';
+import { getCompletionHours, formatDuration, getAverageCompletion } from '../../utils/completionTime';
 
 const STATUS_COLORS = {
   "In Progress": "bg-indigo-100 text-indigo-800 border-indigo-200",
@@ -25,7 +26,7 @@ const getAssignedMaintainerNames = (complaint) => {
   return complaint.maintainerId ? [complaint.maintainerId] : [];
 };
 
-const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => {
+const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint, showAverageBanner = true }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
@@ -40,6 +41,8 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
     currentPage * ITEMS_PER_PAGE
   );
 
+  const { hours: globalAverageHours, count: completedCount } = getAverageCompletion(sortedComplaints);
+
   const getDisplayStatus = (complaint) => {
     if (complaint.status === 'Completed') return 'Completed';
     if (complaint.isMaintainerCompleted) return 'Pending Verification';
@@ -48,6 +51,11 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      {showAverageBanner && globalAverageHours !== null && (
+        <div className="px-6 py-3 bg-indigo-50/50 border-b border-slate-200 text-sm text-indigo-700 font-medium">
+          Overall Average Completion Time: {formatDuration(globalAverageHours)} (based on {completedCount} completed indent{completedCount !== 1 ? 's' : ''})
+        </div>
+      )}
       <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse">
         <thead>
@@ -59,6 +67,7 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
             <th className="px-6 py-4 font-medium">Location</th>
             <th className="px-6 py-4 font-medium">Maintainer(s)</th>
             <th className="px-6 py-4 font-medium max-w-[200px]">Status</th>
+            <th className="px-6 py-4 font-medium">Avg Time Resolved</th>
             <th className="px-6 py-4 font-medium text-right">Action</th>
           </tr>
         </thead>
@@ -109,6 +118,9 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
                     {displayStatus}
                   </span>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                  {formatDuration(getCompletionHours(complaint))}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <button 
                     onClick={(e) => {
@@ -125,7 +137,7 @@ const MaintainerIndentTable = ({ filteredComplaints, setSelectedComplaint }) => 
             );
           }) : (
             <tr>
-              <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+              <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                 <div className="flex flex-col items-center justify-center">
                   <FileText className="w-12 h-12 text-slate-300 mb-3" />
                   <p className="text-base font-medium text-slate-600">No assigned indents found</p>

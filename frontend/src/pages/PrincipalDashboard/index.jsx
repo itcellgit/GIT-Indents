@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LogOut, User as UserIcon, Plus, KeyRound } from 'lucide-react';
 import StatsCards from '../HODDashboard/StatsCards';
 import ComplaintTable from '../HODDashboard/ComplaintTable';
+import { getAverageCompletion } from '../../utils/completionTime';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
 import ReportManager from '../AdminDashboard/ReportManager';
@@ -76,11 +77,14 @@ const PrincipalDashboard = () => {
   }, [departmentIndents, filterStatus]);
 
   const stats = useMemo(() => {
+    const avgCompletion = getAverageCompletion(departmentIndents);
     return {
       total: departmentIndents.length,
       pending: departmentIndents.filter(c => c.status === 'Approved by Principal' || c.status === 'Approved by Dept HOD').length,
       inProgress: departmentIndents.filter(c => c.status === 'In Progress').length,
       resolved: departmentIndents.filter(c => c.status === 'Completed').length,
+      avgCompletionHours: avgCompletion.hours,
+      avgCompletionCount: avgCompletion.count,
     };
   }, [departmentIndents]);
 
@@ -319,6 +323,7 @@ const PrincipalDashboard = () => {
                 complaints={filteredDepartmentIndents}
                 onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
                 showStatusFilter={true}
+                showAverageBanner={false}
               />
             </div>
           )}

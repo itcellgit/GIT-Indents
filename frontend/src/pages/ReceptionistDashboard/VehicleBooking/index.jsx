@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, ChevronLeft, ChevronRight, CheckCircle, ShieldX, Clock } from 'lucide-react';
 import NotificationBell from '../../../components/NotificationBell';
 import ChangePasswordModal from '../../../components/ChangePasswordModal';
+import { TimeInput12h } from '../../../components/TimeInput12h';
 import api from '../../../api/axios';
 import logo from '../../../assets/logo.png';
 import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
@@ -965,11 +966,11 @@ export default function VehicleBookingsPage() {
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Start Time <span className="text-red-500">*</span></span>
-                <input type="time" lang="en-US" value={bookingForm.start_time} onChange={(e) => setBookingForm({ ...bookingForm, start_time: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <TimeInput12h value={bookingForm.start_time} onChange={(v) => setBookingForm({ ...bookingForm, start_time: v })} required />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>End Time <span className="text-red-500">*</span></span>
-                <input type="time" lang="en-US" value={bookingForm.end_time} onChange={(e) => setBookingForm({ ...bookingForm, end_time: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <TimeInput12h value={bookingForm.end_time} onChange={(v) => setBookingForm({ ...bookingForm, end_time: v })} required />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Destination <span className="text-red-500">*</span></span>

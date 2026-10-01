@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, ChevronLeft, ChevronRight, CheckCircle, ShieldX, Clock } from 'lucide-react';
 import NotificationBell from '../../../components/NotificationBell';
 import ChangePasswordModal from '../../../components/ChangePasswordModal';
+import { DateTimeInput12h } from '../../../components/TimeInput12h';
 import api from '../../../api/axios';
 import logo from '../../../assets/logo.png';
 import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
@@ -875,11 +876,11 @@ export default function HallBookingsPage() {
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>Start Date & Time <span className="text-red-500">*</span></span>
-                <input type="datetime-local" lang="en-US" value={bookingForm.start_datetime} onChange={(e) => setBookingForm({ ...bookingForm, start_datetime: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <DateTimeInput12h value={bookingForm.start_datetime} onChange={(v) => setBookingForm({ ...bookingForm, start_datetime: v })} required />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700">
                 <span>End Date & Time <span className="text-red-500">*</span></span>
-                <input type="datetime-local" lang="en-US" value={bookingForm.end_datetime} onChange={(e) => setBookingForm({ ...bookingForm, end_datetime: e.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+                <DateTimeInput12h value={bookingForm.end_datetime} onChange={(v) => setBookingForm({ ...bookingForm, end_datetime: v })} required />
               </label>
               <label className="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
                 <span>Remarks</span>

@@ -11,7 +11,7 @@ const HALL_BOOKING_EMAILS = [
    'itmaintenance@git.edu',
    'energycell@git.edu',
     'dmc@git.edu',
-  //'rypatil@git.edu',
+    'pabagve@git.edu',
   // 'itcell@git.edu',
 ];
 

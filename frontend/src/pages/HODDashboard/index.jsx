@@ -145,6 +145,7 @@ const HODDashboard = () => {
       pending: maintenanceStatsIndents.filter(c => c.status === 'Indent Created').length,
       inProgress: maintenanceStatsIndents.filter(c => c.status === 'In Progress').length,
       resolved: maintenanceStatsIndents.filter(c => c.status === 'Completed').length,
+      rejected: maintenanceStatsIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
       avgCompletionHours: avgCompletion.hours,
       avgCompletionCount: avgCompletion.count,
     };
@@ -157,6 +158,7 @@ const HODDashboard = () => {
       pendingApproval: deptTrackIndents.filter(c => c.status === 'Indent Created').length,
       active: deptTrackIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
       completed: deptTrackIndents.filter(c => c.status === 'Completed').length,
+      rejected: deptTrackIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
       avgCompletionHours: avgCompletion.hours,
       avgCompletionCount: avgCompletion.count,
     };
@@ -169,6 +171,7 @@ const HODDashboard = () => {
       pendingApproval: deptFacilityProviderIndents.filter(c => c.status === 'Indent Created').length,
       active: deptFacilityProviderIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
       completed: deptFacilityProviderIndents.filter(c => c.status === 'Completed').length,
+      rejected: deptFacilityProviderIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
       avgCompletionHours: avgCompletion.hours,
       avgCompletionCount: avgCompletion.count,
     };
@@ -176,7 +179,7 @@ const HODDashboard = () => {
 
   const filteredDeptTrackIndents = useMemo(() => {
     if (deptFilterStatus === 'All') return deptTrackIndents;
-    if (deptFilterStatus === 'Pending Approval') {
+    if (deptFilterStatus === 'Pending Approval' || deptFilterStatus === 'Indent Created') {
       return deptFacilityProviderIndents.filter(c => c.status === 'Indent Created');
     }
     if (deptFilterStatus === 'Active') {

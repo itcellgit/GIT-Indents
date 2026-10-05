@@ -1,12 +1,12 @@
 import React from 'react';
-import { Building2, Users, ClipboardList, AlertCircle, CheckCircle2, Timer } from 'lucide-react';
+import { Building2, Users, ClipboardList, AlertCircle, CheckCircle2, Timer, XCircle } from 'lucide-react';
 import { formatDuration } from '../../utils/completionTime';
 
 // avgCompletion ({ hours, count }) is optional; when passed, an info-only Avg Completion Time card is appended.
 export default function StatsCards({ stats, activeFilter, onCardClick, avgCompletion }) {
   const cards = [
     {
-      title: "Total Departments",
+      title: "Facility Providers",
       value: stats.totalDepartments,
       icon: Building2,
       color: "text-indigo-600",
@@ -50,6 +50,15 @@ export default function StatsCards({ stats, activeFilter, onCardClick, avgComple
       borderColor: "border-emerald-100",
       filterValue: 'Completed'
     },
+    {
+      title: "Rejected Indents",
+      value: stats.rejectedComplaints,
+      icon: XCircle,
+      color: "text-rose-600",
+      bg: "bg-rose-50",
+      borderColor: "border-rose-100",
+      filterValue: 'Rejected'
+    },
     ...(avgCompletion ? [{
       title: "Avg Completion Time",
       value: formatDuration(avgCompletion.hours),
@@ -62,7 +71,7 @@ export default function StatsCards({ stats, activeFilter, onCardClick, avgComple
     }] : [])
   ];
 
-  const gridCols = cards.length > 5 ? 'lg:grid-cols-3 xl:grid-cols-6' : 'lg:grid-cols-5';
+  const gridCols = cards.length > 5 ? 'lg:grid-cols-3' : 'lg:grid-cols-5';
 
   return (
     <div className={`grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-6`}>

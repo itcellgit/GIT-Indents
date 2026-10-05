@@ -47,7 +47,7 @@ const COORDINATOR_STAFF_ROLES = [ROLES.ADMIN, ROLES.HOD, ROLES.FACILITY_PROVIDER
 // Faculty/Non-Teaching users acting as Stationary Coordinators, in addition to Admin.
 const STATIONARY_CATALOG_ROLES = [ROLES.ADMIN, ROLES.FACULTY, ROLES.NON_TEACHING, ROLES.OFFICE_STATIONARY];
 
-router.get('/stats', protect, authorize(ROLES.ADMIN), getSystemStats);
+router.get('/stats', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), getSystemStats);
 router.get('/users', protect, authorize(...USER_DIRECTORY_ROLES), getAllUsers);
 // GET is also used by UserManager.jsx (shared with PrincipalDashboard) to populate
 // the role dropdown when assigning a role to a user; role CRUD itself stays Admin-only.

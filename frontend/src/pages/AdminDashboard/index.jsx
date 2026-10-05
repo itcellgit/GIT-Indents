@@ -26,7 +26,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('departments');
   const [filterStatus, setFilterStatus] = useState('All');
 
-  const [stats, setStats] = useState({ totalDepartments: 0, totalUsers: 0, totalIndents: 0, activeComplaints: 0, resolvedComplaints: 0 });
+  const [stats, setStats] = useState({ totalDepartments: 0, totalUsers: 0, totalIndents: 0, activeComplaints: 0, resolvedComplaints: 0, rejectedComplaints: 0 });
   const [departments, setDepartments] = useState([]);
   const [usersList, setUsersList] = useState([]);
   const [complaints, setComplaints] = useState([]);

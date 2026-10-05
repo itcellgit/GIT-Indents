@@ -1,8 +1,9 @@
 import React from 'react';
-import { ClipboardList, Clock, Users, Wrench, CheckCircle, Timer } from 'lucide-react';
+import { ClipboardList, Clock, Users, Wrench, CheckCircle, Timer, XCircle } from 'lucide-react';
 import { formatDuration } from '../../utils/completionTime';
 
-const StatsCards = ({ stats, activeFilter, onCardClick }) => {
+const StatsCards = ({ stats, activeFilter, onCardClick, variant = 'hod' }) => {
+  const activeLabel = variant === 'principal' ? 'Active Indents' : 'In Progress';
   const cards = [
     {
       title: 'Total Indents',
@@ -24,8 +25,8 @@ const StatsCards = ({ stats, activeFilter, onCardClick }) => {
     },
 
     {
-      title: 'In Progress',
-      value: stats.inProgress,
+      title: activeLabel,
+      value: stats.inProgress ?? stats.active,
       icon: Wrench,
       color: 'bg-blue-500',
       bgColor: 'bg-blue-50',
@@ -42,6 +43,15 @@ const StatsCards = ({ stats, activeFilter, onCardClick }) => {
       filterValue: 'Completed',
     },
     {
+      title: 'Rejected Indents',
+      value: stats.rejected,
+      icon: XCircle,
+      color: 'bg-rose-500',
+      bgColor: 'bg-rose-50',
+      textColor: 'text-rose-700',
+      filterValue: 'Rejected',
+    },
+    {
       title: 'Avg Completion Time',
       value: formatDuration(stats.avgCompletionHours),
       subtitle: `based on ${stats.avgCompletionCount} completed indent${stats.avgCompletionCount !== 1 ? 's' : ''}`,
@@ -54,7 +64,7 @@ const StatsCards = ({ stats, activeFilter, onCardClick }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
       {cards.map((card, index) => {
         const isClickable = card.filterValue !== null;
         const isActive = isClickable && activeFilter === card.filterValue;

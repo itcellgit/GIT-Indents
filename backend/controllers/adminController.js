@@ -207,6 +207,14 @@ const getSystemStats = async (req, res) => {
       where: { status: 'Completed' }
     });
 
+    const rejectedComplaints = await prisma.indent.count({
+      where: {
+        status: {
+          startsWith: 'Rejected'
+        }
+      }
+    });
+
 
     res.json({
       success: true,
@@ -215,7 +223,8 @@ const getSystemStats = async (req, res) => {
         totalUsers,
         totalIndents,
         activeComplaints,
-        resolvedComplaints
+        resolvedComplaints,
+        rejectedComplaints
       }
     });
   } catch (err) {

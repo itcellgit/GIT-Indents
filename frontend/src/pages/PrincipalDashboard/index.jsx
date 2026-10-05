@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LogOut, User as UserIcon, Plus, KeyRound } from 'lucide-react';
-import StatsCards from '../HODDashboard/StatsCards';
+import StatsCards from '../AdminDashboard/StatsCards';
 import ComplaintTable from '../HODDashboard/ComplaintTable';
 import { getAverageCompletion } from '../../utils/completionTime';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
@@ -18,6 +18,7 @@ import logo from '../../assets/logo.png';
 
 const PrincipalDashboard = () => {
   const { user, logout } = useAuth();
+  const [statsData, setStatsData] = useState({ totalDepartments: 0, totalUsers: 0, totalIndents: 0, activeComplaints: 0, resolvedComplaints: 0, rejectedComplaints: 0 });
   const [departmentIndents, setDepartmentIndents] = useState([]);
   const [myRaisedIndents, setMyRaisedIndents] = useState([]);
   const [usersList, setUsersList] = useState([]);
@@ -54,12 +55,16 @@ const PrincipalDashboard = () => {
     const fetchComplaints = async () => {
       try {
         setIsLoading(true);
+        const statsRes = await api.get('/admin/stats');
+        setStatsData(statsRes.data.stats || { totalDepartments: 0, totalUsers: 0, totalIndents: 0, activeComplaints: 0, resolvedComplaints: 0, rejectedComplaints: 0 });
         // Fetch complaints from backend endpoint (same as HOD but backend handles Principal role)
         const res = await api.get('/hod/complaints');
         setDepartmentIndents(res.data.departmentIndents || []);
         setMyRaisedIndents(res.data.myRaisedIndents || []);
       } catch (err) {
         console.error("Failed to fetch complaints:", err);
+        setDepartmentIndents([]);
+        setMyRaisedIndents([]);
       } finally {
         setIsLoading(false);
       }
@@ -76,17 +81,7 @@ const PrincipalDashboard = () => {
     return departmentIndents.filter(c => c.status === filterStatus);
   }, [departmentIndents, filterStatus]);
 
-  const stats = useMemo(() => {
-    const avgCompletion = getAverageCompletion(departmentIndents);
-    return {
-      total: departmentIndents.length,
-      pending: departmentIndents.filter(c => c.status === 'Approved by Principal' || c.status === 'Approved by Dept HOD').length,
-      inProgress: departmentIndents.filter(c => c.status === 'In Progress').length,
-      resolved: departmentIndents.filter(c => c.status === 'Completed').length,
-      avgCompletionHours: avgCompletion.hours,
-      avgCompletionCount: avgCompletion.count,
-    };
-  }, [departmentIndents]);
+  const avgCompletion = useMemo(() => getAverageCompletion(departmentIndents), [departmentIndents]);
 
   const updateIndentList = (updatedComplaint) => {
     const targetId = updatedComplaint.id || updatedComplaint._id;
@@ -308,8 +303,9 @@ const PrincipalDashboard = () => {
                 <p className="text-sm text-gray-500 mt-1">A read-only view of every indent in the system. Approval and rejection are handled by the Facility Provider for each category.</p>
               </div>
               <StatsCards
-                stats={stats} 
+                stats={statsData} 
                 activeFilter={filterStatus}
+                avgCompletion={avgCompletion}
                 onCardClick={(val) => {
                   setFilterStatus(prev => prev === val ? 'All' : val);
                   setActiveTab('department');

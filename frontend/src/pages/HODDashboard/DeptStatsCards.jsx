@@ -20,7 +20,7 @@ const DeptStatsCards = ({ stats, activeFilter, onCardClick, view = 'full' }) => 
       color: 'bg-amber-500',
       bgColor: 'bg-amber-50',
       textColor: 'text-amber-700',
-      filterValue: 'Pending Approval',
+      filterValue: 'Indent Created',
     },
     {
       title: 'In Progress / Active',

@@ -57,8 +57,8 @@ const mapBusBookingRow = (row) => {
     : (row.bus_id ? [{ id: Number(row.bus_id), bus_number: row.bus_number || '', bus_name: row.bus_name || '' }] : []);
 
   const drivers = Array.isArray(row.drivers_json) && row.drivers_json.length > 0
-    ? row.drivers_json.map((d) => ({ id: d.id, name: d.name || '', phone: d.phone || '' }))
-    : (row.driver_id ? [{ id: row.driver_id, name: row.driver_name || '', phone: row.driver_phone_no || '' }] : []);
+    ? row.drivers_json.map((d) => ({ id: d.id, name: d.name || '', email: d.email || '', phone: d.phone || '' }))
+    : (row.driver_id ? [{ id: row.driver_id, name: row.driver_name || '', email: row.driver_email || '', phone: row.driver_phone_no || '' }] : []);
 
   return {
   id: Number(row.id),
@@ -70,6 +70,7 @@ const mapBusBookingRow = (row) => {
   buses,
   driver_id: row.driver_id || null,
   driver_name: row.driver_name || '',
+  driver_email: row.driver_email || '',
   driver_phone_no: row.driver_phone_no || '',
   driver_ids: drivers.map((d) => d.id),
   drivers,
@@ -77,6 +78,8 @@ const mapBusBookingRow = (row) => {
   booked_by: row.booked_by,
   booked_by_name: row.booked_by_name || '',
   booked_by_email: row.booked_by_email || '',
+  booked_by_phone: row.booked_by_phone || '',
+  booked_by_department: row.booked_by_department || '',
   purpose: row.purpose || '',
   destination: row.destination || '',
   start_date: row.start_date,
@@ -129,16 +132,16 @@ const conflictMessage = (conflict, resourceLabel) =>
 // alongside the legacy single bus_id/driver_id columns for back-compat.
 const BUS_DRIVER_SELECT = `
        bb.bus_id, b.bus_number, b.bus_name, b.bus_type, bb.bus_ids,
-       bb.driver_id, du.name AS driver_name, du.staff_phone_no AS driver_phone_no, bb.driver_ids,
+       bb.driver_id, du.name AS driver_name, du.email AS driver_email, du.staff_phone_no AS driver_phone_no, bb.driver_ids,
        (SELECT COALESCE(json_agg(json_build_object('id', b2.id, 'bus_number', b2.bus_number, 'bus_name', b2.bus_name) ORDER BY b2.bus_number), '[]'::json)
           FROM public.buses b2 WHERE b2.id = ANY(bb.bus_ids)) AS buses_json,
-       (SELECT COALESCE(json_agg(json_build_object('id', d2.id, 'name', du2.name, 'phone', du2.staff_phone_no) ORDER BY du2.name), '[]'::json)
+       (SELECT COALESCE(json_agg(json_build_object('id', d2.id, 'name', du2.name, 'email', du2.email, 'phone', du2.staff_phone_no) ORDER BY du2.name), '[]'::json)
           FROM "Driver" d2 JOIN "User" du2 ON du2.id = d2."userId" WHERE d2.id = ANY(bb.driver_ids)) AS drivers_json`;
 
 const fetchBusBookingById = async (bookingId) => {
   const rows = await prisma.$queryRawUnsafe(
     `SELECT bb.id, ${BUS_DRIVER_SELECT},
-            bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
+            bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, u.staff_phone_no AS booked_by_phone, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
             bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks, bb.attachment_path,
             bb.created_at, bb.updated_at, u.department AS booked_by_department
      FROM public.bus_bookings bb
@@ -157,9 +160,9 @@ const getBusBookings = async (req, res) => {
   try {
     const bookings = await prisma.$queryRawUnsafe(
       `SELECT bb.id, ${BUS_DRIVER_SELECT},
-              bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
+              bb.booked_by, u.name AS booked_by_name, u.email AS booked_by_email, u.staff_phone_no AS booked_by_phone, bb.purpose, bb.destination, bb.start_date, bb.end_date, bb.booking_period, bb.start_time, bb.end_time,
               bb.passenger_count, bb.status, bb.approved_by, bb.approved_at, bb.remarks, bb.attachment_path,
-              bb.created_at, bb.updated_at
+              bb.created_at, bb.updated_at, u.department AS booked_by_department
          FROM public.bus_bookings bb
          LEFT JOIN public.buses b ON b.id = bb.bus_id
          LEFT JOIN "Driver" d ON d.id = bb.driver_id
@@ -600,6 +603,8 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     TRANSPORT_EMAIL,
     ...BUS_BOOKING_EMAILS,
     String(booking.booked_by_email || '').trim().toLowerCase(),
+    ...(Array.isArray(booking.drivers) ? booking.drivers.map((driver) => String(driver.email || '').trim().toLowerCase()) : []),
+    String(booking.driver_email || '').trim().toLowerCase(),
   ].filter(isValidEmail))];
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -613,9 +618,13 @@ const sendBusBookingStatusNotification = async (booking, action) => {
   const driverSummary = booking.drivers?.length > 0
     ? booking.drivers.map((d) => d.name).filter(Boolean).join(', ')
     : (booking.driver_name || 'N/A');
+  const driverPhoneSummary = booking.drivers?.length > 0
+    ? booking.drivers.map((d) => d.phone).filter(Boolean).join(', ')
+    : (booking.driver_phone_no || 'N/A');
   const details = [
     `Bus(es): ${escapeHtml(busSummary)}`,
     `Driver(s): ${escapeHtml(driverSummary)}`,
+    `Driver Phone: ${escapeHtml(driverPhoneSummary)}`,
     `Booked By: ${escapeHtml(booking.booked_by_name || 'N/A')}`,
     `Purpose: ${escapeHtml(booking.purpose || 'N/A')}`,
     `Destination: ${escapeHtml(booking.destination || 'N/A')}`,

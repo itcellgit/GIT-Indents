@@ -286,6 +286,10 @@ export default function BusBookingsPage() {
   const [isDayListOpen, setIsDayListOpen] = useState(false);
   const [editingBusId, setEditingBusId] = useState(null);
   const [editingBusBookingId, setEditingBusBookingId] = useState(null);
+  const [editingDriver, setEditingDriver] = useState(null);
+  const [driverForm, setDriverForm] = useState({ name: '', email: '', staff_phone_no: '' });
+  const [isSavingDriver, setIsSavingDriver] = useState(false);
+  const [currentDriverPage, setCurrentDriverPage] = useState(1);
   const [buses, setBuses] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [busBookings, setBusBookings] = useState([]);
@@ -301,6 +305,13 @@ export default function BusBookingsPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+  const driversPerPage = 10;
+  const totalDriverPages = Math.max(1, Math.ceil(drivers.length / driversPerPage));
+  const currentSafeDriverPage = Math.min(currentDriverPage, totalDriverPages);
+  const paginatedDrivers = drivers.slice(
+    (currentSafeDriverPage - 1) * driversPerPage,
+    currentSafeDriverPage * driversPerPage
+  );
 
   const loadBuses = async () => {
     setLoading(true);
@@ -580,6 +591,32 @@ export default function BusBookingsPage() {
     }
   };
 
+  const openDriverEdit = (driver) => {
+    setEditingDriver(driver);
+    setDriverForm({
+      name: driver.name || '',
+      email: driver.email || '',
+      staff_phone_no: driver.staff_phone_no || '',
+    });
+    setError('');
+  };
+
+  const handleDriverProfileSubmit = async (event) => {
+    event.preventDefault();
+    if (!editingDriver) return;
+
+    try {
+      setIsSavingDriver(true);
+      await api.put(`/drivers/${editingDriver.id}/profile`, driverForm);
+      setEditingDriver(null);
+      await loadDrivers();
+    } catch (apiError) {
+      setError(apiError.response?.data?.message || 'Failed to update user');
+    } finally {
+      setIsSavingDriver(false);
+    }
+  };
+
   const canSelectBus = isAdminOrTransport;
 
   return (
@@ -795,9 +832,9 @@ export default function BusBookingsPage() {
                       <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500">No Vehicle Maintenance users found.</td>
                     </tr>
                   ) : (
-                    drivers.map((driver, index) => (
+                    paginatedDrivers.map((driver, index) => (
                       <tr key={driver.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 text-sm text-slate-700">{index + 1}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{(currentSafeDriverPage - 1) * driversPerPage + index + 1}</td>
                         <td className="px-6 py-4 text-sm font-medium text-slate-900">{driver.name || '-'}</td>
                         <td className="px-6 py-4 text-sm text-slate-700">{driver.email || '-'}</td>
                         <td className="px-6 py-4 text-sm text-slate-700">{driver.staff_phone_no || '-'}</td>
@@ -810,6 +847,15 @@ export default function BusBookingsPage() {
                         <td className="px-6 py-4 text-sm text-slate-700">{driver.isDriver ? 'Yes' : 'No'}</td>
                         <td className="px-6 py-4 text-sm text-slate-700">
                           <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openDriverEdit(driver)}
+                              className="inline-flex items-center justify-center rounded-md p-2 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                              title={`Edit ${driver.name}`}
+                              aria-label={`Edit ${driver.name}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
                             {driver.isDriver ? (
                               <button
                                 type="button"
@@ -835,6 +881,72 @@ export default function BusBookingsPage() {
                 </tbody>
               </table>
             </div>
+
+            {drivers.length > 0 && (
+              <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row">
+                <p className="text-sm text-slate-500">
+                  Showing <span className="font-medium text-slate-700">{(currentSafeDriverPage - 1) * driversPerPage + 1}</span>
+                  {' '}to{' '}
+                  <span className="font-medium text-slate-700">{Math.min(currentSafeDriverPage * driversPerPage, drivers.length)}</span>
+                  {' '}of{' '}
+                  <span className="font-medium text-slate-700">{drivers.length}</span> users
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentDriverPage((page) => Math.max(1, Math.min(page, totalDriverPages) - 1))}
+                    disabled={currentSafeDriverPage === 1}
+                    aria-label="Previous page"
+                    className="rounded-md border border-slate-300 p-2 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-16 text-center text-sm font-medium text-slate-700">
+                    Page {currentSafeDriverPage} of {totalDriverPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentDriverPage((page) => Math.min(Math.min(page, totalDriverPages) + 1, totalDriverPages))}
+                    disabled={currentSafeDriverPage === totalDriverPages}
+                    aria-label="Next page"
+                    className="rounded-md border border-slate-300 p-2 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {editingDriver && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+                <form onSubmit={handleDriverProfileSubmit} className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl">
+                  <div className="border-b border-slate-200 px-6 py-4">
+                    <h3 className="text-lg font-semibold text-slate-900">Edit Transportation User</h3>
+                  </div>
+                  <div className="space-y-4 p-6">
+                    {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+                    <label className="grid gap-1 text-sm font-medium text-slate-700">
+                      <span>Name</span>
+                      <input value={driverForm.name} onChange={(event) => setDriverForm({ ...driverForm, name: event.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2" />
+                    </label>
+                    <label className="grid gap-1 text-sm font-medium text-slate-700">
+                      <span>Email</span>
+                      <input type="email" value={driverForm.email} onChange={(event) => setDriverForm({ ...driverForm, email: event.target.value })} required className="rounded-lg border border-slate-300 px-3 py-2" />
+                    </label>
+                    <label className="grid gap-1 text-sm font-medium text-slate-700">
+                      <span>Phone Number</span>
+                      <input type="tel" value={driverForm.staff_phone_no} onChange={(event) => setDriverForm({ ...driverForm, staff_phone_no: event.target.value })} className="rounded-lg border border-slate-300 px-3 py-2" />
+                    </label>
+                  </div>
+                  <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                    <button type="button" onClick={() => setEditingDriver(null)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white">Cancel</button>
+                    <button type="submit" disabled={isSavingDriver} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                      {isSavingDriver ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </section>
         )}
 
@@ -1218,8 +1330,7 @@ export default function BusBookingsPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">S.No</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Bus</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Driver</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Booked By Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Details</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Purpose</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Attachment</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
@@ -1239,8 +1350,20 @@ export default function BusBookingsPage() {
                         <td className="px-4 py-4 text-sm text-slate-700">{index + 1}</td>
                         <td className="px-4 py-4 text-sm font-medium text-slate-900">{getBusLabel(booking)}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">{getDriverLabel(booking)}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_name || '-'}</td>
-                        <td className="px-4 py-4 text-sm text-slate-700">{booking.booked_by_email || '-'}</td>
+                        <td className="px-4 py-4 text-sm text-slate-700">
+                          <div className="space-y-1">
+                            <div className="font-medium text-slate-900">{booking.booked_by_name || booking.bookedByName || booking.requesterName || '-'}</div>
+                            <div className="text-xs text-slate-500">
+                               {booking.booked_by_email || '-'}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                               {booking.booked_by_phone || booking.phone || booking.staff_phone_no || '-'}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                               {booking.booked_by_department || booking.department || booking.department_name || '-'}
+                            </div>
+                          </div>
+                        </td>
                         <td className="px-4 py-4 text-sm text-slate-700">{booking.purpose || '-'}</td>
                         <td className="px-4 py-4 text-sm text-slate-700">
                           {booking.attachment_path ? (

@@ -55,6 +55,53 @@ const getDrivers = async (req, res) => {
   }
 };
 
+const updateDriverProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, staff_phone_no } = req.body;
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, department: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (String(user.department || '').toLowerCase() !== 'vehicle maintenance') {
+      return res.status(400).json({ message: 'Only Vehicle Maintenance users can be updated here' });
+    }
+
+    const normalizedName = String(name || '').trim();
+    const normalizedEmail = String(email || '').trim();
+    if (!normalizedName || !normalizedEmail) {
+      return res.status(400).json({ message: 'Name and email are required' });
+    }
+
+    const duplicateEmail = await prisma.user.findFirst({
+      where: { email: normalizedEmail, NOT: { id } },
+      select: { id: true }
+    });
+    if (duplicateEmail) {
+      return res.status(400).json({ message: 'Email already exists' });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        name: normalizedName,
+        email: normalizedEmail,
+        staff_phone_no: staff_phone_no ? String(staff_phone_no).trim() : null
+      },
+      select: { id: true, name: true, email: true, staff_phone_no: true }
+    });
+
+    res.json({ success: true, user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 const toggleDriverAssignment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -95,5 +142,6 @@ const toggleDriverAssignment = async (req, res) => {
 
 module.exports = {
   getDrivers,
+  updateDriverProfile,
   toggleDriverAssignment,
 };

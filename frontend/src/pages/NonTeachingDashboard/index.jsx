@@ -149,26 +149,26 @@ export default function NonTeachingDashboard() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain" />
-              <Wrench className="w-8 h-8 text-indigo-600" />
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 hidden sm:block">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain shrink-0" />
+              <Wrench className="w-8 h-8 text-indigo-600 hidden sm:block" />
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 hidden sm:block truncate">
                 Digital Maintenance System
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-1 sm:gap-3 shrink-0">
               <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity" title="My Profile">
-                <span className="text-sm font-medium text-slate-600">Welcome, {user?.name || 'Non-Teaching Staff'}</span>
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200 shadow-sm cursor-pointer">
+                <span className="hidden lg:inline text-sm font-medium text-slate-600">Welcome, {user?.name || 'Non-Teaching Staff'}</span>
+                <div className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200 shadow-sm cursor-pointer">
                   <User className="h-5 w-5 text-indigo-600" />
                 </div>
               </Link>
               <button onClick={() => setIsChangePasswordOpen(true)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Change Password">
                 <KeyRound className="w-5 h-5" />
               </button>
-              <button onClick={logout} className="ml-1 p-2 text-slate-400 hover:text-red-500 transition-colors" title="Logout">
+              <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Logout">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
@@ -179,22 +179,22 @@ export default function NonTeachingDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 no-print">
         
         {/* Top Controls */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-          <h2 className="text-2xl font-semibold text-slate-800">Dashboard</h2>
-          <div className="flex items-center space-x-3">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <h2 className="text-2xl font-semibold text-slate-800 shrink-0">Dashboard</h2>
+          <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-wrap sm:gap-3 sm:w-auto lg:justify-end">
             {isLibraryStaff && (
               <>
                 <button
                   type="button"
                   onClick={() => setActiveTab('branches')}
-                  className={`flex items-center px-4 py-2.5 font-medium rounded-lg shadow-sm transition-all ${activeTab === 'branches' ? 'bg-indigo-600 text-white' : 'border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
+                  className={`flex items-center justify-center sm:justify-start px-3 sm:px-4 py-2.5 text-sm sm:text-base whitespace-nowrap font-medium rounded-lg shadow-sm transition-all ${activeTab === 'branches' ? 'bg-indigo-600 text-white' : 'border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
                 >
                   Branches
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('bookIndents')}
-                  className={`flex items-center px-4 py-2.5 font-medium rounded-lg shadow-sm transition-all ${activeTab === 'bookIndents' ? 'bg-indigo-600 text-white' : 'border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
+                  className={`flex items-center justify-center sm:justify-start px-3 sm:px-4 py-2.5 text-sm sm:text-base whitespace-nowrap font-medium rounded-lg shadow-sm transition-all ${activeTab === 'bookIndents' ? 'bg-indigo-600 text-white' : 'border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'}`}
                 >
                   Book Indents
                 </button>
@@ -203,7 +203,7 @@ export default function NonTeachingDashboard() {
             {isCoordinatorStaff && (
               <Link
                 to="/stationary-indent-create"
-                className="flex items-center px-4 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
+                className="flex items-center justify-center sm:justify-start px-3 sm:px-4 py-2.5 text-sm sm:text-base whitespace-nowrap border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
               >
                 <Wrench className="w-4 h-4 mr-2" />
                 Stationary Indent
@@ -211,28 +211,28 @@ export default function NonTeachingDashboard() {
             )}
             <Link
               to="/hall-bookings"
-              className="flex items-center px-4 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
+              className="flex items-center justify-center sm:justify-start px-3 sm:px-4 py-2.5 text-sm sm:text-base whitespace-nowrap border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
             >
               <Building2 className="w-4 h-4 mr-2" />
               Hall Booking
             </Link>
             <Link
               to="/vehicle-bookings"
-              className="flex items-center px-4 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
+              className="flex items-center justify-center sm:justify-start px-3 sm:px-4 py-2.5 text-sm sm:text-base whitespace-nowrap border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
             >
               <Car className="w-4 h-4 mr-2" />
               Vehicle Booking
             </Link>
             <Link
               to="/bus-bookings"
-              className="flex items-center px-4 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
+              className="flex items-center justify-center sm:justify-start px-3 sm:px-4 py-2.5 text-sm sm:text-base whitespace-nowrap border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg shadow-sm transition-all"
             >
               <Bus className="w-4 h-4 mr-2" />
               Bus Booking
             </Link>
             <button
               onClick={() => setIsRaiseModalOpen(true)}
-              className="flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
+              className="col-span-2 flex items-center justify-center px-3 sm:px-4 py-2.5 text-sm sm:text-base whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
             >
               <Plus className="w-5 h-5 mr-2" />
               Raise New Indent

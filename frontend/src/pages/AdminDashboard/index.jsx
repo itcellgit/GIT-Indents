@@ -112,22 +112,22 @@ export default function AdminDashboard() {
         {/* Top Tier: Branding & Profile */}
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 w-full border-b border-slate-800/60">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain bg-white rounded-full p-0.5" />
-              <div className="hidden sm:block">
-                <h1 className="text-lg font-bold text-white leading-tight">Admin Dashboard</h1>
-                <p className="text-xs text-indigo-300">System Control Panel</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 shrink-0 object-contain bg-white rounded-full p-0.5" />
+              <div className="hidden sm:block min-w-0">
+                <h1 className="text-lg font-bold text-white leading-tight truncate">Admin Dashboard</h1>
+                <p className="text-xs text-indigo-300 truncate">System Control Panel</p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity animate-in" title="My Profile">
-                <span className="text-sm font-medium text-slate-300">
+                <span className="hidden md:inline text-sm font-medium text-slate-300">
                   {user?.name || 'Administrator'}
                 </span>
-                <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 cursor-pointer">
+                <div className="h-9 w-9 shrink-0 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 cursor-pointer">
                   <User className="h-4 w-4 text-slate-300" />
                 </div>
               </Link>

@@ -50,7 +50,7 @@ const RoleSwitcher = ({ className = '' }) => {
         onChange={handleChange}
         disabled={isSwitching}
         aria-label="Switch active role"
-        className="appearance-none pl-8 pr-7 py-2 text-sm font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded-lg outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+        className="appearance-none max-w-[8.5rem] sm:max-w-none truncate pl-8 pr-7 py-2 text-sm font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded-lg outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
       >
         {assignedRoles.map((role) => (
           <option key={role} value={role}>{role}</option>

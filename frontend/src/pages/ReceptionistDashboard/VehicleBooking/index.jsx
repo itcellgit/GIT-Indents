@@ -530,21 +530,21 @@ export default function VehicleBookingsPage() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain bg-white rounded-full p-0.5" />
-              <div>
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">Vehicle Bookings</h1>
-                <p className="text-xs text-indigo-600">Reception desk vehicle management</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 shrink-0 object-contain bg-white rounded-full p-0.5" />
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">Vehicle Bookings</h1>
+                <p className="hidden sm:block text-xs text-indigo-600 truncate">Reception desk vehicle management</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <NotificationBell />
               <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity" title="My Profile">
-                <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200">
+                <div className="h-9 w-9 shrink-0 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200">
                   <User className="h-4 w-4 text-indigo-600" />
                 </div>
-                <div className="hidden sm:block text-left">
+                <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-slate-700">{roleDefaultName}</p>
                   <p className="text-xs text-slate-500">{roleDefaultDept}</p>
                 </div>
@@ -576,13 +576,13 @@ export default function VehicleBookingsPage() {
           </div>
         </div>
 
-        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        <div className="flex w-full sm:w-fit max-w-full overflow-x-auto no-scrollbar rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
           {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
             >
               {tab.label}
             </button>
@@ -711,24 +711,25 @@ export default function VehicleBookingsPage() {
         )}
 
         {activeTab === 'calendar' && (
-          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden p-6 space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <h3 className="text-xl font-semibold text-slate-900">Booking Calendar</h3>
               </div>
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
+              <div className="flex w-full sm:w-auto items-center justify-between gap-1 sm:gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
                 <button
                   type="button"
                   onClick={() => {
                     const previous = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() - 1, 1);
                     setCalendarMonth(`${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`);
                   }}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
+                  title="Previous month"
+                  className="inline-flex items-center gap-2 rounded-lg px-2 sm:px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  <span className="hidden sm:inline">Previous</span>
                 </button>
-                <div className="min-w-36 px-3 py-2 text-center text-sm font-semibold text-slate-900">
+                <div className="min-w-0 sm:min-w-36 px-2 sm:px-3 py-2 text-center text-sm font-semibold text-slate-900">
                   {selectedMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </div>
                 <button
@@ -737,9 +738,10 @@ export default function VehicleBookingsPage() {
                     const next = new Date(selectedMonthDate.getFullYear(), selectedMonthDate.getMonth() + 1, 1);
                     setCalendarMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
                   }}
-                  className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
+                  title="Next month"
+                  className="inline-flex items-center gap-2 rounded-lg px-2 sm:px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
@@ -793,15 +795,15 @@ export default function VehicleBookingsPage() {
               </div>
             )}
               <>
-                <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                     <div key={day} className="py-2">{day}</div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {calendarDays.map((day, index) => {
                     if (!day) {
-                      return <div key={`blank-${index}`} className="min-h-28 rounded-xl border border-dashed border-slate-200 bg-slate-50/50" />;
+                      return <div key={`blank-${index}`} className="min-h-20 sm:min-h-28 rounded-lg sm:rounded-xl border border-dashed border-slate-200 bg-slate-50/50" />;
                     }
 
                     const dateString = toLocalDateString(day);
@@ -820,28 +822,28 @@ export default function VehicleBookingsPage() {
                             openBookingModal(dateString);
                           }
                         }}
-                        className={`min-h-28 rounded-xl border p-3 text-left transition-colors cursor-pointer ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : isToday ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-inset ring-indigo-300' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
+                        className={`min-w-0 min-h-20 sm:min-h-28 rounded-lg sm:rounded-xl border p-1 sm:p-3 text-left transition-colors cursor-pointer ${selectedDate === dateString ? 'border-indigo-500 bg-indigo-50' : isToday ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-inset ring-indigo-300' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50'}`}
                       >
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col sm:flex-row items-start justify-between gap-1 sm:gap-2">
                           <span className={`text-sm font-semibold ${isToday ? 'flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white' : 'text-slate-900'}`}>{day.getDate()}</span>
                           {dayBookings.length > 0 && (() => {
                            const hasPending = dayBookings.some((b) => (b.status || 'PENDING').toUpperCase() === 'PENDING');
                            const hasRejected = dayBookings.some((b) => (b.status || '').toUpperCase() === 'REJECTED');
                            const badgeBg = hasPending ? 'bg-amber-500' : (hasRejected ? 'bg-red-500' : 'bg-green-500');
                            return (
-                             <span className={`rounded-full ${badgeBg} px-2 py-0.5 text-[11px] font-semibold text-white`}>{dayBookings.length}</span>
+                             <span className={`rounded-full ${badgeBg} px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-white`}>{dayBookings.length}</span>
                            );
                          })()}
                         </div>
                         {dayBookings.length > 0 && (
-                          <div className="mt-3 flex items-center justify-end gap-2">
+                          <div className="mt-1 sm:mt-3 flex items-center justify-end gap-2">
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 openDayList(dateString, dayBookings);
                               }}
-                              className="rounded-md bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700"
+                              className="rounded-md bg-indigo-600 px-1.5 sm:px-3 py-1 text-[10px] sm:text-[11px] font-semibold text-white hover:bg-indigo-700"
                             >
                               List
                             </button>

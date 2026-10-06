@@ -126,26 +126,26 @@ export default function MaintainerDashboard() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain" />
-              <Wrench className="w-8 h-8 text-indigo-600" />
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 hidden sm:block">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain shrink-0" />
+              <Wrench className="w-8 h-8 text-indigo-600 hidden sm:block" />
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 hidden sm:block truncate">
                 Maintainer Dashboard
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-1 sm:gap-3 shrink-0">
               <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                <span className="text-sm font-medium text-slate-600">Welcome, {user?.name}</span>
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200">
+                <span className="hidden lg:inline text-sm font-medium text-slate-600">Welcome, {user?.name}</span>
+                <div className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200">
                   <User className="h-5 w-5 text-indigo-600" />
                 </div>
               </Link>
               <button onClick={() => setIsChangePasswordOpen(true)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Change Password">
                 <KeyRound className="w-5 h-5" />
               </button>
-              <button onClick={logout} className="ml-1 p-2 text-slate-400 hover:text-red-500 transition-colors">
+              <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
@@ -154,11 +154,11 @@ export default function MaintainerDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 no-print">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-          <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl w-full sm:w-fit">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl w-full sm:w-fit max-w-full overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveTab('approvals')}
-              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
                 activeTab === 'approvals'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -168,7 +168,7 @@ export default function MaintainerDashboard() {
             </button>
             <button
               onClick={() => setActiveTab('tasks')}
-              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
                 activeTab === 'tasks'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -183,7 +183,7 @@ export default function MaintainerDashboard() {
             href="https://officerp.git.edu"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
+            className="flex items-center justify-center w-full sm:w-auto whitespace-nowrap px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
           >
             <ShoppingCart className="w-5 h-5 mr-2" />
             Order Items (E-Tendering)
@@ -212,15 +212,15 @@ export default function MaintainerDashboard() {
             />
 
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+              <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <h3 className="text-lg font-semibold text-slate-800">Your Tasks</h3>
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                   <div className="relative">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Search by ID, location..."
-                      className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm w-64"
+                      className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm w-full lg:w-64"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />

@@ -44,7 +44,7 @@ const MaterialForm = ({ materials, setMaterials }) => {
           No materials logged yet. Click "Add Item" to record usage.
         </div>
       ) : (
-        <div className="overflow-hidden border border-gray-200 rounded-xl">
+        <div className="overflow-x-auto border border-gray-200 rounded-xl">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-xs uppercase text-gray-700 font-semibold border-b border-gray-200">
               <tr>

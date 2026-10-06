@@ -191,40 +191,41 @@ const PrincipalDashboard = () => {
         {/* Top Tier: Branding & Profile */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full border-b border-gray-100">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain" />
-              <div className="flex flex-col justify-center">
-                <h1 className="text-xl font-bold text-gray-900 leading-tight">Principal Dashboard</h1>
-                <p className="text-xs font-medium text-indigo-600">Administrative Oversight</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 shrink-0 object-contain" />
+              <div className="hidden sm:flex flex-col justify-center min-w-0">
+                <h1 className="text-base sm:text-xl font-bold text-gray-900 leading-tight truncate">Principal Dashboard</h1>
+                <p className="hidden sm:block text-xs font-medium text-indigo-600 truncate">Administrative Oversight</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <RoleSwitcher />
               <NotificationBell />
-              <Link to="/profile" className="hidden md:flex items-center gap-2 pr-4 border-r border-gray-200 hover:opacity-80 transition-opacity" title="My Profile">
-                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700">
+              <Link to="/profile" className="flex items-center gap-2 lg:pr-4 lg:border-r border-gray-200 hover:opacity-80 transition-opacity" title="My Profile">
+                <div className="w-8 h-8 shrink-0 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700">
                   <UserIcon className="w-4 h-4" />
                 </div>
-                <div className="text-sm text-left">
+                <div className="hidden lg:block text-sm text-left">
                   <p className="font-semibold text-gray-700">{user?.name || 'Principal'}</p>
                   <p className="text-xs text-gray-500">{user?.department || 'Administration'}</p>
                 </div>
               </Link>
               <button
                 onClick={() => setIsChangePasswordOpen(true)}
-                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors"
+                className="flex items-center gap-2 p-1.5 lg:p-0 text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors"
                 title="Change Password"
               >
                 <KeyRound className="w-4 h-4" />
-                <span className="hidden sm:inline">Change Password</span>
+                <span className="hidden lg:inline">Change Password</span>
               </button>
               <button
                 onClick={logout}
-                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+                className="flex items-center gap-2 p-1.5 lg:p-0 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+                title="Logout"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
+                <span className="hidden lg:inline">Logout</span>
               </button>
             </div>
           </div>
@@ -232,7 +233,7 @@ const PrincipalDashboard = () => {
         
         {/* Bottom Tier: Navigation Tabs & Actions */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <div className="flex justify-between items-center h-14">
+          <div className="flex justify-between items-center gap-3 h-14">
             {/* Tabs */}
             <div className="flex space-x-8 overflow-x-auto no-scrollbar h-full w-full sm:w-auto">
              
@@ -281,10 +282,11 @@ const PrincipalDashboard = () => {
             {/* Action */}
             <button 
               onClick={() => setIsRaiseModalOpen(true)}
-              className="hidden sm:flex flex-shrink-0 items-center gap-2 px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-sm text-sm font-medium"
+              title="Raise Indent"
+              className="flex flex-shrink-0 items-center gap-2 px-3 sm:px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-sm text-sm font-medium"
             >
               <Plus className="w-4 h-4" />
-              <span>Raise Indent</span>
+              <span className="hidden sm:inline">Raise Indent</span>
             </button>
           </div>
         </div>

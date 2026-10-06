@@ -25,22 +25,22 @@ export default function TransportationDashboard() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain bg-white rounded-full p-0.5" />
-              <div>
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">Transportation Dashboard</h1>
-                <p className="text-xs text-indigo-600">Bus fleet and booking coordination</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 shrink-0 object-contain bg-white rounded-full p-0.5" />
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">Transportation Dashboard</h1>
+                <p className="hidden sm:block text-xs text-indigo-600 truncate">Bus fleet and booking coordination</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity" title="My Profile">
-                <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200">
+                <div className="h-9 w-9 shrink-0 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200">
                   <User className="h-4 w-4 text-indigo-600" />
                 </div>
-                <div className="hidden sm:block text-left">
+                <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-slate-700">{user?.name || 'Transport Coordinator'}</p>
                   <p className="text-xs text-slate-500">{user?.department || 'Transportation'}</p>
                 </div>

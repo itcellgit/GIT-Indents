@@ -116,7 +116,7 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
             {((selectedComplaint.materialsUsed && selectedComplaint.materialsUsed.length > 0) || (selectedComplaint.materials && selectedComplaint.materials.length > 0)) && (
               <div>
                 <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Materials Used</h4>
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>

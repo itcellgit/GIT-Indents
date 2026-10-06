@@ -324,9 +324,9 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
       >
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-gray-800">Indent Details</h2>
+        <div className="flex items-start sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800">Indent Details</h2>
             <span className="bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded text-sm font-semibold">
               {complaint.indentNumber || complaint.id}
             </span>
@@ -346,7 +346,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
               {complaint.status}
             </span>
           </div>
-          <div className="flex items-center gap-2 no-print">
+          <div className="flex items-center gap-2 shrink-0 no-print">
             <button
               onClick={handlePrint}
               className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-full transition-colors"
@@ -364,7 +364,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
         </div>
 
         {/* Content Body - Scrollable */}
-        <div className="p-6 overflow-y-auto custom-scrollbar">
+        <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar">
 
           {/* Top Section: Basic Info & Timeline */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
@@ -541,7 +541,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                   <Wrench className="w-5 h-5" />
                   Material Usage Details
                 </h3>
-                <div className="overflow-hidden border border-emerald-100 rounded-xl bg-white shadow-sm">
+                <div className="overflow-x-auto border border-emerald-100 rounded-xl bg-white shadow-sm">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-emerald-50 text-emerald-800 font-bold border-b border-emerald-100">
                       <tr>

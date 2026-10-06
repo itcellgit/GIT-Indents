@@ -368,7 +368,7 @@ export default function UserManager({ users, onUserUpdate }) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+      <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center">
             <Users className="w-5 h-5 mr-2 text-indigo-600" />
@@ -376,7 +376,7 @@ export default function UserManager({ users, onUserUpdate }) {
           </h2>
         </div>
         
-        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 w-full xl:w-auto">
           
           <div className="relative" ref={filterRef}>
             <button 
@@ -492,14 +492,14 @@ export default function UserManager({ users, onUserUpdate }) {
           </div>
           <button 
             onClick={() => {setIsBulkUploadOpen(true); setBulkSuccess(''); setBulkError(''); setBulkFile(null);}}
-            className="bg-white text-indigo-700 hover:bg-indigo-50 px-4 py-2 rounded-lg font-medium text-sm flex items-center transition-colors border border-indigo-200 justify-center"
+            className="bg-white text-indigo-700 hover:bg-indigo-50 whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm flex items-center transition-colors border border-indigo-200 justify-center"
           >
             <UploadCloud className="w-4 h-4 mr-1.5" />
             Bulk Upload
           </button>
           <button 
             onClick={() => setIsAddUserOpen(true)}
-            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2 rounded-lg font-medium text-sm flex items-center transition-colors border border-indigo-200 justify-center"
+            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm flex items-center transition-colors border border-indigo-200 justify-center"
           >
             <Plus className="w-4 h-4 mr-1.5" />
             Add User

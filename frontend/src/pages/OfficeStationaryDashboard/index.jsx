@@ -266,23 +266,23 @@ export default function OfficeStationaryDashboard() {
       <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-20 shadow-sm no-print flex flex-col">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 w-full border-b border-slate-800/60">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain bg-white rounded-full p-0.5" />
-              <div className="bg-indigo-500 p-2 rounded-lg">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 shrink-0 object-contain bg-white rounded-full p-0.5" />
+              <div className="hidden sm:block shrink-0 bg-indigo-500 p-2 rounded-lg">
                 <Shield className="w-6 h-6 text-white" />
               </div>
-              <div className="hidden sm:block">
-                <h1 className="text-lg font-bold text-white leading-tight">Office Stationary Dashboard</h1>
-                <p className="text-xs text-indigo-300">Stationary request control panel</p>
+              <div className="hidden sm:block min-w-0">
+                <h1 className="text-lg font-bold text-white leading-tight truncate">Office Stationary Dashboard</h1>
+                <p className="text-xs text-indigo-300 truncate">Stationary request control panel</p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <RoleSwitcher />
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity animate-in" title="My Profile">
-                <span className="text-sm font-medium text-slate-300">{user?.name || 'Office Stationary'}</span>
-                <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 cursor-pointer">
+                <span className="hidden md:inline text-sm font-medium text-slate-300">{user?.name || 'Office Stationary'}</span>
+                <div className="h-9 w-9 shrink-0 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 cursor-pointer">
                   <User className="h-4 w-4 text-slate-300" />
                 </div>
               </Link>
@@ -314,12 +314,12 @@ export default function OfficeStationaryDashboard() {
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl w-full sm:w-fit sticky top-20 z-30">
+          <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl w-full sm:w-fit min-w-0 max-w-full overflow-x-auto no-scrollbar sticky top-20 z-30">
             {sectionTabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
                   activeTab === tab
                     ? 'bg-white text-indigo-600 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'

@@ -228,25 +228,25 @@ export default function StationaryIndentCreate() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain" />
-              <Wrench className="w-8 h-8 text-indigo-600" />
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 hidden sm:block">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logo} alt="KLS GIT Logo" className="h-10 w-10 object-contain shrink-0" />
+              <Wrench className="w-8 h-8 text-indigo-600 hidden sm:block" />
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 hidden sm:block truncate">
                 Digital Maintenance System
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-1 sm:gap-3 shrink-0">
               <NotificationBell />
               <Link to="/profile" className="flex items-center space-x-2 hover:opacity-80 transition-opacity" title="My Profile">
-                <span className="text-sm font-medium text-slate-600">Welcome, {user?.name || 'Stationary Coordinator'}</span>
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200 shadow-sm cursor-pointer">
+                <span className="hidden lg:inline text-sm font-medium text-slate-600">Welcome, {user?.name || 'Stationary Coordinator'}</span>
+                <div className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200 shadow-sm cursor-pointer">
                   <User className="h-5 w-5 text-indigo-600" />
                 </div>
               </Link>
               <button onClick={() => setIsChangePasswordOpen(true)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Change Password">
                 <KeyRound className="w-5 h-5" />
               </button>
-              <button onClick={logout} className="ml-1 p-2 text-slate-400 hover:text-red-500 transition-colors" title="Logout">
+              <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Logout">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>

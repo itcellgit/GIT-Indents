@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { XCircle, Clock, CheckCircle, Save, Plus, Trash2, Wrench } from 'lucide-react';
-import api from '../../api/axios';
+import api, { getUploadUrl } from '../../api/axios';
 
 const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint, refreshData }) => {
   const [workers, setWorkers] = useState(
@@ -17,7 +17,6 @@ const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint,
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!selectedComplaint) return null;
-  const baseUrl = api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api\/?$/, '') : '';
 
   const handleAddMaterial = () => {
     setMaterials([...materials, { itemName: '', quantity: '', approximatelyAmount: '' }]);
@@ -93,7 +92,7 @@ const MaintainerIndentDetailsModal = ({ selectedComplaint, setSelectedComplaint,
                 <div className="mt-4">
                   <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Attached Image</h4>
                   <img 
-                    src={`${baseUrl}${selectedComplaint.imagePath}`} 
+                    src={getUploadUrl(selectedComplaint.imagePath)} 
                     alt="Complaint Attachment" 
                     className="max-w-full h-auto rounded-lg border border-slate-200 shadow-sm"
                     style={{ maxHeight: '200px', objectFit: 'contain' }}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { XCircle, Clock, CheckCircle } from 'lucide-react';
-import api from '../../api/axios';
+import { getUploadUrl } from '../../api/axios';
 import { formatDateTime } from '../../utils/formatDate';
 import { getCompletionHours, formatDuration } from '../../utils/completionTime';
 
@@ -8,7 +8,6 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
   if (!selectedComplaint) return null;
 
   // Determine the base URL for images
-  const baseUrl = api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api\/?$/, '') : '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -38,7 +37,7 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
                 <div className="mt-4">
                   <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Attached Image</h4>
                   <img 
-                    src={`${baseUrl}${selectedComplaint.imagePath}`} 
+                    src={getUploadUrl(selectedComplaint.imagePath)} 
                     alt="Complaint Attachment" 
                     className="max-w-full h-auto rounded-lg border border-slate-200 shadow-sm"
                     style={{ maxHeight: '300px', objectFit: 'contain' }}
@@ -137,7 +136,7 @@ const IndentDetailsModal = ({ selectedComplaint, setSelectedComplaint }) => {
                           <td className="px-4 py-2 text-slate-600">
                             {m.materialQuotation ? (
                               <a
-                                href={m.materialQuotation.startsWith('http') ? m.materialQuotation : `${baseUrl}${m.materialQuotation}`}
+                                href={getUploadUrl(m.materialQuotation)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium"

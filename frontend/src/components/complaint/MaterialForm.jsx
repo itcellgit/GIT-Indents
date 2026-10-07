@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { BACKEND_BASE_URL } from '../../api/axios';
+import { getUploadUrl } from '../../api/axios';
 
 const MaterialForm = ({ materials, setMaterials }) => {
   
@@ -116,7 +116,7 @@ const MaterialForm = ({ materials, setMaterials }) => {
                       <a
                         href={row.materialQuotation.startsWith('http')
                           ? row.materialQuotation
-                          : `${BACKEND_BASE_URL}${row.materialQuotation}`}
+                          : getUploadUrl(row.materialQuotation)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-1 block text-xs text-emerald-600 hover:text-emerald-800 hover:underline truncate"

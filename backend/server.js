@@ -39,7 +39,13 @@ const path = require('path');
 
 // --- SERVE UPLOADED FILES ---
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-app.use(`/${uploadDir}`, express.static(path.join(__dirname, uploadDir)));
+const serveUploads = express.static(path.join(__dirname, uploadDir));
+app.use(`/${uploadDir}`, serveUploads);
+// Same files under /api/<uploadDir>: the HTTPS reverse proxy (indents.git.edu)
+// only forwards /api/* to this process and serves the SPA's index.html for
+// every other path, so a bare /uploads/... link opened there rendered a blank
+// page. Mounted before the /api rate limiter so file views don't count toward it.
+app.use(`/api/${uploadDir}`, serveUploads);
 
 // Database connection is managed by Prisma Client in the controllers
 

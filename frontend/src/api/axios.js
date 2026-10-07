@@ -22,6 +22,16 @@ const inferBackendOrigin = () => {
 export const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || inferBackendOrigin();
 export const API_BASE_URL = import.meta.env.VITE_API_URL || `${BACKEND_BASE_URL}/api`;
 
+// Uploaded files are stored as "/uploads/<file>". Link to them through the API
+// prefix (backend serves them at /api/uploads too): the HTTPS reverse proxy only
+// forwards /api/* to the backend, so "<origin>/uploads/..." returned the SPA's
+// index.html there and opened as a blank page.
+export const getUploadUrl = (filePath) => {
+  if (!filePath) return '';
+  if (/^(https?:|blob:|data:)/i.test(filePath)) return filePath;
+  return `${API_BASE_URL.replace(/\/$/, '')}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL, // Backend base URL
   withCredentials: true, // Necessary to send and receive HttpOnly cookies securely

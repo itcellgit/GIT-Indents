@@ -5,7 +5,7 @@ import { ArrowLeft, Plus, XCircle, User, LogOut, KeyRound, Pencil, Trash2, Chevr
 import NotificationBell from '../../../components/NotificationBell';
 import ChangePasswordModal from '../../../components/ChangePasswordModal';
 import { TimeInput12h } from '../../../components/TimeInput12h';
-import api, { BACKEND_BASE_URL } from '../../../api/axios';
+import api, { getUploadUrl } from '../../../api/axios';
 import logo from '../../../assets/logo.png';
 import { ROLES, ROLE_DASHBOARDS } from '../../../constants/roles';
 import { formatDate } from '../../../utils/formatDate';
@@ -1276,7 +1276,7 @@ export default function BusBookingsPage() {
                     </span>
                   ) : bookingForm.attachment_path ? (
                     <a
-                      href={`${BACKEND_BASE_URL}${bookingForm.attachment_path}`}
+                      href={getUploadUrl(bookingForm.attachment_path)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 hover:underline"
@@ -1370,7 +1370,7 @@ export default function BusBookingsPage() {
                         <td className="px-4 py-4 text-sm text-slate-700">
                           {booking.attachment_path ? (
                             <a
-                              href={`${BACKEND_BASE_URL}${booking.attachment_path}`}
+                              href={getUploadUrl(booking.attachment_path)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-700 hover:underline"

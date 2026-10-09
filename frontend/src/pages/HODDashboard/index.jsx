@@ -206,6 +206,7 @@ const HODDashboard = () => {
 
   const handleUpdateStatus = async (id, updateData) => {
     try {
+      const isEpmcLogin = String(user?.email || '').toLowerCase() === 'epmc@git.edu';
       const materialsUsed = Array.isArray(updateData.materialsUsed) ? updateData.materialsUsed : null;
       const hasMaterialFiles = Boolean(materialsUsed && materialsUsed.some(material => material?.materialQuotationFile));
 
@@ -213,6 +214,31 @@ const HODDashboard = () => {
       if (payload.worker) {
         payload.assignedWorkerNames = payload.worker.split(',').map(n => n.trim());
         delete payload.worker;
+      }
+
+      if (updateData.completeWork && (user?.role === ROLES.MAINTAINER || isEpmcLogin)) {
+        const formData = new FormData();
+        formData.append('assignedWorkerNames', JSON.stringify(updateData.assignedWorkerNames || []));
+        formData.append('materialsUsed', JSON.stringify(updateData.materialsUsed || []));
+        if (updateData.durationRequiredHours !== undefined && updateData.durationRequiredHours !== null) {
+          formData.append('durationRequiredHours', String(updateData.durationRequiredHours));
+        }
+        if (updateData.reasonForDelayedWork !== undefined) {
+          formData.append('reasonForDelayedWork', updateData.reasonForDelayedWork || '');
+        }
+        if (updateData.remarksByIncharge !== undefined) {
+          formData.append('remarksByIncharge', updateData.remarksByIncharge || '');
+        }
+        if (updateData.remarksByCoordinator !== undefined) {
+          formData.append('remarksByCoordinator', updateData.remarksByCoordinator || '');
+        }
+        if (updateData.completionImage) {
+          formData.append('completionImage', updateData.completionImage);
+        }
+
+        const res = await api.put(`/maintainer/complaints/${id}/complete`, formData);
+        updateIndentList(res.data.complaint);
+        return;
       }
 
       if (hasMaterialFiles) {

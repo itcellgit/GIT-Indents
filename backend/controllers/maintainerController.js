@@ -260,7 +260,8 @@ const completeIndent = async (req, res) => {
       return res.status(404).json({ message: 'Indent not found' });
     }
 
-    if (indent.maintainerId !== req.user.id && !(indent.maintainerIds || []).includes(req.user.id)) {
+    const isEpmcLogin = String(req.user?.email || '').toLowerCase() === 'epmc@git.edu';
+    if (!isEpmcLogin && indent.maintainerId !== req.user.id && !(indent.maintainerIds || []).includes(req.user.id)) {
       return res.status(403).json({ message: 'Forbidden: You are not assigned to this indent.' });
     }
 

@@ -57,7 +57,9 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
   // Check if current user is the Maintainer
   const isMaintainer = user && user.role === ROLES.MAINTAINER && (complaint.maintainerId === user.id || (Array.isArray(complaint.maintainerIds) && complaint.maintainerIds.includes(user.id)));
 
-  // Check if current user is any Maintainer acting on the Approval Queue (not necessarily assigned to this indent)
+  // Check if current user can use the completion-photo flow
+  const isEpmcLogin = String(user?.email || '').toLowerCase() === 'epmc@git.edu';
+  const canUploadCompletionPhoto = user && (user.role === ROLES.MAINTAINER || isEpmcLogin);
   const isMaintainerRole = user && user.role === ROLES.MAINTAINER;
   const APPROVAL_QUEUE_STATUSES = ['Indent Created', 'Approved by Dept HOD', 'Rejected by Maintenance HOD', 'Rejected by Dept HOD', 'Approved by Principal', 'Rejected by Principal'];
 
@@ -732,7 +734,7 @@ const ComplaintDetails = ({ complaint, onClose, onUpdateStatus, onResolve }) => 
                 >
                   {(isIncharge && complaint.status === 'Approved by Maintenance HOD') ? 'Finalize Assignment & Save' : 'Save All Progress'}
                 </button>
-                {isMaintainer && (complaint.status === 'In Progress' || complaint.status === 'Approved by Maintenance HOD') && !complaint.isMaintainerCompleted && (
+                {canUploadCompletionPhoto && (complaint.status === 'In Progress' || complaint.status === 'Approved by Maintenance HOD') && !complaint.isMaintainerCompleted && (
                   <div className="flex flex-col items-end gap-2">
                     <label className="text-xs font-semibold text-slate-600">Upload Completion Photo (Optional)</label>
                     <input

@@ -70,7 +70,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/hod-dashboard" element={
-            <ProtectedRoute allowedRoles={[ROLES.HOD, ROLES.FACILITY_PROVIDER]}>
+            <ProtectedRoute allowedRoles={[ROLES.HOD, ROLES.FACILITY_PROVIDER, ROLES.EPMC_FACILITY_PROVIDER]}>
               <HODDashboard />
             </ProtectedRoute>
           } />
@@ -80,7 +80,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/maintainer-dashboard" element={
-            <ProtectedRoute allowedRoles={[ROLES.MAINTAINER]}>
+            <ProtectedRoute allowedRoles={[ROLES.MAINTAINER, ROLES.EPMC_FACILITY_PROVIDER]}>
               <MaintainerDashboard />
             </ProtectedRoute>
           } />

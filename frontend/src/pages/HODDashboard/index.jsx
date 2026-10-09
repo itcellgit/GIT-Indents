@@ -392,36 +392,36 @@ const HODDashboard = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 no-print">
         
         {/* Statistics and Action Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-xl mb-8 w-full sm:w-fit min-w-0 max-w-full overflow-x-auto no-scrollbar sticky top-20 z-30">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-3">
+        <div className="flex flex-nowrap gap-1 bg-gray-200/50 p-1 rounded-xl w-full min-w-0 overflow-hidden sticky top-20 z-30 lg:flex-1">
           {isCategoryIncharge && (
             <button
               onClick={() => setActiveTab('approvals')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'approvals' 
                   ? 'bg-white text-indigo-600 shadow-sm' 
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
               }`}
             >
-              Approval Queue ({approvalRequests.length})
+              Approvals ({approvalRequests.length})
             </button>
           )}
           {isCategoryIncharge && (
             <button
               onClick={() => setActiveTab('department')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'department'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
               }`}
             >
-              Maintenance Queue ({activeMaintenanceCount})
+              Maintenance ({activeMaintenanceCount})
             </button>
           )}
           {user?.role === ROLES.HOD && (
             <button
               onClick={() => setActiveTab('deptTrack')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'deptTrack' 
                   ? 'bg-white text-indigo-600 shadow-sm' 
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -433,28 +433,28 @@ const HODDashboard = () => {
           {user?.role === ROLES.HOD && hasDeptFacilityProvider && (
             <button
               onClick={() => setActiveTab('deptFacilityProviders')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'deptFacilityProviders'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
               }`}
             >
-              Indents Raised for Dept({deptFacilityProviderIndents.length})
+              Dept Indents ({deptFacilityProviderIndents.length})
             </button>
           )}
           <button
             onClick={() => setActiveTab('myRaised')}
-            className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
               activeTab === 'myRaised' 
                 ? 'bg-white text-indigo-600 shadow-sm' 
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
             }`}
           >
-            My Raised Indents
+            My Indents
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
               activeTab === 'analytics'
                 ? 'bg-white text-indigo-600 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -465,19 +465,19 @@ const HODDashboard = () => {
           {user?.role === ROLES.FACILITY_PROVIDER && (
             <button
               onClick={() => setActiveTab('maintainers')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'maintainers'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
               }`}
             >
-              Manage Maintainers
+              Maintainers
             </button>
           )}
           {!isFacilityProvider && (
             <button
               onClick={() => setActiveTab('coordinatorStaffs')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'coordinatorStaffs'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -489,7 +489,7 @@ const HODDashboard = () => {
           {user?.role === ROLES.HOD && (
             <button
               onClick={() => setActiveTab('stationaryIndents')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'stationaryIndents'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -501,7 +501,7 @@ const HODDashboard = () => {
           {isLibraryHod && (
             <button
               onClick={() => setActiveTab('branches')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'branches'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -513,17 +513,17 @@ const HODDashboard = () => {
           {isLibraryHod && (
             <button
               onClick={() => setActiveTab('bookIndents')}
-              className={`shrink-0 whitespace-nowrap px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              className={`shrink-0 whitespace-nowrap px-2.5 sm:px-4 py-2 rounded-lg text-xs lg:text-sm font-bold transition-all ${
                 activeTab === 'bookIndents'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
               }`}
             >
-              Book Indents
+              Books
             </button>
           )}
         </div>
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0 lg:justify-end lg:ml-auto">
             {!isFacilityProvider && (
               <div className="relative" ref={bookingMenuRef}>
                 <button

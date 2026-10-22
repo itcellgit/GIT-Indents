@@ -603,8 +603,9 @@ const sendBusBookingStatusNotification = async (booking, action) => {
     TRANSPORT_EMAIL,
     ...BUS_BOOKING_EMAILS,
     String(booking.booked_by_email || '').trim().toLowerCase(),
-    ...(Array.isArray(booking.drivers) ? booking.drivers.map((driver) => String(driver.email || '').trim().toLowerCase()) : []),
-    String(booking.driver_email || '').trim().toLowerCase(),
+    // Driver email notifications are intentionally disabled.
+    // ...(Array.isArray(booking.drivers) ? booking.drivers.map((driver) => String(driver.email || '').trim().toLowerCase()) : []),
+    // String(booking.driver_email || '').trim().toLowerCase(),
   ].filter(isValidEmail))];
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';

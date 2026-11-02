@@ -69,8 +69,12 @@ const claimPeriod = async (key) => {
   return rows.length > 0;
 };
 
+const isEnabled = () => process.env.MONTHLY_REPORT_ENABLED !== 'false';
+
 const checkAndSendMonthlyReport = async () => {
   try {
+    // Also guards `sendMonthlyReport.js --auto` (cron), not just the in-process timer.
+    if (!isEnabled()) return;
     const now = new Date();
     if (now.getDate() === 1 && now.getHours() < SEND_HOUR) return;
 
@@ -106,7 +110,7 @@ const checkAndSendMonthlyReport = async () => {
 };
 
 const startMonthlyReportScheduler = () => {
-  if (process.env.MONTHLY_REPORT_ENABLED === 'false') {
+  if (!isEnabled()) {
     console.log('Monthly indent report email is disabled (MONTHLY_REPORT_ENABLED=false).');
     return;
   }

@@ -192,3 +192,7 @@ app.listen(PORT, HOST, () => {
 
 const { startPendingRegistrationCleanup } = require('./utils/cleanupPendingRegistrations');
 startPendingRegistrationCleanup();
+
+// Emails the previous month's indent statistics to the Principal on the 1st.
+const { startMonthlyReportScheduler } = require('./utils/monthlyReportScheduler');
+startMonthlyReportScheduler();

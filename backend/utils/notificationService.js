@@ -304,6 +304,8 @@ module.exports = {
   sendNotification,
   sendRoleNotification,
   sendEmailNotificationToRecipients,
+  sendEmailSafely,
+  getUsersByRole,
   escapeHtml,
   formatEmailDate,
   formatEmailTime,

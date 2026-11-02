@@ -4,3 +4,6 @@ uploads/*
 !uploads/.gitkeep
 
 /generated/prisma
+
+# Monthly report previews (node sendMonthlyReport.js)
+monthly-report-*.html

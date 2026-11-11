@@ -38,9 +38,24 @@ const formatEmailDate = (value) => {
 
 const formatEmailTime = (value) => {
   if (!value) return 'N/A';
-  // Plain "HH:MM[:SS]" strings (Postgres TIME columns) aren't valid Date
-  // input on their own, so anchor them to an arbitrary date first.
-  const date = /^\d{1,2}:\d{2}/.test(String(value)) ? new Date(`2000-01-01T${value}`) : new Date(value);
+  // Postgres TIME columns (bus/vehicle booking start/end) are a wall-clock time
+  // with no timezone. Prisma raw queries return them as
+  // Date('1970-01-01THH:MM:SSZ'), i.e. the booked time sits in the UTC fields;
+  // formatting that in the process timezone (IST) shifted a 9:00 AM booking to
+  // 2:30 PM in emails. Read the clock time as-is instead (same as the frontend's
+  // toTimeLocalValue), so the result doesn't depend on any server timezone.
+  const timeOnly = /^(\d{1,2}):(\d{2})/.exec(String(value));
+  const isPrismaTime = value instanceof Date && !Number.isNaN(value.getTime())
+    && value.toISOString().startsWith('1970-01-01T');
+  if (timeOnly || isPrismaTime) {
+    const hours = timeOnly ? Number(timeOnly[1]) : value.getUTCHours();
+    const minutes = timeOnly ? Number(timeOnly[2]) : value.getUTCMinutes();
+    return new Date(Date.UTC(2000, 0, 1, hours, minutes))
+      .toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true, timeZone: 'UTC' });
+  }
+
+  // A real point in time (e.g. hall booking TIMESTAMPs via formatEmailDateTime).
+  const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'N/A';
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
 };

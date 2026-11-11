@@ -266,6 +266,8 @@ const createBusBooking = async (req, res) => {
         `Destination: ${escapeHtml(createdBooking.destination || 'N/A')}`,
         `Start Date: ${formatEmailDate(createdBooking.start_date)}`,
         `End Date: ${formatEmailDate(createdBooking.end_date)}`,
+        `Start Time: ${formatEmailTime(createdBooking.start_time)}`,
+        `End Time: ${formatEmailTime(createdBooking.end_time)}`,
       ].join('<br>');
 
       await sendEmailNotificationToRecipients({

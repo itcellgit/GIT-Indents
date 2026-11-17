@@ -27,7 +27,8 @@ export const departments = [
   { name: 'Sports', shortName: 'Spor' },
   { name: 'Vehicle Maintenance', shortName: 'Veh' },
   { name: 'Design & Maintenance Cell', shortName: 'DMC' },
-  { name: 'Transportation', shortName: 'TRANS' }
+  { name: 'Transportation', shortName: 'TRANS' },
+  { name: 'GRID INNOVATION', shortName: 'GRID' }
   
 ];
 

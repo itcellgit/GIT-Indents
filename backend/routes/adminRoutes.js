@@ -12,6 +12,7 @@ const {
   deleteStationary,
   getMonthlyReport,
   toggleUserStatus,
+  resetUserPassword,
   getSystemStats,
   getAllUsers,
   getAllRoles,
@@ -61,6 +62,9 @@ router.post('/users', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), createUs
 router.put('/users/:id', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), updateUser);
 router.post('/users/bulk', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), bulkCreateUsers);
 router.put('/users/:id/status', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), toggleUserStatus);
+// Admin-only (unlike the user edit routes above): issues a temporary password
+// the user must replace at next login.
+router.post('/users/:id/reset-password', protect, authorize(ROLES.ADMIN), resetUserPassword);
 router.get('/complaints', protect, authorize(ROLES.ADMIN), getAllComplaints);
 router.get('/users/search', protect, authorize(ROLES.ADMIN), searchUsers);
 router.post('/departments', protect, authorize(ROLES.ADMIN), createDepartment);

@@ -4,9 +4,15 @@ import api from '../api/axios';
 
 const initialForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
 
-const ChangePasswordModal = ({ onClose }) => {
+// Mirrors backend/utils/passwordPolicy.js so the user sees the rule before submitting.
+const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+const PASSWORD_POLICY_MESSAGE = 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number.';
+
+// `forced`: shown after an admin password reset. No way to dismiss it; the only
+// exits are setting a new password (onSuccess) or logging out (onLogout).
+const ChangePasswordModal = ({ onClose, forced = false, onSuccess, onLogout }) => {
   const [formData, setFormData] = useState(initialForm);
-  const [showPasswords, setShowPasswords] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState({});
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -15,13 +21,17 @@ const ChangePasswordModal = ({ onClose }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const togglePasswordVisibility = (field) => {
+    setVisiblePasswords((current) => ({ ...current, [field]: !current[field] }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
 
-    if (formData.newPassword.length < 6) {
-      setError('New password must be at least 6 characters long.');
+    if (!PASSWORD_POLICY_REGEX.test(formData.newPassword)) {
+      setError(PASSWORD_POLICY_MESSAGE);
       return;
     }
     if (formData.newPassword !== formData.confirmPassword) {
@@ -38,9 +48,11 @@ const ChangePasswordModal = ({ onClose }) => {
       if (res.data.success) {
         setMessage('Password changed successfully!');
         setFormData(initialForm);
+        if (onSuccess) await onSuccess();
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to change password. Please try again.');
+      // express-validator failures arrive as { errors: [{ msg }] }, not { message }.
+      setError(err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || 'Failed to change password. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -54,17 +66,25 @@ const ChangePasswordModal = ({ onClose }) => {
             <div className="bg-indigo-100 p-2 rounded-lg">
               <KeyRound className="w-5 h-5 text-indigo-600" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Change Password</h3>
+            <h3 className="text-lg font-bold text-slate-800">{forced ? 'Set a New Password' : 'Change Password'}</h3>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors p-1"
-          >
-            <XCircle className="w-6 h-6" />
-          </button>
+          {!forced && (
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {forced && !message && (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <span>Your password was reset by the administrator. Enter the temporary password you were given, then choose your own password to continue.</span>
+            </div>
+          )}
           {message && (
             <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg text-sm font-medium animate-in fade-in duration-200">
               <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -84,14 +104,23 @@ const ChangePasswordModal = ({ onClose }) => {
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" />
               <input
-                type={showPasswords ? 'text' : 'password'}
+                type={visiblePasswords.currentPassword ? 'text' : 'password'}
                 name="currentPassword"
                 required
                 value={formData.currentPassword}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Enter current password"
+                className="w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder={forced ? 'Enter the temporary password' : 'Enter current password'}
               />
+              <button
+                type="button"
+                onClick={() => togglePasswordVisibility('currentPassword')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                aria-label={visiblePasswords.currentPassword ? 'Hide current password' : 'Show current password'}
+                aria-pressed={!!visiblePasswords.currentPassword}
+              >
+                {visiblePasswords.currentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -100,15 +129,24 @@ const ChangePasswordModal = ({ onClose }) => {
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" />
               <input
-                type={showPasswords ? 'text' : 'password'}
+                type={visiblePasswords.newPassword ? 'text' : 'password'}
                 name="newPassword"
                 required
-                minLength={6}
+                minLength={8}
                 value={formData.newPassword}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Enter new password (min. 6 characters)"
+                className="w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Min. 8 characters, with A-Z, a-z and 0-9"
               />
+              <button
+                type="button"
+                onClick={() => togglePasswordVisibility('newPassword')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                aria-label={visiblePasswords.newPassword ? 'Hide new password' : 'Show new password'}
+                aria-pressed={!!visiblePasswords.newPassword}
+              >
+                {visiblePasswords.newPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -117,34 +155,34 @@ const ChangePasswordModal = ({ onClose }) => {
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" />
               <input
-                type={showPasswords ? 'text' : 'password'}
+                type={visiblePasswords.confirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 required
-                minLength={6}
+                minLength={8}
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="Re-enter new password"
               />
+              <button
+                type="button"
+                onClick={() => togglePasswordVisibility('confirmPassword')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                aria-label={visiblePasswords.confirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
+                aria-pressed={!!visiblePasswords.confirmPassword}
+              >
+                {visiblePasswords.confirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setShowPasswords(!showPasswords)}
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
-          >
-            {showPasswords ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            {showPasswords ? 'Hide passwords' : 'Show passwords'}
-          </button>
 
           <div className="pt-2 flex justify-end space-x-3 border-t border-slate-200 mt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={forced ? onLogout : onClose}
               className="px-5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors"
             >
-              Close
+              {forced ? 'Log out' : 'Close'}
             </button>
             <button
               type="submit"

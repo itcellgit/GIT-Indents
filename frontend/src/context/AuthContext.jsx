@@ -33,6 +33,25 @@ export const AuthProvider = ({ children }) => {
     axios.defaults.withCredentials = true; // Ensure cookies are sent with requests
   }, []);
 
+  // A session that was already open when an admin reset this user's password
+  // still has mustChangePassword=false cached; the backend then answers every
+  // call with PASSWORD_CHANGE_REQUIRED. Flip the flag so ProtectedRoute swaps in
+  // the forced change-password screen instead of a dashboard full of errors.
+  useEffect(() => {
+    const interceptorId = api.interceptors.response.use(undefined, (error) => {
+      if (error.response?.status === 403 && error.response?.data?.code === 'PASSWORD_CHANGE_REQUIRED') {
+        setUser((prev) => {
+          if (!prev || prev.mustChangePassword) return prev;
+          const updated = { ...prev, mustChangePassword: true };
+          localStorage.setItem('user', JSON.stringify(updated));
+          return updated;
+        });
+      }
+      return Promise.reject(error);
+    });
+    return () => api.interceptors.response.eject(interceptorId);
+  }, []);
+
   // `replace` swaps identity cleanly (used when entering/leaving impersonation)
   // so fields from the previous identity don't bleed through the object merge.
   const login = (userData, { replace = false } = {}) => {

@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../prismaClient');
 const { ROLES } = require('../utils/roles');
 
+const PASSWORD_CHANGE_ALLOWED_PATHS = new Set(['/api/auth/me', '/api/auth/change-password']);
+
 // Protect routes
 const protect = async (req, res, next) => {
   let token;
@@ -31,6 +33,7 @@ const protect = async (req, res, next) => {
          u.email,
          u.department,
          u."isActive" AS "isActive",
+         u."mustChangePassword" AS "mustChangePassword",
          u."createdAt" AS "createdAt",
          u."updatedAt" AS "updatedAt",
          COALESCE(
@@ -100,6 +103,18 @@ const protect = async (req, res, next) => {
         adminName: session.admin_name || null,
       };
       req.user.impersonatorId = session.admin_id;
+    }
+
+    // After an Admin password reset the user holds a temporary password and may
+    // only load their identity and set a new password. Enforced here, not just in
+    // the UI, so the API can't be used with the temporary password. An admin
+    // impersonating the user is not blocked — they aren't the one who must change it.
+    if (req.user.mustChangePassword && !req.impersonation
+      && !PASSWORD_CHANGE_ALLOWED_PATHS.has(req.originalUrl.split('?')[0])) {
+      return res.status(403).json({
+        message: 'You must change your password before continuing.',
+        code: 'PASSWORD_CHANGE_REQUIRED',
+      });
     }
 
     next();

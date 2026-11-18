@@ -1,6 +1,7 @@
 // backend/controllers/adminController.js
 const prisma = require('../prismaClient');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { departments: departmentList } = require('../utils/departments');
 const { ROLES, ROLE_VALUES, normalizeRole } = require('../utils/roles');
 const { PASSWORD_POLICY_MESSAGE, isPasswordValid } = require('../utils/passwordPolicy');
@@ -1506,7 +1507,77 @@ const toggleUserStatus = async (req, res) => {
   }
 };
 
+// Temporary passwords skip look-alike characters (0/O, 1/l/I) since an admin
+// reads them out or writes them down for the user, and always include a lower,
+// upper and digit so they pass PASSWORD_POLICY_REGEX.
+const TEMP_PASSWORD_SETS = ['abcdefghjkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789'];
+const TEMP_PASSWORD_LENGTH = 10;
+
+const generateTemporaryPassword = () => {
+  const all = TEMP_PASSWORD_SETS.join('');
+  const pick = (set) => set[crypto.randomInt(set.length)];
+  const chars = TEMP_PASSWORD_SETS.map(pick);
+  while (chars.length < TEMP_PASSWORD_LENGTH) chars.push(pick(all));
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+};
+
+// @desc    Reset a user's password to a generated temporary one; the user must
+//          set their own password on next login (see mustChangePassword in protect)
+// @route   POST /api/admin/users/:id/reset-password
+// @access  Private/Admin
+const resetUserPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userRows = await prisma.$queryRawUnsafe(
+      `SELECT id, name, email FROM "User" WHERE id = $1 LIMIT 1`,
+      id
+    );
+    const user = userRows[0] || null;
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (req.user && req.user.id === id) {
+      return res.status(400).json({ message: 'Use Change Password to change your own password' });
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(temporaryPassword, salt);
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE "User"
+       SET password = $2,
+           "mustChangePassword" = true,
+           "resetPasswordOTP" = NULL,
+           "resetPasswordExpires" = NULL,
+           "resetPasswordAttempts" = 0,
+           "resetPasswordLockedUntil" = NULL,
+           "updatedAt" = NOW()
+       WHERE id = $1`,
+      id,
+      hashedPassword
+    );
+
+    // Returned once, to the admin who asked; only the bcrypt hash is stored.
+    res.json({
+      success: true,
+      temporaryPassword,
+      message: `Password reset for ${user.name}. They must set a new password at their next login.`,
+    });
+  } catch (err) {
+    console.error('Reset user password failed:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
+  resetUserPassword,
   getSystemStats,
   getAllUsers,
   getAllRoles,

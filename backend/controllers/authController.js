@@ -81,6 +81,7 @@ const getNormalizedAuthUser = async (id, activeRole = null, includePassword = fa
        ${includePassword ? 'u.password,' : ''}
        u.department,
        u."isActive" AS "isActive",
+       u."mustChangePassword" AS "mustChangePassword",
        COALESCE(
          (
            SELECT r.role_name
@@ -160,6 +161,7 @@ const sendTokenResponse = (req, user, statusCode, res, effectiveRole = null, ext
     role: roleToShow,
     roles: user.roles || [user.role].filter(Boolean),
     department: user.department,
+    mustChangePassword: Boolean(user.mustChangePassword),
     token,
     ...extraData
   });
@@ -608,6 +610,7 @@ const getMe = async (req, res) => {
       role: activeRole,
       roles: user.roles || [activeRole].filter(Boolean),
       isCoordinatorStaff,
+      mustChangePassword: Boolean(user.mustChangePassword),
       // So a page reload during impersonation re-hydrates the banner from the
       // (server-signed) token rather than trusting client-held state.
       impersonating: Boolean(req.impersonation),
@@ -743,6 +746,9 @@ const resetPassword = async (req, res) => {
         resetPasswordLockedUntil: null
       }
     });
+    // The user just chose this password themselves (via the emailed OTP), so an
+    // outstanding admin-reset "must change" requirement is satisfied too.
+    await prisma.$executeRawUnsafe(`UPDATE "User" SET "mustChangePassword" = false WHERE id = $1`, user.id);
 
     res.status(200).json({ message: 'Password reset successful' });
 
@@ -773,13 +779,20 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ message: 'Current password is incorrect' });
     }
 
+    // Matters most after an admin reset: re-entering the temporary password as
+    // the "new" one would otherwise satisfy the forced change.
+    if (newPassword === currentPassword) {
+      return res.status(400).json({ message: 'New password must be different from the current password' });
+    }
+
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { password: hashedPassword }
-    });
+    await prisma.$executeRawUnsafe(
+      `UPDATE "User" SET password = $2, "mustChangePassword" = false, "updatedAt" = NOW() WHERE id = $1`,
+      user.id,
+      hashedPassword
+    );
 
     res.status(200).json({ success: true, message: 'Password changed successfully' });
   } catch (error) {

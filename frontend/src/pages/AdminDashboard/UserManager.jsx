@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet, PencilLine, UserCog } from 'lucide-react';
+import { Users, ShieldBan, ShieldAlert, Plus, Loader2, Search, Filter, ChevronDown, ChevronLeft, ChevronRight, CheckSquare, Square, UploadCloud, Download, FileSpreadsheet, PencilLine, UserCog, KeyRound, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import api from '../../api/axios';
 import * as XLSX from 'xlsx';
 
@@ -46,6 +46,11 @@ export default function UserManager({ users, onUserUpdate }) {
   // UserManager is shared with the Principal dashboard; impersonation is Admin-only.
   const canImpersonate = currentUser?.role === ROLES.ADMIN;
   const [impersonatingId, setImpersonatingId] = useState(null);
+  // Password reset is Admin-only too (backend: POST /admin/users/:id/reset-password).
+  const canResetPassword = currentUser?.role === ROLES.ADMIN;
+  const [resettingPasswordId, setResettingPasswordId] = useState(null);
+  const [resetPasswordResult, setResetPasswordResult] = useState(null); // { name, email, password }
+  const [isPasswordCopied, setIsPasswordCopied] = useState(false);
 
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
@@ -59,6 +64,7 @@ export default function UserManager({ users, onUserUpdate }) {
   });
 
   const [addUserError, setAddUserError] = useState('');
+  const [showAddUserPassword, setShowAddUserPassword] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editUserData, setEditUserData] = useState({
     name: '', email: '', roles: [], roleIds: [], department: '', staff_phone_no: '', is_driver: false, password: ''
@@ -197,6 +203,49 @@ export default function UserManager({ users, onUserUpdate }) {
       alert(err.response?.data?.message || 'Failed to start impersonation');
     } finally {
       setImpersonatingId(null);
+    }
+  };
+
+  const handleResetPassword = async (targetUser) => {
+    if (!window.confirm(
+      `Reset the password for ${targetUser.name}?\n\nTheir current password will stop working. A temporary password will be generated, and they must set a new password the next time they log in.`
+    )) return;
+
+    try {
+      setResettingPasswordId(targetUser.id);
+      const res = await api.post(`/admin/users/${targetUser.id}/reset-password`);
+      if (res.data.success) {
+        setIsPasswordCopied(false);
+        setResetPasswordResult({ name: targetUser.name, email: targetUser.email, password: res.data.temporaryPassword });
+      }
+    } catch (err) {
+      console.error('Failed to reset password:', err);
+      alert(err.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setResettingPasswordId(null);
+    }
+  };
+
+  // navigator.clipboard only exists in secure contexts; the app is also used
+  // over plain-HTTP internal IP, so fall back to a temporary textarea there.
+  const copyTemporaryPassword = async () => {
+    const text = resetPasswordResult?.password || '';
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setIsPasswordCopied(true);
+    } catch (err) {
+      console.error('Copy failed:', err);
     }
   };
 
@@ -498,7 +547,7 @@ export default function UserManager({ users, onUserUpdate }) {
             Bulk Upload
           </button>
           <button 
-            onClick={() => setIsAddUserOpen(true)}
+            onClick={() => { setShowAddUserPassword(false); setIsAddUserOpen(true); }}
             className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm flex items-center transition-colors border border-indigo-200 justify-center"
           >
             <Plus className="w-4 h-4 mr-1.5" />
@@ -582,7 +631,21 @@ export default function UserManager({ users, onUserUpdate }) {
                   >
                     <PencilLine className="w-4 h-4" />
                   </button>
-                  <button 
+                  {canResetPassword && user.id !== currentUser?.id && (
+                    <button
+                      onClick={() => handleResetPassword(user)}
+                      disabled={resettingPasswordId === user.id}
+                      className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
+                      title="Reset Password"
+                    >
+                      {resettingPasswordId === user.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <KeyRound className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+                  <button
                     onClick={() => handleToggleStatus(user)}
                     disabled={loadingActionId === user.id}
                     className="p-1.5 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-50" 
@@ -680,7 +743,18 @@ export default function UserManager({ users, onUserUpdate }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                  <input name="password" value={addUserData.password} onChange={handleAddUserChange} type="password" placeholder="••••••••" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600" />
+                  <div className="relative">
+                    <input name="password" value={addUserData.password} onChange={handleAddUserChange} type={showAddUserPassword ? 'text' : 'password'} placeholder="••••••••" className="w-full border border-slate-300 rounded-lg pl-3 pr-10 py-2 text-sm focus:ring-2 focus:ring-indigo-600" />
+                    <button
+                      type="button"
+                      onClick={() => setShowAddUserPassword(prev => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                      aria-label={showAddUserPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showAddUserPassword}
+                    >
+                      {showAddUserPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div>
@@ -871,7 +945,12 @@ export default function UserManager({ users, onUserUpdate }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
-                  <input name="department" value={editUserData.department} onChange={handleEditUserChange} placeholder="Type to search..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600 bg-white" />
+                  <input list="admin-edit-departments-list" name="department" value={editUserData.department} onChange={handleEditUserChange} placeholder="Type to search..." className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-600 bg-white" />
+                  <datalist id="admin-edit-departments-list">
+                    {departments.map((dept) => (
+                      <option key={dept.name} value={dept.name} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
               {editUserData.department === 'Vehicle Maintenance' && (
@@ -891,6 +970,40 @@ export default function UserManager({ users, onUserUpdate }) {
               <button disabled={isSaving} onClick={handleEditUserSubmit} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resetPasswordResult && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800">Password Reset</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600">
+                Temporary password for <span className="font-semibold text-slate-800">{resetPasswordResult.name}</span>
+                {resetPasswordResult.email && <span className="text-slate-500"> ({resetPasswordResult.email})</span>}:
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 min-w-0 px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg text-lg font-mono tracking-wider text-slate-800 select-all break-all">
+                  {resetPasswordResult.password}
+                </code>
+                <button
+                  onClick={copyTemporaryPassword}
+                  className="shrink-0 p-3 text-slate-500 bg-white border border-slate-300 rounded-lg hover:text-indigo-600 hover:bg-slate-50"
+                  title="Copy password"
+                >
+                  {isPasswordCopied ? <Check className="w-5 h-5 text-emerald-600" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                Share this with the user securely. It is shown only once. They will be asked to set their own password when they log in with it.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button onClick={() => setResetPasswordResult(null)} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700">Done</button>
             </div>
           </div>
         </div>

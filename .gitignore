@@ -44,3 +44,5 @@ backend/uploads/*
 backend/generated/prisma
 
 reference-repo
+# Local database backups
+db_backups/

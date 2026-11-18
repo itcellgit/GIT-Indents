@@ -185,7 +185,17 @@ const getStationaryIndents = async (req, res) => {
 const createStationaryIndent = async (req, res) => {
   try {
     const { reason, items, departmentId } = req.body;
-    const effectiveDepartmentId = departmentId || req.user.id;
+    // The indent is owned by whoever raises it. Only an Admin may raise one on
+    // another user's behalf — otherwise a HOD could pass a staff member's id and
+    // create an auto-approved indent in their name.
+    const effectiveDepartmentId = (req.user.role === ROLES.ADMIN && departmentId) ? departmentId : req.user.id;
+
+    // A HOD is the approver for their department, so an indent they raise
+    // themselves needs no separate approval step: it starts as HOD Approved and
+    // goes straight to Office_Stationary.
+    const raisedByHod = req.user.role === ROLES.HOD && effectiveDepartmentId === req.user.id;
+    const initialStatus = raisedByHod ? STATUS.HOD_APPROVED : STATUS.PENDING;
+    const recordHodReview = raisedByHod && await hodColumnsSupported();
 
     if (!reason || !String(reason).trim()) {
       return res.status(400).json({ message: 'Reason is required' });
@@ -201,14 +211,26 @@ const createStationaryIndent = async (req, res) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const indentRows = await tx.$queryRawUnsafe(
-        `INSERT INTO public.dept_stationary_indents (department_id, reason, status, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW())
-         RETURNING id, department_id, reason, status, created_at, updated_at`,
-        effectiveDepartmentId,
-        String(reason).trim(),
-        STATUS.PENDING
-      );
+      const indentRows = recordHodReview
+        ? await tx.$queryRawUnsafe(
+          `INSERT INTO public.dept_stationary_indents
+           (department_id, reason, status, hod_remark, hod_reviewed_by, hod_reviewed_at, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), NOW())
+           RETURNING id, department_id, reason, status, created_at, updated_at`,
+          effectiveDepartmentId,
+          String(reason).trim(),
+          initialStatus,
+          'Auto-approved: raised by the HOD.',
+          req.user.id
+        )
+        : await tx.$queryRawUnsafe(
+          `INSERT INTO public.dept_stationary_indents (department_id, reason, status, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW())
+           RETURNING id, department_id, reason, status, created_at, updated_at`,
+          effectiveDepartmentId,
+          String(reason).trim(),
+          initialStatus
+        );
 
       const indent = indentRows[0];
 
@@ -226,11 +248,24 @@ const createStationaryIndent = async (req, res) => {
       return indent;
     });
 
-    await notifyDepartmentHods(
-      req.user.department,
-      req.user.id,
-      `A new stationary indent (#${Number(result.id)}) from your department is waiting for your approval.`
-    );
+    if (raisedByHod) {
+      try {
+        await sendRoleNotification({
+          roleName: ROLES.OFFICE_STATIONARY,
+          message: `Stationary indent #${Number(result.id)} has been raised and approved by the HOD and is ready to be processed.`,
+          subject: 'Stationary indent approved by HOD',
+          senderId: req.user.id
+        });
+      } catch (notifyError) {
+        console.error('Stationary HOD-raised notification failed:', notifyError.message);
+      }
+    } else {
+      await notifyDepartmentHods(
+        req.user.department,
+        req.user.id,
+        `A new stationary indent (#${Number(result.id)}) from your department is waiting for your approval.`
+      );
+    }
 
     const indents = await loadStationaryIndents('WHERE id = $1', [Number(result.id)]);
     res.status(201).json({ success: true, indent: indents[0] });

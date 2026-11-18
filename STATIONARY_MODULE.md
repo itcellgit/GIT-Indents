@@ -12,7 +12,7 @@ The Stationary Module lets departments request office stationery items and lets 
 | Role | What they can do |
 |---|---|
 | **Faculty / Non-Teaching** (only if designated **Stationary Coordinator** by their HOD) | Create, view, edit, delete requests for their account (only while still Pending); mark requests as received |
-| **HOD** | See every stationery request raised inside their own department and **approve or reject** it. Office_Stationary cannot grant a request until the HOD approves it. Rejection is final (a remark is required) — the coordinator must raise a fresh request. |
+| **HOD** | See every stationery request raised inside their own department and **approve or reject** it. Office_Stationary cannot grant a request until the HOD approves it. Rejection is final (a remark is required) — the coordinator must raise a fresh request. HODs can also **raise their own requests**, which are approved automatically on submission. |
 | **Office_Stationary** | Manage the stationery item catalog; grant HOD-approved requests from every department |
 
 Faculty and Non-Teaching users only see the **Stationary Indent** link on their dashboard once their HOD has added them as a Stationary Coordinator (via **Manage Coordinator Staffs** on the HOD dashboard, or by Admin via **Stationary Coordinator** management). Without that designation, the link and page are not available.
@@ -48,6 +48,16 @@ The department HOD opens the **Stationary Indents** tab on their dashboard, whic
 - **Reject** — a remark is mandatory; the request moves to **HOD Rejected** and is closed. The coordinator sees the remark and must raise a new request.
 
 Office_Stationary cannot enter grant quantities for a request that is still Pending or was Rejected.
+
+## HOD's Own Requests
+
+A HOD can raise a stationery request for themselves from the same **Stationary Indents** tab:
+
+1. Select **New Request**.
+2. Enter the reason and add one or more items with quantities.
+3. Select **Submit Request**.
+
+Because the HOD is the approver for their department, the request skips the approval step: it is saved directly as **HOD Approved** (remark: "Auto-approved: raised by the HOD.") and Office_Stationary is notified that it is ready to be processed. It appears in the list marked **You**. Once Office_Stationary records a granted quantity, the HOD opens the request and selects **Mark as received** to close it. Like any approved request, it can no longer be edited or deleted.
 
 ## How to Add Multiple Items
 
@@ -126,7 +136,7 @@ Each request may show:
 ## Common Status Labels
 
 - **Pending** — waiting for the department HOD to approve or reject.
-- **HOD Approved** — the HOD approved it; Office_Stationary can now grant quantities. Once any item has a granted quantity, the requester sees a **Mark as received** action while the label still reads HOD Approved until they use it.
+- **HOD Approved** — the HOD approved it (or raised it themselves); Office_Stationary can now grant quantities. Once any item has a granted quantity, the requester sees a **Mark as received** action while the label still reads HOD Approved until they use it.
 - **HOD Rejected** — the HOD rejected it (see the HOD remark). The request is closed; raise a new one.
 - **Received** — the requester has confirmed the items were handed over.
 

@@ -72,7 +72,8 @@ router.put('/departments/:id', protect, authorize(ROLES.ADMIN), updateDepartment
 // Principal also reads this to populate the department filter on System Reports
 // (ReportManager.jsx is shared between AdminDashboard and PrincipalDashboard).
 router.get('/departments', protect, authorize(ROLES.ADMIN, ROLES.PRINCIPAL), getDepartmentsAdmin);
-router.get('/stationaries', protect, authorize(...STATIONARY_CATALOG_ROLES), getAllStationaries);
+// HODs only read the catalog (to raise their own indents); they don't manage it.
+router.get('/stationaries', protect, authorize(...STATIONARY_CATALOG_ROLES, ROLES.HOD), getAllStationaries);
 router.post('/stationaries', protect, authorize(...STATIONARY_CATALOG_ROLES), createStationary);
 router.put('/stationaries/:id', protect, authorize(...STATIONARY_CATALOG_ROLES), updateStationary);
 router.delete('/stationaries/:id', protect, authorize(...STATIONARY_CATALOG_ROLES), deleteStationary);

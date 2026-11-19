@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { carriedOverYear } from '../../utils/useYearFilter';
 import { Eye, FileText } from 'lucide-react';
 import { getCompletionHours, formatDuration, getAverageCompletion } from '../../utils/completionTime';
 
@@ -15,7 +16,8 @@ const STATUS_COLORS = {
   "Pending": "bg-yellow-100 text-yellow-800 border-yellow-200"
 };
 
-const IndentTable = ({ filteredComplaints, setSelectedComplaint, showAverageBanner = true }) => {
+// selectedYear: rows raised outside it (open indents carried over) get a small year tag.
+const IndentTable = ({ filteredComplaints, setSelectedComplaint, showAverageBanner = true, selectedYear = 'All' }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
@@ -63,6 +65,11 @@ const IndentTable = ({ filteredComplaints, setSelectedComplaint, showAverageBann
             >
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className="font-medium text-indigo-600 block">{complaint.indentNumber || complaint.id}</span>
+                {carriedOverYear(complaint, selectedYear) && (
+                  <span className="mt-1 inline-block rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700" title="Raised in an earlier year and still open">
+                    {carriedOverYear(complaint, selectedYear)}
+                  </span>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                 {complaint.isrNo || '-'}

@@ -49,6 +49,10 @@ The department HOD opens the **Stationary Indents** tab on their dashboard, whic
 
 Office_Stationary cannot enter grant quantities for a request that is still Pending or was Rejected.
 
+### IT Cell (no HOD) — Admin approval
+
+IT Cell has no HOD, so the **Admin** is its approver. New IT Cell requests notify every Admin, and the Admin reviews them from the **IT Cell Stationary** tab on the Admin dashboard (same Approve / Reject flow, remark required to reject). An Admin whose own department is IT Cell can also raise a request from that tab with **New Request**; like a HOD's own request it is auto-approved ("Auto-approved: raised by the Admin.") and goes straight to Office_Stationary. The backend lets Admin review **only** IT Cell indents; every other department is still reviewed by its own HOD.
+
 ## HOD's Own Requests
 
 A HOD can raise a stationery request for themselves from the same **Stationary Indents** tab:

@@ -7,6 +7,8 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { getAverageCompletion } from '../../utils/completionTime';
 import StatsCards from './StatsCards';
+import YearFilter from '../../components/YearFilter';
+import useYearFilter, { withOpenCarryOver } from '../../utils/useYearFilter';
 import IndentTable from './IndentTable';
 import RaiseIndentModal from '../../components/RaiseIndentModal';
 import IndentDetailsModal from './IndentDetailsModal';
@@ -35,18 +37,21 @@ export default function FacultyDashboard() {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
-  // Computed from the unfiltered list so the card keeps its value when a status filter is selected.
-  const avgCompletion = React.useMemo(() => getAverageCompletion(complaints), [complaints]);
+  // Stats, average and list cover the selected year (current year by default).
+  const { year, setYear, yearOptions, yearItems: yearComplaints } = useYearFilter(complaints);
+
+  // Computed from the year's list (not the status filter) so the card keeps its value when a status filter is selected.
+  const avgCompletion = React.useMemo(() => getAverageCompletion(yearComplaints), [yearComplaints]);
 
   const statsCounts = React.useMemo(() => {
     return {
-      "Total Indents": complaints.length,
-      "Indent Created": complaints.filter(c => c.status === 'Indent Created').length,
-      "Approved": complaints.filter(c => c.status === 'Approved by Dept HOD' || c.status === 'Approved by Principal').length,
-      "In Progress": complaints.filter(c => c.status === 'Approved by Maintenance HOD' || c.status === 'In Progress').length,
-      "Completed": complaints.filter(c => c.status === 'Completed').length,
+      "Total Indents": yearComplaints.length,
+      "Indent Created": yearComplaints.filter(c => c.status === 'Indent Created').length,
+      "Approved": yearComplaints.filter(c => c.status === 'Approved by Dept HOD' || c.status === 'Approved by Principal').length,
+      "In Progress": yearComplaints.filter(c => c.status === 'Approved by Maintenance HOD' || c.status === 'In Progress').length,
+      "Completed": yearComplaints.filter(c => c.status === 'Completed').length,
     };
-  }, [complaints]);
+  }, [yearComplaints]);
 
   // Fetch from secure backend
   useEffect(() => {
@@ -76,7 +81,10 @@ export default function FacultyDashboard() {
     image: null
   });
 
-  const filteredComplaints = complaints.filter(c => {
+  // The table is a work list: the year's indents plus older ones still open (boxes stay year-only).
+  const tableComplaints = React.useMemo(() => withOpenCarryOver(complaints, year), [complaints, year]);
+
+  const filteredComplaints = tableComplaints.filter(c => {
     const idMatch = c.indentNumber ? c.indentNumber.toLowerCase().includes(searchTerm.toLowerCase()) : false;
     const locMatch = c.location ? c.location.toLowerCase().includes(searchTerm.toLowerCase()) : false;
     const descMatch = c.description ? c.description.toLowerCase().includes(searchTerm.toLowerCase()) : false;
@@ -224,6 +232,9 @@ export default function FacultyDashboard() {
         </div>
 
         {/* Dashboard Summary Cards */}
+        <div className="flex justify-end">
+          <YearFilter value={year} onChange={setYear} options={yearOptions} />
+        </div>
         <StatsCards 
           statsCards={SUMMARY_CARDS} 
           statsCounts={statsCounts}
@@ -262,13 +273,13 @@ export default function FacultyDashboard() {
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
                   <option value="Rejected by Maintenance HOD">Rejected by Maintenance HOD</option>
-                  <option value="Rejected by Principal">Rejected by Principal</option>
                 </select>
               </div>
             </div>
           </div>
 
           <IndentTable 
+            selectedYear={year}
             filteredComplaints={filteredComplaints}
                 showAverageBanner={false} 
             setSelectedComplaint={setSelectedComplaint} 

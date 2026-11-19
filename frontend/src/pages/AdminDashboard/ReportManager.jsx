@@ -13,9 +13,12 @@ const MONTHS = [
   { value: 10, label: "October" }, { value: 11, label: "November" }, { value: 12, label: "December" }
 ];
 
-const YEARS = [
-  { value: 2024, label: "2024" }, { value: 2025, label: "2025" }, { value: 2026, label: "2026" }
-];
+// 2024 (first year of data) through the current year, so each new year appears automatically.
+const FIRST_REPORT_YEAR = 2024;
+const YEARS = Array.from(
+  { length: Math.max(new Date().getFullYear(), FIRST_REPORT_YEAR) - FIRST_REPORT_YEAR + 1 },
+  (_, i) => ({ value: FIRST_REPORT_YEAR + i, label: String(FIRST_REPORT_YEAR + i) })
+);
 
 const STATUSES = [
   { value: "Pending", label: "Pending" },
@@ -23,8 +26,7 @@ const STATUSES = [
   { value: "In Progress", label: "In Progress" },
   { value: "Resolved", label: "Resolved" },
   { value: "Completed", label: "Completed" },
-  { value: "Rejected by Maintenance HOD", label: "Rejected by Maintenance HOD" },
-  { value: "Rejected by Principal", label: "Rejected by Principal" }
+  { value: "Rejected by Maintenance HOD", label: "Rejected by Maintenance HOD" }
 ];
 
 const MultiSelect = ({ label, options, selected, onChange, icon: Icon }) => {

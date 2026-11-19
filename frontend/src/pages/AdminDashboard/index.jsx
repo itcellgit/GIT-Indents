@@ -12,6 +12,9 @@ import UserManager from './UserManager';
 import ComplaintTable from './ComplaintTable';
 import Analytics from '../../components/Analytics';
 import ReportManager from './ReportManager';
+import YearFilter from '../../components/YearFilter';
+import useYearFilter from '../../utils/useYearFilter';
+import StationaryIndents from '../HODDashboard/StationaryIndents';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
 import api from '../../api/axios';
 import NotificationBell from '../../components/NotificationBell';
@@ -34,8 +37,24 @@ export default function AdminDashboard() {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
-  // Computed from the full complaints list so the card keeps its value when a status filter is selected.
-  const avgCompletion = React.useMemo(() => getAverageCompletion(complaints), [complaints]);
+  const { year: yearFilter, setYear: setYearFilter, yearOptions, yearItems: yearComplaints } = useYearFilter(complaints);
+
+  // All years: use the server totals. A specific year: count the indents raised in that
+  // year with the same rules as the backend. Departments/Users are never year-based.
+  const overviewStats = React.useMemo(() => {
+    if (yearFilter === 'All') return stats;
+    const isRejected = (c) => String(c.status || '').startsWith('Rejected');
+    return {
+      ...stats,
+      totalIndents: yearComplaints.length,
+      activeComplaints: yearComplaints.filter((c) => c.status !== 'Completed' && !isRejected(c)).length,
+      resolvedComplaints: yearComplaints.filter((c) => c.status === 'Completed').length,
+      rejectedComplaints: yearComplaints.filter(isRejected).length
+    };
+  }, [stats, yearComplaints, yearFilter]);
+
+  // Computed from the year's indents (not the status filter) so the card keeps its value when a status filter is selected.
+  const avgCompletion = React.useMemo(() => getAverageCompletion(yearComplaints), [yearComplaints]);
 
   const fetchAdminData = async () => {
     try {
@@ -95,15 +114,27 @@ export default function AdminDashboard() {
   };
 
   const displayedComplaints = React.useMemo(() => {
-    if (filterStatus === 'All') return complaints;
+    if (filterStatus === 'All') return yearComplaints;
     if (filterStatus === 'Active') {
-      return complaints.filter(c => c.status !== 'Completed' && !c.status.startsWith('Rejected'));
+      return yearComplaints.filter(c => c.status !== 'Completed' && !String(c.status || '').startsWith('Rejected'));
     }
     if (filterStatus === 'Completed') {
-      return complaints.filter(c => c.status === 'Completed');
+      return yearComplaints.filter(c => c.status === 'Completed');
     }
-    return complaints;
-  }, [complaints, filterStatus]);
+    if (filterStatus === 'Rejected') {
+      return yearComplaints.filter(c => String(c.status || '').startsWith('Rejected'));
+    }
+    return yearComplaints;
+  }, [yearComplaints, filterStatus]);
+
+  // Which System Overview card is highlighted: the Departments/Users cards follow
+  // their tab, the indent cards follow the filter while on the Indents tab, and
+  // no card is highlighted on any other tab.
+  const activeStatsCard =
+    activeTab === 'departments' ? 'departmentsTab'
+      : activeTab === 'users' ? 'usersTab'
+        : activeTab === 'complaints' ? filterStatus
+          : null;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
@@ -205,6 +236,16 @@ export default function AdminDashboard() {
                Stationary Coordinator
               </button>
               <button
+                onClick={() => setActiveTab('itCellStationary')}
+                className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
+                  activeTab === 'itCellStationary'
+                    ? 'border-indigo-400 text-indigo-300'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                }`}
+              >
+                IT Cell Stationary
+              </button>
+              <button
                 onClick={() => setActiveTab('roles')}
                 className={`whitespace-nowrap h-full border-b-2 px-1 flex items-center font-medium text-sm transition-colors ${
                   activeTab === 'roles'
@@ -233,11 +274,14 @@ export default function AdminDashboard() {
         
         {/* 2. Stats Section */}
         <div className="mb-8">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">System Overview</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">System Overview</h2>
+            <YearFilter value={yearFilter} onChange={setYearFilter} options={yearOptions} />
+          </div>
           <StatsCards 
-            stats={stats} 
+            stats={overviewStats} 
             avgCompletion={avgCompletion}
-            activeFilter={filterStatus}
+            activeFilter={activeStatsCard}
             onCardClick={handleStatsClick}
           />
         </div>
@@ -281,6 +325,18 @@ export default function AdminDashboard() {
           {activeTab === 'coordinators' && (
             <div id="coordinators" className="scroll-mt-32">
               <CoordinatorManager />
+            </div>
+          )}
+
+          {activeTab === 'itCellStationary' && (
+            <div id="it-cell-stationary" className="scroll-mt-32">
+              <StationaryIndents
+                departmentFilter="IT Cell"
+                allowCreate={String(user?.department || '').trim() === 'IT Cell'}
+                approverLabel="Admin"
+                description="IT Cell has no HOD, so Admin approves or rejects its stationery requests, or raises its own (auto-approved). Approved requests go to Office Stationary."
+                emptyHint="Requests raised by IT Cell stationary coordinators, and your own requests, appear here."
+              />
             </div>
           )}
 

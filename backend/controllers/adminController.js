@@ -1335,6 +1335,52 @@ const updateCoordinatorAssignment = async (req, res) => {
   }
 };
 
+// @desc    Remove a staff member from a coordinator (end their assignment)
+// @route   DELETE /api/admin/coordinators/assignments/:assignmentId
+// @access  Private/Admin, HOD, Facility Provider (own department only)
+const deleteCoordinatorAssignment = async (req, res) => {
+  try {
+    const assignmentId = Number(req.params.assignmentId);
+    if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+      return res.status(400).json({ message: 'Invalid assignment id' });
+    }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT cs.id, cs.department_id, d.name AS department_name
+       FROM public.coordinator_staffs cs
+       LEFT JOIN public."Category" d ON d.id = cs.department_id::text
+       WHERE cs.id = $1
+       LIMIT 1`,
+      assignmentId
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Assignment not found' });
+    }
+
+    // HODs / Facility Providers may only remove coordinators from their own
+    // department — the same scope the HOD screen lists them under.
+    if (req.user.role !== ROLES.ADMIN) {
+      const normalize = (value) => String(resolveDepartmentName(value) || '').trim().toLowerCase();
+      const assignmentDepartment = normalize(rows[0].department_name || rows[0].department_id);
+      const userDepartment = normalize(req.user.department);
+      if (!userDepartment || assignmentDepartment !== userDepartment) {
+        return res.status(403).json({ message: 'You can only remove Stationary Coordinators from your own department' });
+      }
+    }
+
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM public.coordinator_staffs WHERE id = $1`,
+      assignmentId
+    );
+
+    res.json({ success: true, message: 'Stationary Coordinator removed' });
+  } catch (err) {
+    console.error('deleteCoordinatorAssignment failed:', err.message);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 // @desc    Get all coordinators
 // @route   GET /api/admin/coordinators
 // @access  Private/Admin
@@ -1603,6 +1649,7 @@ module.exports = {
   getCoordinatorAssignments,
   createCoordinatorAssignment,
   updateCoordinatorAssignment,
+  deleteCoordinatorAssignment,
   createCoordinator,
   updateCoordinator,
   deleteCoordinator

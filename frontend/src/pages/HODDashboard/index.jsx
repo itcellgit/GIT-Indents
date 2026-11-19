@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { LogOut, User as UserIcon, Plus, KeyRound, Building2, Car, Bus, ChevronDown } from 'lucide-react';
 import StatsCards from './StatsCards';
 import DeptStatsCards from './DeptStatsCards';
+import YearFilter from '../../components/YearFilter';
+import { buildYearOptions, currentYear, filterByYear } from '../../utils/useYearFilter';
 import ComplaintTable from './ComplaintTable';
 import { getAverageCompletion } from '../../utils/completionTime';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
@@ -40,6 +42,8 @@ const HODDashboard = () => {
 
   const [filterStatus, setFilterStatus] = useState('All');
   const [deptFilterStatus, setDeptFilterStatus] = useState('All');
+  // Year for the stat cards and their lists (current year by default; 'All' = every year).
+  const [yearFilter, setYearFilter] = useState(currentYear);
   const deptStatsRef = useRef(null);
   const [isBookingMenuOpen, setIsBookingMenuOpen] = useState(false);
   const bookingMenuRef = useRef(null);
@@ -106,15 +110,26 @@ const HODDashboard = () => {
     fetchComplaints();
   }, []);
 
+  // The Approval Queue and My Raised Indents stay unfiltered: they are work to act on.
+  const yearOptions = useMemo(
+    () => buildYearOptions([maintenanceStatsIndents, deptTrackIndents, deptFacilityProviderIndents]),
+    [maintenanceStatsIndents, deptTrackIndents, deptFacilityProviderIndents]
+  );
+  const maintenanceYearIndents = useMemo(() => filterByYear(maintenanceStatsIndents, yearFilter), [maintenanceStatsIndents, yearFilter]);
+  const deptTrackYearIndents = useMemo(() => filterByYear(deptTrackIndents, yearFilter), [deptTrackIndents, yearFilter]);
+  const deptFacilityProviderYearIndents = useMemo(() => filterByYear(deptFacilityProviderIndents, yearFilter), [deptFacilityProviderIndents, yearFilter]);
+
+  const yearSelector = <YearFilter value={yearFilter} onChange={setYearFilter} options={yearOptions} />;
+
   const filteredDepartmentIndents = useMemo(() => {
     if (filterStatus === 'All') return departmentIndents;
     return departmentIndents.filter(c => c.status === filterStatus);
   }, [departmentIndents, filterStatus]);
 
   const filteredMaintenanceIndents = useMemo(() => {
-    if (filterStatus === 'All') return maintenanceStatsIndents;
-    return maintenanceStatsIndents.filter(c => c.status === filterStatus);
-  }, [maintenanceStatsIndents, filterStatus]);
+    if (filterStatus === 'All') return maintenanceYearIndents;
+    return maintenanceYearIndents.filter(c => c.status === filterStatus);
+  }, [maintenanceYearIndents, filterStatus]);
 
   const activeMaintenanceCount = useMemo(() => {
     return maintenanceStatsIndents.filter(c =>
@@ -138,58 +153,58 @@ const HODDashboard = () => {
   // Avg completion time is computed from the unfiltered lists so the card keeps its
   // value when a status card/filter is selected (the table banner used the filtered list).
   const stats = useMemo(() => {
-    const avgCompletion = getAverageCompletion(maintenanceStatsIndents);
+    const avgCompletion = getAverageCompletion(maintenanceYearIndents);
     return {
-      total: maintenanceStatsIndents.length,
+      total: maintenanceYearIndents.length,
       approvals: approvalRequests.length,
-      pending: maintenanceStatsIndents.filter(c => c.status === 'Indent Created').length,
-      inProgress: maintenanceStatsIndents.filter(c => c.status === 'In Progress').length,
-      resolved: maintenanceStatsIndents.filter(c => c.status === 'Completed').length,
-      rejected: maintenanceStatsIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
+      pending: maintenanceYearIndents.filter(c => c.status === 'Indent Created').length,
+      inProgress: maintenanceYearIndents.filter(c => c.status === 'In Progress').length,
+      resolved: maintenanceYearIndents.filter(c => c.status === 'Completed').length,
+      rejected: maintenanceYearIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
       avgCompletionHours: avgCompletion.hours,
       avgCompletionCount: avgCompletion.count,
     };
-  }, [maintenanceStatsIndents, approvalRequests]);
+  }, [maintenanceYearIndents, approvalRequests]);
 
   const deptStats = useMemo(() => {
-    const avgCompletion = getAverageCompletion(deptTrackIndents);
+    const avgCompletion = getAverageCompletion(deptTrackYearIndents);
     return {
-      total: deptTrackIndents.length,
-      pendingApproval: deptTrackIndents.filter(c => c.status === 'Indent Created').length,
-      active: deptTrackIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
-      completed: deptTrackIndents.filter(c => c.status === 'Completed').length,
-      rejected: deptTrackIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
+      total: deptTrackYearIndents.length,
+      pendingApproval: deptTrackYearIndents.filter(c => c.status === 'Indent Created').length,
+      active: deptTrackYearIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
+      completed: deptTrackYearIndents.filter(c => c.status === 'Completed').length,
+      rejected: deptTrackYearIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
       avgCompletionHours: avgCompletion.hours,
       avgCompletionCount: avgCompletion.count,
     };
-  }, [deptTrackIndents, deptFacilityProviderIndents]);
+  }, [deptTrackYearIndents]);
 
   const deptFacilityProviderStats = useMemo(() => {
-    const avgCompletion = getAverageCompletion(deptFacilityProviderIndents);
+    const avgCompletion = getAverageCompletion(deptFacilityProviderYearIndents);
     return {
-      total: deptFacilityProviderIndents.length,
-      pendingApproval: deptFacilityProviderIndents.filter(c => c.status === 'Indent Created').length,
-      active: deptFacilityProviderIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
-      completed: deptFacilityProviderIndents.filter(c => c.status === 'Completed').length,
-      rejected: deptFacilityProviderIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
+      total: deptFacilityProviderYearIndents.length,
+      pendingApproval: deptFacilityProviderYearIndents.filter(c => c.status === 'Indent Created').length,
+      active: deptFacilityProviderYearIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected')).length,
+      completed: deptFacilityProviderYearIndents.filter(c => c.status === 'Completed').length,
+      rejected: deptFacilityProviderYearIndents.filter(c => String(c.status || '').startsWith('Rejected')).length,
       avgCompletionHours: avgCompletion.hours,
       avgCompletionCount: avgCompletion.count,
     };
-  }, [deptFacilityProviderIndents]);
+  }, [deptFacilityProviderYearIndents]);
 
   const filteredDeptTrackIndents = useMemo(() => {
-    if (deptFilterStatus === 'All') return deptTrackIndents;
+    if (deptFilterStatus === 'All') return deptTrackYearIndents;
     if (deptFilterStatus === 'Pending Approval' || deptFilterStatus === 'Indent Created') {
-      return deptFacilityProviderIndents.filter(c => c.status === 'Indent Created');
+      return deptFacilityProviderYearIndents.filter(c => c.status === 'Indent Created');
     }
     if (deptFilterStatus === 'Active') {
-      return deptTrackIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected'));
+      return deptTrackYearIndents.filter(c => c.status !== 'Completed' && c.status !== 'Indent Created' && !c.status.startsWith('Rejected'));
     }
     if (deptFilterStatus === 'Completed') {
-      return deptTrackIndents.filter(c => c.status === 'Completed');
+      return deptTrackYearIndents.filter(c => c.status === 'Completed');
     }
-    return deptTrackIndents;
-  }, [deptTrackIndents, deptFacilityProviderIndents, deptFilterStatus]);
+    return deptTrackYearIndents;
+  }, [deptTrackYearIndents, deptFacilityProviderYearIndents, deptFilterStatus]);
 
   const updateIndentList = (updatedComplaint) => {
     const targetId = updatedComplaint.id || updatedComplaint._id;
@@ -618,7 +633,10 @@ const HODDashboard = () => {
 
           {activeTab === 'department' && isCategoryIncharge && (
             <div id="department" className="scroll-mt-32">
-              <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Maintenance Queue</h2>
+              <div className="mb-6 pb-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-slate-800">Maintenance Queue</h2>
+                {yearSelector}
+              </div>
               <StatsCards 
                 stats={stats} 
                 activeFilter={filterStatus}
@@ -640,8 +658,12 @@ const HODDashboard = () => {
 
           {activeTab === 'deptTrack' && user?.role === ROLES.HOD && (
             <div id="deptTrack" className="scroll-mt-32">
-              <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Department Tracking</h2>
+              {/* Header sits inside the ref so changing the year doesn't clear the card filter. */}
               <div ref={deptStatsRef}>
+                <div className="mb-6 pb-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-xl font-bold text-slate-800">Department Tracking</h2>
+                  {yearSelector}
+                </div>
                 <DeptStatsCards 
                   stats={deptStats}
                   activeFilter={deptFilterStatus}
@@ -660,7 +682,10 @@ const HODDashboard = () => {
 
           {activeTab === 'deptFacilityProviders' && user?.role === ROLES.HOD && hasDeptFacilityProvider && (
             <div id="deptFacilityProviders" className="scroll-mt-32">
-              <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b border-slate-200">Department Facility Providers</h2>
+              <div className="mb-6 pb-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-slate-800">Department Facility Providers</h2>
+                {yearSelector}
+              </div>
               <DeptStatsCards
                 stats={deptFacilityProviderStats}
                 activeFilter={deptFilterStatus}
@@ -668,7 +693,7 @@ const HODDashboard = () => {
                 onCardClick={(val) => setDeptFilterStatus(val)}
               />
               <ComplaintTable
-                complaints={deptFacilityProviderIndents}
+                complaints={deptFacilityProviderYearIndents}
                 onOpenDetails={(complaint) => setSelectedComplaint(complaint)}
                 showStatusFilter={true}
                 showAverageBanner={false}

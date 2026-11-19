@@ -10,6 +10,11 @@ const STATUS = Object.freeze({
   RECEIVED: 'Received'
 });
 
+// IT Cell has no HOD, so the Admin acts as the approver for its stationary indents.
+const ADMIN_APPROVED_DEPARTMENT = 'IT Cell';
+const isAdminApprovedDepartment = (department) =>
+  String(department || '').trim() === ADMIN_APPROVED_DEPARTMENT;
+
 const mapIndentRow = (row) => ({
   id: Number(row.id),
   departmentId: row.department_id,
@@ -192,10 +197,16 @@ const createStationaryIndent = async (req, res) => {
 
     // A HOD is the approver for their department, so an indent they raise
     // themselves needs no separate approval step: it starts as HOD Approved and
-    // goes straight to Office_Stationary.
-    const raisedByHod = req.user.role === ROLES.HOD && effectiveDepartmentId === req.user.id;
-    const initialStatus = raisedByHod ? STATUS.HOD_APPROVED : STATUS.PENDING;
-    const recordHodReview = raisedByHod && await hodColumnsSupported();
+    // goes straight to Office_Stationary. The same applies to an Admin raising
+    // an IT Cell indent, since Admin is IT Cell's approver.
+    const raisedForSelf = effectiveDepartmentId === req.user.id;
+    const raisedByHod = req.user.role === ROLES.HOD && raisedForSelf;
+    const raisedByItCellAdmin = req.user.role === ROLES.ADMIN && raisedForSelf
+      && isAdminApprovedDepartment(req.user.department);
+    const raisedByApprover = raisedByHod || raisedByItCellAdmin;
+    const approverLabel = raisedByItCellAdmin ? 'Admin' : 'HOD';
+    const initialStatus = raisedByApprover ? STATUS.HOD_APPROVED : STATUS.PENDING;
+    const recordHodReview = raisedByApprover && await hodColumnsSupported();
 
     if (!reason || !String(reason).trim()) {
       return res.status(400).json({ message: 'Reason is required' });
@@ -220,7 +231,7 @@ const createStationaryIndent = async (req, res) => {
           effectiveDepartmentId,
           String(reason).trim(),
           initialStatus,
-          'Auto-approved: raised by the HOD.',
+          `Auto-approved: raised by the ${approverLabel}.`,
           req.user.id
         )
         : await tx.$queryRawUnsafe(
@@ -248,16 +259,27 @@ const createStationaryIndent = async (req, res) => {
       return indent;
     });
 
-    if (raisedByHod) {
+    if (raisedByApprover) {
       try {
         await sendRoleNotification({
           roleName: ROLES.OFFICE_STATIONARY,
-          message: `Stationary indent #${Number(result.id)} has been raised and approved by the HOD and is ready to be processed.`,
-          subject: 'Stationary indent approved by HOD',
+          message: `Stationary indent #${Number(result.id)} has been raised and approved by the ${approverLabel} and is ready to be processed.`,
+          subject: `Stationary indent approved by ${approverLabel}`,
           senderId: req.user.id
         });
       } catch (notifyError) {
         console.error('Stationary HOD-raised notification failed:', notifyError.message);
+      }
+    } else if (isAdminApprovedDepartment(req.user.department)) {
+      try {
+        await sendRoleNotification({
+          roleName: ROLES.ADMIN,
+          message: `A new IT Cell stationary indent (#${Number(result.id)}) is waiting for your approval.`,
+          subject: 'IT Cell stationary indent awaiting approval',
+          senderId: req.user.id
+        });
+      } catch (notifyError) {
+        console.error('Stationary admin notification failed:', notifyError.message);
       }
     } else {
       await notifyDepartmentHods(
@@ -473,6 +495,11 @@ const reviewStationaryIndent = async (req, res) => {
       }
     }
 
+    // Admin approves only for IT Cell, which has no HOD of its own.
+    if (req.user.role === ROLES.ADMIN && !isAdminApprovedDepartment(indent.creator_department)) {
+      return res.status(403).json({ message: `Admin can only review ${ADMIN_APPROVED_DEPARTMENT} indents.` });
+    }
+
     if (String(indent.status || STATUS.PENDING).trim() !== STATUS.PENDING) {
       return res.status(409).json({ message: 'This indent has already been reviewed.' });
     }
@@ -503,22 +530,23 @@ const reviewStationaryIndent = async (req, res) => {
 
     try {
       const creatorId = indent.department_id;
+      const reviewer = req.user.role === ROLES.ADMIN ? 'Admin' : 'HOD';
       if (action === 'approve') {
         await sendNotification(
           creatorId,
-          `Your stationary indent (#${indentId}) has been approved by the HOD${remark ? `: ${remark}` : '.'}`,
+          `Your stationary indent (#${indentId}) has been approved by the ${reviewer}${remark ? `: ${remark}` : '.'}`,
           req.user.id
         );
         await sendRoleNotification({
           roleName: ROLES.OFFICE_STATIONARY,
-          message: `Stationary indent #${indentId} has been approved by the HOD and is ready to be processed.`,
-          subject: 'Stationary indent approved by HOD',
+          message: `Stationary indent #${indentId} has been approved by the ${reviewer} and is ready to be processed.`,
+          subject: `Stationary indent approved by ${reviewer}`,
           senderId: req.user.id
         });
       } else {
         await sendNotification(
           creatorId,
-          `Your stationary indent (#${indentId}) was rejected by the HOD: ${remark}`,
+          `Your stationary indent (#${indentId}) was rejected by the ${reviewer}: ${remark}`,
           req.user.id
         );
       }

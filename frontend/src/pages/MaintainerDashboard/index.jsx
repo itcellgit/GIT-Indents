@@ -7,6 +7,8 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { getAverageCompletion } from '../../utils/completionTime';
 import StatsCards from '../FacultyDashboard/StatsCards';
+import YearFilter from '../../components/YearFilter';
+import useYearFilter, { withOpenCarryOver } from '../../utils/useYearFilter';
 import MaintainerIndentTable from './MaintainerIndentTable';
 import ComplaintTable from '../HODDashboard/ComplaintTable';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
@@ -53,19 +55,25 @@ export default function MaintainerDashboard() {
     refreshData();
   }, []);
 
-  // Computed from the unfiltered list so the card keeps its value when a status filter is selected.
-  const avgCompletion = React.useMemo(() => getAverageCompletion(complaints), [complaints]);
+  // Stats, average and task list cover the selected year (current year by default).
+  const { year, setYear, yearOptions, yearItems: yearComplaints } = useYearFilter(complaints);
+
+  // Computed from the year's list (not the status filter) so the card keeps its value when a status filter is selected.
+  const avgCompletion = React.useMemo(() => getAverageCompletion(yearComplaints), [yearComplaints]);
 
   const statsCounts = React.useMemo(() => {
     return {
-      "Total Indents": complaints.length,
-      "In Progress": complaints.filter(c => !c.isMaintainerCompleted && c.status !== 'Completed').length,
-      "Pending Verification": complaints.filter(c => c.isMaintainerCompleted && c.status !== 'Completed').length,
-      "Completed": complaints.filter(c => c.status === 'Completed').length,
+      "Total Indents": yearComplaints.length,
+      "In Progress": yearComplaints.filter(c => !c.isMaintainerCompleted && c.status !== 'Completed').length,
+      "Pending Verification": yearComplaints.filter(c => c.isMaintainerCompleted && c.status !== 'Completed').length,
+      "Completed": yearComplaints.filter(c => c.status === 'Completed').length,
     };
-  }, [complaints]);
+  }, [yearComplaints]);
 
-  const filteredComplaints = complaints.filter(c => {
+  // The table is a work list: the year's indents plus older ones still open (boxes stay year-only).
+  const tableComplaints = React.useMemo(() => withOpenCarryOver(complaints, year), [complaints, year]);
+
+  const filteredComplaints = tableComplaints.filter(c => {
     const idMatch = c.indentNumber ? c.indentNumber.toLowerCase().includes(searchTerm.toLowerCase()) : false;
     const locMatch = c.location ? c.location.toLowerCase().includes(searchTerm.toLowerCase()) : false;
     const matchesSearch = idMatch || locMatch;
@@ -203,6 +211,9 @@ export default function MaintainerDashboard() {
 
         {activeTab === 'tasks' && (
           <>
+            <div className="flex justify-end">
+              <YearFilter value={year} onChange={setYear} options={yearOptions} />
+            </div>
             <StatsCards
               statsCards={SUMMARY_CARDS}
               statsCounts={statsCounts}
@@ -239,6 +250,7 @@ export default function MaintainerDashboard() {
               </div>
 
               <MaintainerIndentTable
+                selectedYear={year}
                 filteredComplaints={filteredComplaints}
                 showAverageBanner={false}
                 setSelectedComplaint={setSelectedComplaint}

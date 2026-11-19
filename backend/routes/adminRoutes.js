@@ -29,6 +29,7 @@ const {
   getCoordinatorAssignments,
   createCoordinatorAssignment,
   updateCoordinatorAssignment,
+  deleteCoordinatorAssignment,
   createCoordinator,
   updateCoordinator,
   deleteCoordinator
@@ -82,6 +83,7 @@ router.get('/coordinators/:id', protect, authorize(ROLES.ADMIN), getCoordinatorB
 router.get('/coordinators/:id/assignments', protect, authorize(...COORDINATOR_STAFF_ROLES), getCoordinatorAssignments);
 router.post('/coordinators/:id/assignments', protect, authorize(...COORDINATOR_STAFF_ROLES), createCoordinatorAssignment);
 router.put('/coordinators/assignments/:assignmentId', protect, authorize(ROLES.ADMIN), updateCoordinatorAssignment);
+router.delete('/coordinators/assignments/:assignmentId', protect, authorize(...COORDINATOR_STAFF_ROLES), deleteCoordinatorAssignment);
 router.post('/coordinators', protect, authorize(ROLES.ADMIN), createCoordinator);
 router.put('/coordinators/:id', protect, authorize(ROLES.ADMIN), updateCoordinator);
 router.delete('/coordinators/:id', protect, authorize(ROLES.ADMIN), deleteCoordinator);

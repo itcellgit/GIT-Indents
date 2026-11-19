@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LogOut, User as UserIcon, Plus, KeyRound } from 'lucide-react';
 import StatsCards from '../AdminDashboard/StatsCards';
+import YearFilter from '../../components/YearFilter';
+import useYearFilter from '../../utils/useYearFilter';
 import ComplaintTable from '../HODDashboard/ComplaintTable';
 import { getAverageCompletion } from '../../utils/completionTime';
 import ComplaintDetails from '../../components/complaint/ComplaintDetails';
@@ -73,15 +75,36 @@ const PrincipalDashboard = () => {
     fetchUsers();
   }, []);
 
-  const filteredDepartmentIndents = useMemo(() => {
-    if (filterStatus === 'All') return departmentIndents;
-    if (filterStatus === 'Approved by Dept HOD') {
-      return departmentIndents.filter(c => c.status === 'Approved by Principal' || c.status === 'Approved by Dept HOD');
-    }
-    return departmentIndents.filter(c => c.status === filterStatus);
-  }, [departmentIndents, filterStatus]);
+  // Global Queue cards, charts and list cover the selected year (current year by default).
+  const { year, setYear, yearOptions, yearItems: yearIndents } = useYearFilter(departmentIndents);
+  const isRejected = (c) => String(c.status || '').startsWith('Rejected');
 
-  const avgCompletion = useMemo(() => getAverageCompletion(departmentIndents), [departmentIndents]);
+  // All years: server totals. A specific year: counted from that year's indents with the
+  // backend's rules. Facility Providers / Total Users are never year-based.
+  const overviewStats = useMemo(() => {
+    if (year === 'All') return statsData;
+    return {
+      ...statsData,
+      totalIndents: yearIndents.length,
+      activeComplaints: yearIndents.filter(c => c.status !== 'Completed' && !isRejected(c)).length,
+      resolvedComplaints: yearIndents.filter(c => c.status === 'Completed').length,
+      rejectedComplaints: yearIndents.filter(isRejected).length
+    };
+  }, [statsData, yearIndents, year]);
+
+  // Card values ('Active', 'Completed', 'Rejected') are groups, not literal statuses.
+  const filteredDepartmentIndents = useMemo(() => {
+    if (filterStatus === 'Active') return yearIndents.filter(c => c.status !== 'Completed' && !isRejected(c));
+    if (filterStatus === 'Completed') return yearIndents.filter(c => c.status === 'Completed');
+    if (filterStatus === 'Rejected') return yearIndents.filter(isRejected);
+    if (filterStatus === 'Approved by Dept HOD') {
+      return yearIndents.filter(c => c.status === 'Approved by Principal' || c.status === 'Approved by Dept HOD');
+    }
+    if (filterStatus === 'All' || filterStatus === 'departmentsTab' || filterStatus === 'usersTab') return yearIndents;
+    return yearIndents.filter(c => c.status === filterStatus);
+  }, [yearIndents, filterStatus]);
+
+  const avgCompletion = useMemo(() => getAverageCompletion(yearIndents), [yearIndents]);
 
   const updateIndentList = (updatedComplaint) => {
     const targetId = updatedComplaint.id || updatedComplaint._id;
@@ -301,11 +324,14 @@ const PrincipalDashboard = () => {
           {activeTab === 'department' && (
             <div id="department" className="scroll-mt-32">
               <div className="mb-6 pb-2 border-b border-slate-200">
-                <h2 className="text-xl font-bold text-slate-800">Global Queue</h2>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-xl font-bold text-slate-800">Global Queue</h2>
+                  <YearFilter value={year} onChange={setYear} options={yearOptions} />
+                </div>
                 <p className="text-sm text-gray-500 mt-1">A read-only view of every indent in the system. Approval and rejection are handled by the Facility Provider for each category.</p>
               </div>
               <StatsCards
-                stats={statsData} 
+                stats={overviewStats} 
                 activeFilter={filterStatus}
                 avgCompletion={avgCompletion}
                 onCardClick={(val) => {
@@ -315,7 +341,7 @@ const PrincipalDashboard = () => {
               />
               <div className="my-8">
                 <h3 className="text-lg font-bold text-gray-800 mb-4">System Analytics</h3>
-                <Analytics complaints={departmentIndents} />
+                <Analytics complaints={yearIndents} />
               </div>
               <ComplaintTable 
                 complaints={filteredDepartmentIndents}

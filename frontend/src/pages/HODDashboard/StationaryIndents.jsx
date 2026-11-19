@@ -46,7 +46,15 @@ const normalizeIndent = (indent) => ({
   }))
 });
 
-export default function StationaryIndents() {
+// Used by the HOD dashboard (default props) and by the Admin dashboard, where
+// Admin reviews and raises IT Cell indents (departmentFilter="IT Cell", approverLabel="Admin").
+export default function StationaryIndents({
+  departmentFilter = '',
+  allowCreate = true,
+  approverLabel = 'HOD',
+  description = 'Approve or reject stationery requests raised by your department, or raise your own (auto-approved).',
+  emptyHint = "Requests raised by your department's stationary coordinators, and your own requests, appear here."
+} = {}) {
   const { user } = useAuth();
   const [indents, setIndents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -157,7 +165,10 @@ export default function StationaryIndents() {
       setIsLoading(true);
       setError('');
       const indentRes = await api.get('/stationary-indents');
-      setIndents((indentRes.data.indents || []).map(normalizeIndent));
+      const all = (indentRes.data.indents || []).map(normalizeIndent);
+      setIndents(departmentFilter
+        ? all.filter((indent) => String(indent.departmentName).trim() === departmentFilter)
+        : all);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load stationary indents');
       setIndents([]);
@@ -223,19 +234,23 @@ export default function StationaryIndents() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 border-b border-slate-200 pb-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Stationary Indents</h2>
-          <p className="text-sm text-slate-500">Approve or reject stationery requests raised by your department, or raise your own (auto-approved).</p>
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-slate-800">
+            {departmentFilter ? `${departmentFilter} Stationary Indents` : 'Stationary Indents'}
+          </h2>
+          <p className="text-sm text-slate-500">{description}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            <Plus className="w-4 h-4" /> New Request
-          </button>
-          <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:shrink-0">
+          {allowCreate && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              <Plus className="w-4 h-4" /> New Request
+            </button>
+          )}
+          <span className="whitespace-nowrap rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
             {pendingCount} awaiting approval
           </span>
           <select
@@ -309,7 +324,7 @@ export default function StationaryIndents() {
                     <div className="flex flex-col items-center justify-center">
                       <ClipboardList className="w-12 h-12 text-slate-300 mb-3" />
                       <p className="text-base font-medium text-slate-600">No stationary indents found</p>
-                      <p className="text-sm">Requests raised by your department's stationary coordinators, and your own requests, appear here.</p>
+                      <p className="text-sm">{emptyHint}</p>
                     </div>
                   </td>
                 </tr>
@@ -355,7 +370,7 @@ export default function StationaryIndents() {
 
               {selected.hodRemark && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  <span className="font-medium text-slate-800">HOD remark: </span>{selected.hodRemark}
+                  <span className="font-medium text-slate-800">{approverLabel} remark: </span>{selected.hodRemark}
                 </div>
               )}
 
@@ -446,7 +461,7 @@ export default function StationaryIndents() {
         </div>
       )}
 
-      {isCreateOpen && (
+      {allowCreate && isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto">
           <form
             onSubmit={submitCreate}
@@ -458,7 +473,7 @@ export default function StationaryIndents() {
                   <PlusCircle className="w-5 h-5 mr-2 text-indigo-600" /> New Stationary Indent
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">
-                  As HOD, your request is approved on submission and goes straight to Office Stationary.
+                  As {approverLabel}, your request is approved on submission and goes straight to Office Stationary.
                 </p>
               </div>
               <button
@@ -568,7 +583,7 @@ export default function StationaryIndents() {
                 Submit this stationary indent?
               </h3>
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                As HOD, your request will be <span className="font-semibold">approved immediately</span> and sent
+                As {approverLabel}, your request will be <span className="font-semibold">approved immediately</span> and sent
                 to Office Stationary. It <span className="font-semibold">cannot be edited or deleted</span> after submission.
               </div>
               <div className="text-sm text-slate-700">
